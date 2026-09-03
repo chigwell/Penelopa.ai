@@ -1,0 +1,38 @@
+{
+  "name": "penelopa-ai",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.6.2",
+  "dependencies": {
+    "@vinext/cloudflare": "latest",
+    "lucide-react": "^1.39.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "react-server-dom-webpack": "latest",
+    "recharts": "^3.10.1",
+    "vinext": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "latest",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "^26.4.0",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "@vitejs/plugin-rsc": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "wrangler": "^4.127.1"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vinext dev",
+    "build": "vinext build",
+    "start": "wrangler dev --config dist/server/wrangler.json",
+    "deploy": "npm run build && vinext-cloudflare deploy --config dist/server/wrangler.json",
+    "preview": "npm run build && npm run start --",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv ./worker-configuration.d.ts"
+  }
+}

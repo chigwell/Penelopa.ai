@@ -104,6 +104,14 @@ dist
 # vitepress cache directory
 **/.vitepress/cache
 
+# vinext / Cloudflare Workers
+.vinext/
+.wrangler/
+/dist/
+next-env.d.ts
+.dev.vars*
+!.dev.vars.example
+
 # Docusaurus cache and generated files
 .docusaurus
 

@@ -1,0 +1,473 @@
+#!/bin/sh
+
+set -u
+
+AGENT="both"
+SEGMENT_URL="https://api.penelopa.ai/v2/transcript-segments"
+URL="${AUTO_IMPROVE_URL:-$SEGMENT_URL}"
+TOKEN="${AUTO_IMPROVE_TOKEN:-}"
+PROJECT_ID="${AUTO_IMPROVE_PROJECT_ID:-}"
+UPLOAD_MODE="${AUTO_IMPROVE_UPLOAD_MODE:-segments}"
+DATA_DIR="${AUTO_IMPROVE_DATA_DIR:-}"
+SOURCE_SCHEMA_VERSION="${AUTO_IMPROVE_SOURCE_SCHEMA_VERSION:-}"
+SEGMENT_MAX_BYTES="${AUTO_IMPROVE_SEGMENT_MAX_BYTES:-8388608}"
+DRAIN_MAX_ATTEMPTS="${AUTO_IMPROVE_DRAIN_MAX_ATTEMPTS:-16}"
+DRAIN_MAX_SECONDS="${AUTO_IMPROVE_DRAIN_MAX_SECONDS:-40}"
+HOOK_TIMEOUT_SECONDS=60
+INSTALL_DEPS=0
+SCRIPT_BASE_URL="${AUTO_IMPROVE_SCRIPT_BASE_URL:-https://penelopa.ai}"
+HOOK_DOWNLOAD_URL="${AUTO_IMPROVE_HOOK_DOWNLOAD_URL:-"$SCRIPT_BASE_URL/auto-improve-upload.sh"}"
+
+ENV_FILE="${AUTO_IMPROVE_ENV_FILE:-"${PWD:-.}/.env"}"
+INSTALL_DIR="${AUTO_IMPROVE_INSTALL_DIR:-"$HOME/.auto-improve/hooks"}"
+CONFIG_FILE="${AUTO_IMPROVE_HOOK_CONFIG:-"$HOME/.auto-improve-hook.env"}"
+
+usage() {
+  cat <<'EOF'
+Usage: install-auto-improve-hooks.sh [options]
+
+Options:
+  --agent codex|claude|both    Configure Codex, Claude Code, or both. Default: both.
+  --url URL                    Ingest endpoint. Default: https://api.penelopa.ai/v2/transcript-segments
+  --token TOKEN                API bearer token. Default: API_ACCESS_TOKEN from .env.
+  --env-file FILE              .env file used to read API_ACCESS_TOKEN. Default: project .env.
+  --hook-url URL               Uploader hook download URL. Default: https://penelopa.ai/auto-improve-upload.sh.
+  --project-id VALUE           Override metadata.project_id. Default: hook cwd basename.
+  --upload-mode segments       Durable v2 segments. The deprecated full-file upload has been removed.
+  --data-dir DIRECTORY         Durable state/outbox root. Default: ~/.auto-improve.
+  --source-schema-version VER  Override the source JSONL schema version field.
+  --segment-max-bytes BYTES    Maximum v2 segment size. Default: 8388608 (8 MiB).
+  --drain-max-attempts COUNT   Maximum network attempts per hook. Default: 16.
+  --drain-max-seconds SECONDS  Maximum outbox network-drain time. Default: 40.
+  --install-deps               Try to install curl if it is missing.
+  -h, --help                   Show this help.
+EOF
+}
+
+log() {
+  printf '%s\n' "auto-improve install: $*" >&2
+}
+
+shell_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+die() {
+  log "$*"
+  exit 1
+}
+
+read_env_value() {
+  key="$1"
+  file="$2"
+  [ -f "$file" ] || return 0
+  line=$(grep -E "^${key}=" "$file" 2>/dev/null | tail -n 1 || true)
+  [ -n "$line" ] || return 0
+  value=${line#*=}
+  case "$value" in
+    \"*\") value=${value#\"}; value=${value%\"} ;;
+    \'*\') value=${value#\'}; value=${value%\'} ;;
+  esac
+  printf '%s' "$value"
+}
+
+run_as_root() {
+  if [ "$(id -u 2>/dev/null || printf 1)" = "0" ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    die "sudo is required to install curl with the detected package manager"
+  fi
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --agent)
+      [ "$#" -ge 2 ] || die "--agent requires a value"
+      AGENT="$2"
+      shift 2
+      ;;
+    --url)
+      [ "$#" -ge 2 ] || die "--url requires a value"
+      URL="$2"
+      shift 2
+      ;;
+    --token)
+      [ "$#" -ge 2 ] || die "--token requires a value"
+      TOKEN="$2"
+      shift 2
+      ;;
+    --env-file)
+      [ "$#" -ge 2 ] || die "--env-file requires a value"
+      ENV_FILE="$2"
+      shift 2
+      ;;
+    --hook-url)
+      [ "$#" -ge 2 ] || die "--hook-url requires a value"
+      HOOK_DOWNLOAD_URL="$2"
+      shift 2
+      ;;
+    --project-id)
+      [ "$#" -ge 2 ] || die "--project-id requires a value"
+      PROJECT_ID="$2"
+      shift 2
+      ;;
+    --upload-mode)
+      [ "$#" -ge 2 ] || die "--upload-mode requires a value"
+      UPLOAD_MODE="$2"
+      shift 2
+      ;;
+    --data-dir)
+      [ "$#" -ge 2 ] || die "--data-dir requires a value"
+      DATA_DIR="$2"
+      shift 2
+      ;;
+    --source-schema-version)
+      [ "$#" -ge 2 ] || die "--source-schema-version requires a value"
+      SOURCE_SCHEMA_VERSION="$2"
+      shift 2
+      ;;
+    --segment-max-bytes)
+      [ "$#" -ge 2 ] || die "--segment-max-bytes requires a value"
+      SEGMENT_MAX_BYTES="$2"
+      shift 2
+      ;;
+    --drain-max-attempts)
+      [ "$#" -ge 2 ] || die "--drain-max-attempts requires a value"
+      DRAIN_MAX_ATTEMPTS="$2"
+      shift 2
+      ;;
+    --drain-max-seconds)
+      [ "$#" -ge 2 ] || die "--drain-max-seconds requires a value"
+      DRAIN_MAX_SECONDS="$2"
+      shift 2
+      ;;
+    --install-deps)
+      INSTALL_DEPS=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      die "unknown option: $1"
+      ;;
+  esac
+done
+
+case "$AGENT" in
+  codex|claude|both) ;;
+  *) die "--agent must be codex, claude, or both" ;;
+esac
+
+case "$UPLOAD_MODE" in
+  delta) UPLOAD_MODE="segments" ;;
+  segments) ;;
+  full) die "legacy full upload mode has been removed; use segments" ;;
+  *) die "--upload-mode must be segments" ;;
+esac
+
+case "$SEGMENT_MAX_BYTES" in
+  ''|*[!0-9]*|0) die "--segment-max-bytes must be a positive integer" ;;
+esac
+case "$DRAIN_MAX_ATTEMPTS" in
+  ''|*[!0-9]*|0) die "--drain-max-attempts must be a positive integer" ;;
+esac
+case "$DRAIN_MAX_SECONDS" in
+  ''|*[!0-9]*|0) die "--drain-max-seconds must be a positive integer" ;;
+esac
+
+if [ -z "$TOKEN" ]; then
+  TOKEN=$(read_env_value API_ACCESS_TOKEN "$ENV_FILE")
+fi
+
+[ -n "$TOKEN" ] || die "API token not found. Pass --token or set API_ACCESS_TOKEN in $ENV_FILE"
+
+install_curl() {
+  if command -v curl >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ "$INSTALL_DEPS" -ne 1 ]; then
+    die "curl is missing. Install curl, or rerun with --install-deps."
+  fi
+
+  if command -v brew >/dev/null 2>&1; then
+    brew install curl
+  elif command -v apt-get >/dev/null 2>&1; then
+    run_as_root apt-get update
+    run_as_root apt-get install -y curl
+  elif command -v dnf >/dev/null 2>&1; then
+    run_as_root dnf install -y curl
+  elif command -v yum >/dev/null 2>&1; then
+    run_as_root yum install -y curl
+  elif command -v apk >/dev/null 2>&1; then
+    run_as_root apk add curl
+  elif command -v pacman >/dev/null 2>&1; then
+    run_as_root pacman -Sy --needed curl
+  else
+    die "curl is missing and no supported package manager was found."
+  fi
+
+  command -v curl >/dev/null 2>&1 || die "curl installation did not make curl available"
+}
+
+copy_hook_files() {
+  mkdir -p "$INSTALL_DIR" || die "cannot create $INSTALL_DIR"
+  target_hook="$INSTALL_DIR/auto-improve-upload.sh"
+  tmp_hook="$target_hook.tmp.$$"
+  curl -fsSL "$HOOK_DOWNLOAD_URL" -o "$tmp_hook" || die "cannot download POSIX hook from $HOOK_DOWNLOAD_URL"
+  mv "$tmp_hook" "$target_hook" || die "cannot install POSIX hook"
+  chmod 700 "$INSTALL_DIR/auto-improve-upload.sh" || die "cannot chmod POSIX hook"
+
+  umask 077
+  mkdir -p "$(dirname "$CONFIG_FILE")" || die "cannot create hook config directory"
+  {
+    printf 'AUTO_IMPROVE_URL=%s\n' "$URL"
+    printf 'AUTO_IMPROVE_TOKEN=%s\n' "$TOKEN"
+    printf 'AUTO_IMPROVE_PROJECT_ID=%s\n' "$PROJECT_ID"
+    printf 'AUTO_IMPROVE_UPLOAD_MODE=%s\n' "$UPLOAD_MODE"
+    printf 'AUTO_IMPROVE_DATA_DIR=%s\n' "$DATA_DIR"
+    printf 'AUTO_IMPROVE_SOURCE_SCHEMA_VERSION=%s\n' "$SOURCE_SCHEMA_VERSION"
+    printf 'AUTO_IMPROVE_SEGMENT_MAX_BYTES=%s\n' "$SEGMENT_MAX_BYTES"
+    printf 'AUTO_IMPROVE_DRAIN_MAX_ATTEMPTS=%s\n' "$DRAIN_MAX_ATTEMPTS"
+    printf 'AUTO_IMPROVE_DRAIN_MAX_SECONDS=%s\n' "$DRAIN_MAX_SECONDS"
+  } > "$CONFIG_FILE" || die "cannot write $CONFIG_FILE"
+}
+
+json_update_with_python() {
+  python_cmd="$1"
+  config_file="$2"
+  event_name="$3"
+  command_value="$4"
+  timeout_value="$5"
+  include_matcher="$6"
+
+  "$python_cmd" - "$config_file" "$event_name" "$command_value" "$timeout_value" "$include_matcher" <<'PY'
+import json
+import os
+import sys
+
+path, event_name, command_value, timeout_value, include_matcher = sys.argv[1:6]
+timeout_value = int(timeout_value)
+
+if os.path.exists(path) and os.path.getsize(path) > 0:
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+else:
+    data = {}
+
+if not isinstance(data, dict):
+    raise SystemExit(f"{path} must contain a JSON object")
+
+hooks = data.setdefault("hooks", {})
+if not isinstance(hooks, dict):
+    raise SystemExit(f"{path}.hooks must be a JSON object")
+
+events = hooks.setdefault(event_name, [])
+if not isinstance(events, list):
+    raise SystemExit(f"{path}.hooks.{event_name} must be a JSON array")
+
+for entry in events:
+    if not isinstance(entry, dict):
+        continue
+    for hook in entry.get("hooks", []):
+        if isinstance(hook, dict) and hook.get("command") == command_value:
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+            raise SystemExit(0)
+
+hook = {"type": "command", "command": command_value, "timeout": timeout_value}
+entry = {"hooks": [hook]}
+if include_matcher == "1":
+    entry["matcher"] = ""
+events.append(entry)
+
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(data, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+PY
+}
+
+json_update_with_node() {
+  config_file="$1"
+  event_name="$2"
+  command_value="$3"
+  timeout_value="$4"
+  include_matcher="$5"
+
+  node - "$config_file" "$event_name" "$command_value" "$timeout_value" "$include_matcher" <<'JS'
+const fs = require("fs");
+
+const [path, eventName, commandValue, timeoutValue, includeMatcher] = process.argv.slice(2);
+let data = {};
+if (fs.existsSync(path) && fs.statSync(path).size > 0) {
+  data = JSON.parse(fs.readFileSync(path, "utf8"));
+}
+if (!data || Array.isArray(data) || typeof data !== "object") {
+  throw new Error(`${path} must contain a JSON object`);
+}
+data.hooks = data.hooks || {};
+if (!data.hooks || Array.isArray(data.hooks) || typeof data.hooks !== "object") {
+  throw new Error(`${path}.hooks must be a JSON object`);
+}
+data.hooks[eventName] = data.hooks[eventName] || [];
+if (!Array.isArray(data.hooks[eventName])) {
+  throw new Error(`${path}.hooks.${eventName} must be a JSON array`);
+}
+const exists = data.hooks[eventName].some((entry) =>
+  entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => hook && hook.command === commandValue)
+);
+if (!exists) {
+  const entry = {
+    hooks: [{ type: "command", command: commandValue, timeout: Number(timeoutValue) }]
+  };
+  if (includeMatcher === "1") entry.matcher = "";
+  data.hooks[eventName].push(entry);
+}
+fs.writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
+JS
+}
+
+write_new_hooks_json() {
+  config_file="$1"
+  command_value="$2"
+  include_matcher="$3"
+  mkdir -p "$(dirname "$config_file")" || die "cannot create config directory"
+  if [ "$include_matcher" = "1" ]; then
+    cat > "$config_file" <<EOF
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$command_value",
+            "timeout": $HOOK_TIMEOUT_SECONDS
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$command_value",
+            "timeout": $HOOK_TIMEOUT_SECONDS
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+  else
+    cat > "$config_file" <<EOF
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$command_value",
+            "timeout": $HOOK_TIMEOUT_SECONDS
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$command_value",
+            "timeout": $HOOK_TIMEOUT_SECONDS
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+  fi
+}
+
+update_json_config() {
+  config_file="$1"
+  command_value="$2"
+  include_matcher="$3"
+
+  mkdir -p "$(dirname "$config_file")" || die "cannot create config directory"
+
+  if [ -f "$config_file" ]; then
+    cp "$config_file" "$config_file.bak.$(date +%Y%m%d%H%M%S)" || die "cannot create backup for $config_file"
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    json_update_with_python python3 "$config_file" Stop "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+    json_update_with_python python3 "$config_file" SessionEnd "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+  elif command -v python >/dev/null 2>&1; then
+    json_update_with_python python "$config_file" Stop "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+    json_update_with_python python "$config_file" SessionEnd "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+  elif command -v node >/dev/null 2>&1; then
+    json_update_with_node "$config_file" Stop "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+    json_update_with_node "$config_file" SessionEnd "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+  elif [ ! -f "$config_file" ]; then
+    write_new_hooks_json "$config_file" "$command_value" "$include_matcher"
+  else
+    die "cannot safely merge existing JSON without python3, python, or node: $config_file"
+  fi
+}
+
+configure_codex() {
+  codex_home="${CODEX_HOME:-"$HOME/.codex"}"
+  config_file="$codex_home/hooks.json"
+  hook_script="$INSTALL_DIR/auto-improve-upload.sh"
+  update_json_config "$config_file" "$(shell_quote "$hook_script") codex-openai" 0
+  log "Codex hook configured at $config_file"
+}
+
+configure_claude() {
+  claude_home="${CLAUDE_CONFIG_DIR:-"$HOME/.claude"}"
+  config_file="$claude_home/settings.json"
+  hook_script="$INSTALL_DIR/auto-improve-upload.sh"
+  update_json_config "$config_file" "$(shell_quote "$hook_script") claude-anthropic" 1
+  log "Claude Code hook configured at $config_file"
+}
+
+install_curl
+if [ "$UPLOAD_MODE" = "segments" ] \
+  && ! command -v sha256sum >/dev/null 2>&1 \
+  && ! command -v shasum >/dev/null 2>&1 \
+  && ! command -v openssl >/dev/null 2>&1; then
+  die "durable segment mode requires sha256sum, shasum, or openssl"
+fi
+if [ "$UPLOAD_MODE" = "segments" ] \
+  && ! command -v python3 >/dev/null 2>&1 \
+  && ! command -v python >/dev/null 2>&1 \
+  && ! command -v node >/dev/null 2>&1; then
+  die "durable segment mode requires python3, python, or node for strict JSON acknowledgement validation"
+fi
+copy_hook_files
+
+case "$AGENT" in
+  codex)
+    configure_codex
+    ;;
+  claude)
+    configure_claude
+    ;;
+  both)
+    configure_codex
+    configure_claude
+    ;;
+esac
+
+log "installed. Endpoint: $URL"

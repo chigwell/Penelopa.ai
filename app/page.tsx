@@ -19,8 +19,18 @@ type PublicStatsSummary = {
   cache_ttl_seconds: number;
 };
 
+type GitHubRepoStats = {
+  full_name: string;
+  html_url: string;
+  stargazers_count: number;
+  generated_at: string;
+  cache_ttl_seconds: number;
+};
+
 const API_DOMAIN = "https://api.penelopa.ai";
 const INGEST_URL = `${API_DOMAIN}/v2/transcript-segments`;
+const GITHUB_REPO_URL = "https://github.com/chigwell/penelopa.ai";
+const GITHUB_REPO_NAME = "chigwell/penelopa.ai";
 
 const INSTALL_COMMANDS: Record<ScriptTab, string> = {
   sh: `curl -fsSL https://penelopa.ai/script | sh -s -- \\
@@ -60,6 +70,14 @@ function formatMetric(value: number | undefined) {
   }).format(value);
 }
 
+function formatStars(value: number | undefined) {
+  if (value === undefined) {
+    return "... stars";
+  }
+
+  return `${formatMetric(value)} ${value === 1 ? "star" : "stars"}`;
+}
+
 function formatGeneratedAt(value: string | undefined) {
   if (!value) {
     return "Updating";
@@ -83,6 +101,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<ScriptTab>("sh");
   const [stats, setStats] = useState<PublicStatsSummary | null>(null);
   const [statsError, setStatsError] = useState(false);
+  const [githubRepo, setGithubRepo] = useState<GitHubRepoStats | null>(null);
+  const [githubRepoError, setGithubRepoError] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -114,6 +134,34 @@ export default function Home() {
       .catch(() => {
         if (active) {
           setStatsError(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/github-repo", { headers: { Accept: "application/json" } })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("GitHub repo stats unavailable");
+        }
+        return response.json() as Promise<GitHubRepoStats>;
+      })
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setGithubRepo(payload);
+        setGithubRepoError(false);
+      })
+      .catch(() => {
+        if (active) {
+          setGithubRepoError(true);
         }
       });
 
@@ -280,6 +328,20 @@ export default function Home() {
       <footer className="site-footer">
         <div className="site-footer-inner">
           <p>Copyright 2026 Penelopa.ai. Made with ❤️ by Eugene Evstafev.</p>
+          <a
+            className="github-stars-link"
+            href={githubRepo?.html_url ?? GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open ${GITHUB_REPO_NAME} on GitHub in a new tab`}
+          >
+            <span className="github-stars-repo">GitHub</span>
+            <span className="github-stars-count" aria-live="polite">
+              {githubRepoError
+                ? "Stars unavailable"
+                : formatStars(githubRepo?.stargazers_count)}
+            </span>
+          </a>
         </div>
       </footer>
     </main>

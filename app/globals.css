@@ -606,6 +606,10 @@ pre {
 }
 
 .site-footer-inner {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
   margin: 0 auto;
   max-width: 1380px;
   padding: 22px 32px 28px;
@@ -618,8 +622,45 @@ pre {
   margin: 0;
 }
 
+.github-stars-link {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 13px;
+  gap: 10px;
+  line-height: 1;
+  padding: 9px 11px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.github-stars-link:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.github-stars-repo {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.github-stars-count {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 @media (max-width: 620px) {
   .site-footer-inner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
     padding-left: 18px;
     padding-right: 18px;
   }

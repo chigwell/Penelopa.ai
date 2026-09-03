@@ -21,10 +21,11 @@
 	"observability": {
 		"enabled": true
 	},
+	"workers_dev": true,
 	"routes": [
 		{
-			"pattern": "penelopa.ai/*",
-			"zone_name": "penelopa.ai"
+			"pattern": "penelopa.ai",
+			"custom_domain": true
 		}
 	],
 	"upload_source_maps": true

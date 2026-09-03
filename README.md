@@ -18,6 +18,6 @@ Cloudflare Workers Next.js application powered by vinext.
 
 ## Deployment
 
-The Worker is configured as `penelopa-ai` and deploys on the existing `penelopa.ai/*` Cloudflare route.
+The Worker is configured as `penelopa-ai` and deploys on the `penelopa.ai` Cloudflare Worker Custom Domain. The `workers.dev` URL is enabled for deployment checks.
 
-Before the first deploy, authenticate Wrangler with `wrangler login` or provide `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment. The `penelopa.ai` zone must already exist in the selected Cloudflare account, and the DNS record for `penelopa.ai` must be proxied through Cloudflare.
+Before the first deploy, authenticate Wrangler with `wrangler login` or provide `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment. The `penelopa.ai` zone must already exist in the selected Cloudflare account.

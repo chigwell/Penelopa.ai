@@ -30,11 +30,17 @@ export async function GET() {
     const upstream = await fetch(GITHUB_REPO_API_URL, {
       headers: {
         Accept: "application/vnd.github+json",
+        "User-Agent": "Penelopa.ai GitHub stars counter",
         "X-GitHub-Api-Version": "2022-11-28",
       },
     });
 
     if (!upstream.ok) {
+      console.error("GitHub repo stats upstream failed", {
+        status: upstream.status,
+        statusText: upstream.statusText,
+      });
+
       return Response.json(
         { error: "GitHub repo stats are temporarily unavailable." },
         { status: 502, headers: { "Cache-Control": "no-store" } },
@@ -43,6 +49,8 @@ export async function GET() {
 
     const payload: unknown = await upstream.json();
     if (!isGitHubRepoPayload(payload)) {
+      console.error("GitHub repo stats unexpected payload shape");
+
       return Response.json(
         { error: "GitHub repo stats returned an unexpected shape." },
         { status: 502, headers: { "Cache-Control": "no-store" } },
@@ -60,7 +68,9 @@ export async function GET() {
     return Response.json(repoStats, {
       headers: { "Cache-Control": CACHE_CONTROL },
     });
-  } catch {
+  } catch (error) {
+    console.error("GitHub repo stats request failed", error);
+
     return Response.json(
       { error: "GitHub repo stats are temporarily unavailable." },
       { status: 502, headers: { "Cache-Control": "no-store" } },

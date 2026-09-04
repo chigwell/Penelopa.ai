@@ -330,7 +330,14 @@ export default function Home() {
 
       <footer className="site-footer">
         <div className="site-footer-inner">
-          <p>Copyright 2026 Penelopa.ai. Made with ❤️ by Eugene Evstafev.</p>
+          <div className="footer-meta">
+            <p>Copyright 2026 Penelopa.ai. Made by Eugene Evstafev.</p>
+            <nav className="footer-links" aria-label="Legal links">
+              <a href="/privacy">Privacy Policy</a>
+              <a href="/terms">Terms of Service</a>
+              <a href="mailto:support@penelopa.ai">support@penelopa.ai</a>
+            </nav>
+          </div>
           <a
             className="github-stars-link"
             href={githubRepo?.html_url ?? GITHUB_REPO_URL}

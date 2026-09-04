@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import PenelopaHowItWorksDemo from "./components/PenelopaHowItWorksDemo";
 
 type Theme = "light" | "dark";
 type ScriptTab = "sh" | "powershell";
@@ -324,6 +325,8 @@ export default function Home() {
           </article>
         ))}
       </section>
+
+      <PenelopaHowItWorksDemo theme={theme} onToggleTheme={toggleTheme} />
 
       <footer className="site-footer">
         <div className="site-footer-inner">

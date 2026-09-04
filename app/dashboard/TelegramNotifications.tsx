@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type TelegramNotificationStatus = "DISABLED" | "PENDING" | "CONNECTED";
 export type TelegramNotificationLanguage = "ru" | "en";
@@ -23,6 +23,8 @@ export type TelegramNotificationState = {
   status: TelegramNotificationStatus;
   language: TelegramNotificationLanguage;
   notification_types: TelegramNotificationType[];
+  setup_available?: boolean;
+  setup_unavailable_reason?: "missing_config" | null;
   telegram_username?: string | null;
   telegram_chat_id?: string | number | null;
   link_expires_at?: string | null;
@@ -39,7 +41,7 @@ type ComponentMode = "compact" | "full";
 
 const API_BASE = "https://api.penelopa.ai/v1";
 const SETTINGS_PATH = "/user/telegram-notifications";
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 2000;
 
 const LANGUAGE_OPTIONS: ReadonlyArray<{
   value: TelegramNotificationLanguage;
@@ -181,6 +183,10 @@ function getDeliveryLabel(settings: TelegramNotificationState) {
 }
 
 function getStatusCopy(settings: TelegramNotificationState) {
+  if (settings.setup_available === false && settings.status !== "CONNECTED") {
+    return "Telegram setup is temporarily unavailable.";
+  }
+
   if (settings.status === "PENDING") {
     return "Open Telegram and start the bot to finish connecting.";
   }
@@ -226,12 +232,47 @@ function getExpiryTime(value: string | null | undefined) {
   return Number.isNaN(timestamp) ? null : timestamp;
 }
 
-function getPendingInstruction(value: string | null | undefined) {
+function getPendingInstruction(value: string | null | undefined, now: number) {
   const expiresAt = formatDateTime(value);
   if (expiresAt === "No active expiry") {
     return "Start the bot from the active setup link.";
   }
-  return `Start the bot before ${expiresAt}.`;
+  return `Start the bot before ${expiresAt}. ${getTimeRemainingLabel(value, now)}.`;
+}
+
+function getTimeRemainingLabel(value: string | null | undefined, now: number) {
+  const expiryTime = getExpiryTime(value);
+  if (expiryTime === null) {
+    return "No expiry time available";
+  }
+
+  const remainingSeconds = Math.max(0, Math.ceil((expiryTime - now) / 1000));
+  if (remainingSeconds <= 0) {
+    return "Link expired";
+  }
+
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  if (minutes > 0) {
+    return `${minutes}m ${seconds.toString().padStart(2, "0")}s left`;
+  }
+  return `${seconds}s left`;
+}
+
+function getLastCheckedLabel(value: number | null, now: number) {
+  if (!value) {
+    return "Checking now";
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((now - value) / 1000));
+  if (elapsedSeconds < 2) {
+    return "Checked just now";
+  }
+  return `Last checked ${elapsedSeconds}s ago`;
+}
+
+function isSetupAvailable(settings: TelegramNotificationState | null) {
+  return settings?.setup_available !== false;
 }
 
 export function TelegramNotificationsSettings({
@@ -253,16 +294,54 @@ export function TelegramNotificationsSettings({
   const [setupLink, setSetupLink] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const settingsRef = useRef<TelegramNotificationState | null>(null);
+
+  const applySettings = useCallback(
+    (
+      nextSettings: TelegramNotificationState,
+      options: { announceConnection?: boolean; recordCheck?: boolean } = {},
+    ) => {
+      const previousStatus = settingsRef.current?.status;
+      settingsRef.current = nextSettings;
+      setSettings(nextSettings);
+      if (options.recordCheck) {
+        const checkedAt = Date.now();
+        setLastCheckedAt(checkedAt);
+        setNow(checkedAt);
+      }
+      if (nextSettings.status === "CONNECTED") {
+        setSetupLink(null);
+      }
+      if (
+        options.announceConnection &&
+        previousStatus === "PENDING" &&
+        nextSettings.status === "CONNECTED"
+      ) {
+        setError("");
+        setMessage("Telegram connected. Notifications are active.");
+      }
+    },
+    [],
+  );
 
   const loadSettings = useCallback(
-    async ({ silent = false }: { silent?: boolean } = {}) => {
-      if (silent) {
+    async ({
+      reason = "initial",
+    }: {
+      reason?: "initial" | "manual" | "poll";
+    } = {}) => {
+      if (reason === "poll") {
+        setIsPolling(true);
+      } else if (reason === "manual") {
         setIsRefreshing(true);
       } else {
         setIsLoading(true);
@@ -277,10 +356,10 @@ export function TelegramNotificationsSettings({
         if (!nextSettings) {
           throw new Error("Empty Telegram notification settings response.");
         }
-        setSettings(nextSettings);
-        if (nextSettings.status === "CONNECTED") {
-          setSetupLink(null);
-        }
+        applySettings(nextSettings, {
+          announceConnection: reason !== "initial",
+          recordCheck: true,
+        });
       } catch (caught) {
         if (
           isApiError(caught) &&
@@ -291,11 +370,16 @@ export function TelegramNotificationsSettings({
         }
         setError("Telegram notification settings could not be loaded.");
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        if (reason === "poll") {
+          setIsPolling(false);
+        } else if (reason === "manual") {
+          setIsRefreshing(false);
+        } else {
+          setIsLoading(false);
+        }
       }
     },
-    [onAuthExpired, token],
+    [applySettings, onAuthExpired, token],
   );
 
   useEffect(() => {
@@ -316,32 +400,75 @@ export function TelegramNotificationsSettings({
     setConfirmDisconnect(false);
   }, [settings]);
 
+  const pendingExpiryTime = getExpiryTime(settings?.link_expires_at);
+  const pendingLinkExpired =
+    settings?.status === "PENDING" &&
+    pendingExpiryTime !== null &&
+    pendingExpiryTime <= now;
+  const pendingSetupUnavailable =
+    settings?.status === "PENDING" && !isSetupAvailable(settings);
+  const shouldPollConnection =
+    settings?.status === "PENDING" &&
+    !pendingLinkExpired &&
+    !pendingSetupUnavailable;
+
+  useEffect(() => {
+    if (!shouldPollConnection) {
+      return;
+    }
+
+    void loadSettings({ reason: "poll" });
+    const interval = window.setInterval(() => {
+      const expiryTime = getExpiryTime(settingsRef.current?.link_expires_at);
+      if (expiryTime !== null && expiryTime <= Date.now()) {
+        setNow(Date.now());
+        window.clearInterval(interval);
+        return;
+      }
+      void loadSettings({ reason: "poll" });
+    }, POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [loadSettings, shouldPollConnection]);
+
   useEffect(() => {
     if (settings?.status !== "PENDING") {
       return;
     }
 
-    const interval = window.setInterval(() => {
-      const expiryTime = getExpiryTime(settings.link_expires_at);
-      if (expiryTime !== null && expiryTime <= Date.now()) {
-        window.clearInterval(interval);
-        return;
-      }
-      void loadSettings({ silent: true });
-    }, POLL_INTERVAL_MS);
-
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [loadSettings, settings?.link_expires_at, settings?.status]);
+  }, [settings?.link_expires_at, settings?.status]);
+
+  useEffect(() => {
+    if (!shouldPollConnection) {
+      return;
+    }
+
+    function refreshPendingState() {
+      if (document.visibilityState === "visible") {
+        void loadSettings({ reason: "poll" });
+      }
+    }
+
+    window.addEventListener("focus", refreshPendingState);
+    document.addEventListener("visibilitychange", refreshPendingState);
+    return () => {
+      window.removeEventListener("focus", refreshPendingState);
+      document.removeEventListener("visibilitychange", refreshPendingState);
+    };
+  }, [loadSettings, shouldPollConnection]);
 
   const selectedTypesSummary = useMemo(
     () => getTypeSummary(draftTypes),
     [draftTypes],
   );
-
-  const pendingLinkExpired =
-    settings?.status === "PENDING" &&
-    getExpiryTime(settings.link_expires_at) !== null &&
-    getExpiryTime(settings.link_expires_at)! <= Date.now();
+  const lastCheckedLabel = getLastCheckedLabel(lastCheckedAt, now);
+  const pendingTimeRemaining = getTimeRemainingLabel(
+    settings?.link_expires_at,
+    now,
+  );
 
   async function updatePreferences(
     enabled: boolean,
@@ -375,9 +502,9 @@ export function TelegramNotificationsSettings({
       );
 
       if (updated) {
-        setSettings(updated);
+        applySettings(updated);
       } else {
-        await loadSettings({ silent: true });
+        await loadSettings({ reason: "manual" });
       }
 
       if (!options.quiet) {
@@ -428,6 +555,13 @@ export function TelegramNotificationsSettings({
   }
 
   async function handleCreateLink() {
+    if (!isSetupAvailable(settings)) {
+      setError(
+        "Telegram setup is temporarily unavailable. Ask an administrator to configure the bot.",
+      );
+      return;
+    }
+
     if (normalizeNotificationTypes(draftTypes).length === 0) {
       setError("Choose at least one notification type.");
       return;
@@ -454,22 +588,30 @@ export function TelegramNotificationsSettings({
       }
 
       setSetupLink(link.deep_link_url);
-      setSettings((current) => ({
+      const current = settingsRef.current;
+      applySettings({
         enabled: true,
         language: draftLanguage,
         link_expires_at: link.expires_at,
         notification_types: normalizeNotificationTypes(draftTypes),
+        setup_available: current?.setup_available ?? true,
+        setup_unavailable_reason: current?.setup_unavailable_reason ?? null,
         status: link.status,
         telegram_chat_id: current?.telegram_chat_id ?? null,
         telegram_username: current?.telegram_username ?? null,
-      }));
-      setMessage("Open Telegram to finish the connection.");
+      });
+      setLastCheckedAt(null);
+      setMessage("Open Telegram. We will update this page automatically.");
     } catch (caught) {
       if (
         isApiError(caught) &&
         (caught.status === 401 || caught.status === 403)
       ) {
         onAuthExpired();
+        return;
+      }
+      if (isApiError(caught) && caught.status === 503) {
+        setError(caught.message);
         return;
       }
       setError("Telegram setup link could not be generated.");
@@ -497,12 +639,15 @@ export function TelegramNotificationsSettings({
         language: draftLanguage,
         link_expires_at: null,
         notification_types: normalizeNotificationTypes(draftTypes),
+        setup_available: settingsRef.current?.setup_available ?? true,
+        setup_unavailable_reason:
+          settingsRef.current?.setup_unavailable_reason ?? null,
         status: "DISABLED",
         telegram_chat_id: null,
         telegram_username: null,
       };
       setSetupLink(null);
-      setSettings(nextSettings);
+      applySettings(nextSettings);
       setMessage("Telegram disconnected.");
     } catch (caught) {
       if (
@@ -544,7 +689,7 @@ export function TelegramNotificationsSettings({
               <button
                 className="notification-secondary-button"
                 type="button"
-                onClick={() => void loadSettings()}
+                onClick={() => void loadSettings({ reason: "initial" })}
               >
                 Retry
                 <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
@@ -553,12 +698,25 @@ export function TelegramNotificationsSettings({
           ) : settings ? (
             <>
               <div className="notifications-status-line">
-                <span
-                  className={`notification-status-dot ${getStatusTone(settings)}`}
-                  aria-hidden="true"
-                />
+                {settings.status === "PENDING" && shouldPollConnection ? (
+                  <span className="notification-spinner" aria-hidden="true" />
+                ) : (
+                  <span
+                    className={`notification-status-dot ${getStatusTone(settings)}`}
+                    aria-hidden="true"
+                  />
+                )}
                 <strong>{getStatusLabel(settings.status)}</strong>
                 <span>{getStatusCopy(settings)}</span>
+                {settings.status === "PENDING" ? (
+                  <span className="notifications-status-meta">
+                    {pendingSetupUnavailable
+                      ? "Setup unavailable"
+                      : pendingLinkExpired
+                        ? "Setup link expired"
+                        : `${isPolling ? "Checking" : "Waiting"} - ${lastCheckedLabel}`}
+                  </span>
+                ) : null}
               </div>
               <div className="notifications-summary-grid">
                 <article>
@@ -595,10 +753,10 @@ export function TelegramNotificationsSettings({
           <button
             className="notification-secondary-button"
             type="button"
-            onClick={() => void loadSettings()}
+            onClick={() => void loadSettings({ reason: "manual" })}
             disabled={isRefreshing}
           >
-            Refresh
+            {isRefreshing ? "Refreshing" : "Refresh"}
             <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
           </button>
         ) : null}
@@ -612,7 +770,7 @@ export function TelegramNotificationsSettings({
           <button
             className="notification-secondary-button"
             type="button"
-            onClick={() => void loadSettings()}
+            onClick={() => void loadSettings({ reason: "initial" })}
           >
             Retry
             <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
@@ -628,6 +786,44 @@ export function TelegramNotificationsSettings({
             <p className="eyebrow">{getStatusLabel(settings.status)}</p>
             <h3>{getStateHeading(settings)}</h3>
             <p>{getStatusCopy(settings)}</p>
+            {settings.status === "PENDING" ? (
+              <div
+                className={
+                  pendingLinkExpired || pendingSetupUnavailable
+                    ? "notification-polling-status is-expired"
+                    : "notification-polling-status"
+                }
+                role="status"
+                aria-live="polite"
+              >
+                {pendingLinkExpired || pendingSetupUnavailable ? (
+                  <span
+                    className="notification-status-dot is-disabled"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <span className="notification-spinner" aria-hidden="true" />
+                )}
+                <span>
+                  <strong>
+                    {pendingSetupUnavailable
+                      ? "Setup unavailable"
+                      : pendingLinkExpired
+                        ? "Setup link expired"
+                        : isPolling
+                          ? "Checking connection"
+                        : "Waiting for Telegram"}
+                  </strong>
+                  <small>
+                    {pendingSetupUnavailable
+                      ? "Configuration missing"
+                      : pendingLinkExpired
+                        ? pendingTimeRemaining
+                        : lastCheckedLabel}
+                  </small>
+                </span>
+              </div>
+            ) : null}
             <dl>
               <div>
                 <dt>Telegram</dt>
@@ -725,8 +921,12 @@ export function TelegramNotificationsSettings({
               <div className="notification-telegram-box">
                 <div>
                   <p className="eyebrow">Pending connection</p>
-                  <h3>Open Telegram</h3>
-                  <p>{getPendingInstruction(settings.link_expires_at)}</p>
+                  <h3>{pendingSetupUnavailable ? "Setup unavailable" : "Open Telegram"}</h3>
+                  <p>
+                    {pendingSetupUnavailable
+                      ? "Telegram bot configuration needs attention before setup can continue."
+                      : getPendingInstruction(settings.link_expires_at, now)}
+                  </p>
                   {pendingLinkExpired ? (
                     <p className="notification-box-warning">
                       This setup link has expired. Generate a new link.
@@ -734,7 +934,7 @@ export function TelegramNotificationsSettings({
                   ) : null}
                 </div>
                 <div className="notification-box-actions">
-                  {setupLink && !pendingLinkExpired ? (
+                  {setupLink && !pendingLinkExpired && !pendingSetupUnavailable ? (
                     <a
                       className="notification-primary-button"
                       href={setupLink}
@@ -749,7 +949,7 @@ export function TelegramNotificationsSettings({
                     className="notification-secondary-button"
                     type="button"
                     onClick={() => void handleCreateLink()}
-                    disabled={isLinking}
+                    disabled={isLinking || !isSetupAvailable(settings)}
                   >
                     {isLinking ? "Generating" : "Generate new link"}
                     <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />
@@ -783,15 +983,23 @@ export function TelegramNotificationsSettings({
               <div className="notification-telegram-box">
                 <div>
                   <p className="eyebrow">Telegram connection</p>
-                  <h3>Connect Telegram</h3>
-                  <p>Generate a setup link, open it, and start the bot.</p>
+                  <h3>
+                    {isSetupAvailable(settings)
+                      ? "Connect Telegram"
+                      : "Setup unavailable"}
+                  </h3>
+                  <p>
+                    {isSetupAvailable(settings)
+                      ? "Generate a setup link, open it, and start the bot."
+                      : "Telegram bot configuration needs attention before setup can start."}
+                  </p>
                 </div>
                 <div className="notification-box-actions">
                   <button
                     className="notification-primary-button"
                     type="button"
                     onClick={() => void handleCreateLink()}
-                    disabled={isLinking}
+                    disabled={isLinking || !isSetupAvailable(settings)}
                   >
                     {isLinking ? "Generating" : "Connect Telegram"}
                     <ArrowRight aria-hidden="true" size={15} strokeWidth={1.8} />

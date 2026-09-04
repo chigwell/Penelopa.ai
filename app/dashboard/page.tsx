@@ -293,13 +293,29 @@ export default function DashboardPage() {
     setTheme(preferredTheme);
     applyTheme(preferredTheme);
 
-    const hashToken = consumeTokenFromHash();
-    const storedToken = hashToken || readStoredToken();
+    function loadHashToken() {
+      const hashToken = consumeTokenFromHash();
+      if (!hashToken) {
+        return false;
+      }
+      void loadDashboard(hashToken, 1, true);
+      return true;
+    }
+
+    window.addEventListener("hashchange", loadHashToken);
+
+    if (loadHashToken()) {
+      return () => window.removeEventListener("hashchange", loadHashToken);
+    }
+
+    const storedToken = readStoredToken();
     if (!storedToken) {
       setScreen("locked");
-      return;
+      return () => window.removeEventListener("hashchange", loadHashToken);
     }
-    void loadDashboard(storedToken, 1, Boolean(hashToken));
+    void loadDashboard(storedToken, 1, false);
+
+    return () => window.removeEventListener("hashchange", loadHashToken);
   }, []);
 
   const chartData = useMemo(

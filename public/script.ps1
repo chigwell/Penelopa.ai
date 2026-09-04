@@ -30,6 +30,43 @@ function Write-InstallLog {
     [Console]::Error.WriteLine("auto-improve install: $Message")
 }
 
+function Remove-TerminalControlCharacters {
+    param([string]$Value)
+    if ($null -eq $Value) { return "" }
+    return [regex]::Replace($Value, "[\x00-\x1F\x7F]", "")
+}
+
+function Test-TerminalHyperlinkSupport {
+    if ([Console]::IsErrorRedirected) { return $false }
+    if ($env:WT_SESSION -or $env:TERM_PROGRAM -or $env:VTE_VERSION -or $env:KONSOLE_VERSION -or $env:WEZTERM_EXECUTABLE) {
+        return $true
+    }
+    return $false
+}
+
+function Format-TerminalLink {
+    param(
+        [string]$Label,
+        [string]$Url
+    )
+    $safeLabel = Remove-TerminalControlCharacters $Label
+    $safeUrl = Remove-TerminalControlCharacters $Url
+    if (Test-TerminalHyperlinkSupport) {
+        $escape = [char]27
+        return "$escape]8;;$safeUrl$escape\$safeLabel$escape]8;;$escape\ ($safeUrl)"
+    }
+    return $safeUrl
+}
+
+function Write-InstallLink {
+    param(
+        [string]$Name,
+        [string]$Label,
+        [string]$Url
+    )
+    Write-InstallLog ("{0}: {1}" -f (Remove-TerminalControlCharacters $Name), (Format-TerminalLink -Label $Label -Url $Url))
+}
+
 function Read-DotEnvValue {
     param(
         [string]$Path,
@@ -202,7 +239,8 @@ function Add-HookCommand {
     param(
         [string]$ConfigPath,
         [string]$Command,
-        [bool]$IncludeMatcher
+        [bool]$IncludeMatcher,
+        [int]$SessionEndTimeout = 60
     )
 
     $configDir = Split-Path -Path $ConfigPath -Parent
@@ -220,6 +258,7 @@ function Add-HookCommand {
         $config | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{})
     }
     foreach ($eventName in @("Stop", "SessionEnd")) {
+        $timeout = if ($eventName -eq "SessionEnd") { $SessionEndTimeout } else { 60 }
         if (-not $config.hooks.PSObject.Properties[$eventName]) {
             $config.hooks | Add-Member -NotePropertyName $eventName -NotePropertyValue @()
         }
@@ -229,6 +268,11 @@ function Add-HookCommand {
         foreach ($entry in $eventHooks) {
             foreach ($existingHook in @($entry.hooks)) {
                 if ($existingHook.command -eq $Command) {
+                    if ($existingHook.PSObject.Properties["timeout"]) {
+                        $existingHook.timeout = $timeout
+                    } else {
+                        $existingHook | Add-Member -NotePropertyName timeout -NotePropertyValue $timeout
+                    }
                     $alreadyConfigured = $true
                     break
                 }
@@ -240,7 +284,7 @@ function Add-HookCommand {
         $hook = [ordered]@{
             type = "command"
             command = $Command
-            timeout = 60
+            timeout = $timeout
         }
         $entry = [ordered]@{
             hooks = @([pscustomobject]$hook)
@@ -313,7 +357,7 @@ function New-HookCommand {
 if ($Agent -eq "codex" -or $Agent -eq "both") {
     $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
     $codexConfig = Join-Path $codexHome "hooks.json"
-    Add-HookCommand -ConfigPath $codexConfig -Command (New-HookCommand "codex-openai") -IncludeMatcher $false
+    Add-HookCommand -ConfigPath $codexConfig -Command (New-HookCommand "codex-openai") -IncludeMatcher $false -SessionEndTimeout 3
     Write-InstallLog "Codex hook configured at $codexConfig"
 }
 
@@ -327,15 +371,21 @@ if ($Agent -eq "claude" -or $Agent -eq "both") {
 Write-InstallLog "installed. Endpoint: $Url"
 $dashboardLink = New-DashboardTokenLink -BaseUrl $DashboardUrl -AccessToken $Token
 $notificationsLink = New-NotificationsTokenLink -BaseUrl $DashboardUrl -AccessToken $Token
-Write-InstallLog "dashboard: $dashboardLink"
+if ($Agent -eq "codex" -or $Agent -eq "both") {
+    Write-InstallLog "Codex next step: open Codex -> Settings -> Hooks, review the new or changed Stop and SessionEnd hooks, and trust both."
+    Write-InstallLog "Codex CLI: run /hooks, review the new or changed hooks, and trust both."
+    Write-InstallLink -Name "Codex hooks docs" -Label "open docs" -Url "https://learn.chatgpt.com/docs/hooks"
+}
+Write-InstallLink -Name "dashboard" -Label "open dashboard" -Url $dashboardLink
 $telegramSetupLink = New-TelegramSetupLink -AccessToken $Token
 if ($telegramSetupLink) {
-    Write-InstallLog "telegram setup: $($telegramSetupLink.DeepLinkUrl)"
+    Write-InstallLink -Name "telegram setup" -Label "open Telegram setup" -Url $telegramSetupLink.DeepLinkUrl
     if (-not [string]::IsNullOrWhiteSpace($telegramSetupLink.ExpiresAt)) {
         Write-InstallLog "telegram setup expires at: $($telegramSetupLink.ExpiresAt)"
     }
 } else {
-    Write-InstallLog "telegram setup unavailable; configure it manually: $notificationsLink"
+    Write-InstallLog "telegram setup unavailable"
+    Write-InstallLink -Name "manual Telegram setup" -Label "open notification settings" -Url $notificationsLink
 }
 if ($bootstrapTokenIssued) {
     Write-InstallLog "issued API token: $Token"

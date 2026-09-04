@@ -76,18 +76,38 @@ export default function TelegramNotificationsPage() {
     setTheme(preferredTheme);
     applyTheme(preferredTheme);
 
-    const hashToken = consumeTokenFromHash();
-    const storedToken = hashToken || readStoredToken();
-    if (!storedToken) {
-      setScreen("locked");
-      return;
+    function acceptToken(candidate: string) {
+      storeToken(candidate);
+      setToken(candidate);
+      setError("");
+      setScreen("ready");
     }
 
-    if (hashToken) {
-      storeToken(hashToken);
+    function loadHashToken() {
+      const hashToken = consumeTokenFromHash();
+      if (!hashToken) {
+        return false;
+      }
+      acceptToken(hashToken);
+      return true;
     }
+
+    window.addEventListener("hashchange", loadHashToken);
+
+    if (loadHashToken()) {
+      return () => window.removeEventListener("hashchange", loadHashToken);
+    }
+
+    const storedToken = readStoredToken();
+    if (!storedToken) {
+      setScreen("locked");
+      return () => window.removeEventListener("hashchange", loadHashToken);
+    }
+
     setToken(storedToken);
     setScreen("ready");
+
+    return () => window.removeEventListener("hashchange", loadHashToken);
   }, []);
 
   function toggleTheme() {

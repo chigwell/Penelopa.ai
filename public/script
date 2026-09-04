@@ -18,9 +18,11 @@ SEGMENT_MAX_BYTES="${AUTO_IMPROVE_SEGMENT_MAX_BYTES:-8388608}"
 DRAIN_MAX_ATTEMPTS="${AUTO_IMPROVE_DRAIN_MAX_ATTEMPTS:-16}"
 DRAIN_MAX_SECONDS="${AUTO_IMPROVE_DRAIN_MAX_SECONDS:-40}"
 HOOK_TIMEOUT_SECONDS=60
+CODEX_SESSION_END_HOOK_TIMEOUT_SECONDS=3
 INSTALL_DEPS=0
 FORCE_NEW_TOKEN=0
 BOOTSTRAP_TOKEN_ISSUED=0
+CODEX_CONFIGURED=0
 SCRIPT_BASE_URL="${AUTO_IMPROVE_SCRIPT_BASE_URL:-https://penelopa.ai}"
 HOOK_DOWNLOAD_URL="${AUTO_IMPROVE_HOOK_DOWNLOAD_URL:-"$SCRIPT_BASE_URL/auto-improve-upload.sh"}"
 
@@ -57,6 +59,28 @@ EOF
 
 log() {
   printf '%s\n' "auto-improve install: $*" >&2
+}
+
+supports_terminal_links() {
+  [ -t 2 ] || return 1
+  [ "${TERM:-}" != "dumb" ] || return 1
+  return 0
+}
+
+strip_terminal_controls() {
+  printf '%s' "$1" | LC_ALL=C tr -d '\001-\037\177'
+}
+
+log_link() {
+  name=$(strip_terminal_controls "$1")
+  label=$(strip_terminal_controls "$2")
+  url=$(strip_terminal_controls "$3")
+
+  if supports_terminal_links; then
+    printf 'auto-improve install: %s: \033]8;;%s\033\\%s\033]8;;\033\\ (%s)\n' "$name" "$url" "$label" "$url" >&2
+  else
+    printf 'auto-improve install: %s: %s\n' "$name" "$url" >&2
+  fi
 }
 
 shell_quote() {
@@ -460,6 +484,7 @@ for entry in events:
         continue
     for hook in entry.get("hooks", []):
         if isinstance(hook, dict) and hook.get("command") == command_value:
+            hook["timeout"] = timeout_value
             with open(path, "w", encoding="utf-8") as handle:
                 json.dump(data, handle, ensure_ascii=False, indent=2)
                 handle.write("\n")
@@ -504,7 +529,13 @@ if (!Array.isArray(data.hooks[eventName])) {
   throw new Error(`${path}.hooks.${eventName} must be a JSON array`);
 }
 const exists = data.hooks[eventName].some((entry) =>
-  entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => hook && hook.command === commandValue)
+  entry && Array.isArray(entry.hooks) && entry.hooks.some((hook) => {
+    if (hook && hook.command === commandValue) {
+      hook.timeout = Number(timeoutValue);
+      return true;
+    }
+    return false;
+  })
 );
 if (!exists) {
   const entry = {
@@ -521,6 +552,7 @@ write_new_hooks_json() {
   config_file="$1"
   command_value="$2"
   include_matcher="$3"
+  session_end_timeout="$4"
   mkdir -p "$(dirname "$config_file")" || die "cannot create config directory"
   if [ "$include_matcher" = "1" ]; then
     cat > "$config_file" <<EOF
@@ -533,7 +565,7 @@ write_new_hooks_json() {
           {
             "type": "command",
             "command": "$command_value",
-            "timeout": $HOOK_TIMEOUT_SECONDS
+            "timeout": $session_end_timeout
           }
         ]
       }
@@ -545,7 +577,7 @@ write_new_hooks_json() {
           {
             "type": "command",
             "command": "$command_value",
-            "timeout": $HOOK_TIMEOUT_SECONDS
+            "timeout": $session_end_timeout
           }
         ]
       }
@@ -589,6 +621,7 @@ update_json_config() {
   config_file="$1"
   command_value="$2"
   include_matcher="$3"
+  session_end_timeout="${4:-$HOOK_TIMEOUT_SECONDS}"
 
   mkdir -p "$(dirname "$config_file")" || die "cannot create config directory"
 
@@ -598,15 +631,15 @@ update_json_config() {
 
   if command -v python3 >/dev/null 2>&1; then
     json_update_with_python python3 "$config_file" Stop "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
-    json_update_with_python python3 "$config_file" SessionEnd "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+    json_update_with_python python3 "$config_file" SessionEnd "$command_value" "$session_end_timeout" "$include_matcher"
   elif command -v python >/dev/null 2>&1; then
     json_update_with_python python "$config_file" Stop "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
-    json_update_with_python python "$config_file" SessionEnd "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+    json_update_with_python python "$config_file" SessionEnd "$command_value" "$session_end_timeout" "$include_matcher"
   elif command -v node >/dev/null 2>&1; then
     json_update_with_node "$config_file" Stop "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
-    json_update_with_node "$config_file" SessionEnd "$command_value" "$HOOK_TIMEOUT_SECONDS" "$include_matcher"
+    json_update_with_node "$config_file" SessionEnd "$command_value" "$session_end_timeout" "$include_matcher"
   elif [ ! -f "$config_file" ]; then
-    write_new_hooks_json "$config_file" "$command_value" "$include_matcher"
+    write_new_hooks_json "$config_file" "$command_value" "$include_matcher" "$session_end_timeout"
   else
     die "cannot safely merge existing JSON without python3, python, or node: $config_file"
   fi
@@ -616,7 +649,8 @@ configure_codex() {
   codex_home="${CODEX_HOME:-"$HOME/.codex"}"
   config_file="$codex_home/hooks.json"
   hook_script="$INSTALL_DIR/auto-improve-upload.sh"
-  update_json_config "$config_file" "$(shell_quote "$hook_script") codex-openai" 0
+  update_json_config "$config_file" "$(shell_quote "$hook_script") codex-openai" 0 "$CODEX_SESSION_END_HOOK_TIMEOUT_SECONDS"
+  CODEX_CONFIGURED=1
   log "Codex hook configured at $config_file"
 }
 
@@ -719,10 +753,18 @@ print_access_links() {
   dashboard_link="${dashboard_base}#token=${encoded_token}"
   notifications_link="${dashboard_base}/notifications#token=${encoded_token}"
 
-  log "dashboard: $dashboard_link"
+  log_link "dashboard" "open dashboard" "$dashboard_link"
   if ! request_telegram_setup_link; then
-    log "telegram setup unavailable; configure it manually: $notifications_link"
+    log "telegram setup unavailable"
+    log_link "manual Telegram setup" "open notification settings" "$notifications_link"
   fi
+}
+
+print_codex_trust_instructions() {
+  [ "$CODEX_CONFIGURED" -eq 1 ] || return 0
+  log "Codex next step: open Codex -> Settings -> Hooks, review the new or changed Stop and SessionEnd hooks, and trust both."
+  log "Codex CLI: run /hooks, review the new or changed hooks, and trust both."
+  log_link "Codex hooks docs" "open docs" "https://learn.chatgpt.com/docs/hooks"
 }
 
 install_curl
@@ -755,6 +797,7 @@ case "$AGENT" in
 esac
 
 log "installed. Endpoint: $URL"
+print_codex_trust_instructions
 print_access_links
 if [ "$BOOTSTRAP_TOKEN_ISSUED" -eq 1 ]; then
   log "issued API token: $TOKEN"

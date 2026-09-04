@@ -4,6 +4,7 @@ param(
 
     [string]$Url = $(if ($env:AUTO_IMPROVE_URL) { $env:AUTO_IMPROVE_URL } else { "https://api.penelopa.ai/v2/transcript-segments" }),
     [string]$Token = $env:AUTO_IMPROVE_TOKEN,
+    [string]$TokenUrl = $(if ($env:AUTO_IMPROVE_TOKEN_URL) { $env:AUTO_IMPROVE_TOKEN_URL } else { "https://api.penelopa.ai/v1/auth/bootstrap-token" }),
     [string]$EnvFile,
     [string]$HookUrl = $(if ($env:AUTO_IMPROVE_HOOK_DOWNLOAD_URL) { $env:AUTO_IMPROVE_HOOK_DOWNLOAD_URL } else { "https://penelopa.ai/auto-improve-upload.ps1" }),
     [string]$ProjectId = $env:AUTO_IMPROVE_PROJECT_ID,
@@ -12,6 +13,8 @@ param(
     [long]$SegmentMaxBytes = $(if ($env:AUTO_IMPROVE_SEGMENT_MAX_BYTES) { [long]$env:AUTO_IMPROVE_SEGMENT_MAX_BYTES } else { 8388608L }),
     [int]$DrainMaxAttempts = $(if ($env:AUTO_IMPROVE_DRAIN_MAX_ATTEMPTS) { [int]$env:AUTO_IMPROVE_DRAIN_MAX_ATTEMPTS } else { 16 }),
     [int]$DrainMaxSeconds = $(if ($env:AUTO_IMPROVE_DRAIN_MAX_SECONDS) { [int]$env:AUTO_IMPROVE_DRAIN_MAX_SECONDS } else { 40 }),
+
+    [switch]$ForceNewToken,
 
     [ValidateSet("segments", "delta")]
     [string]$UploadMode = $(if ($env:AUTO_IMPROVE_UPLOAD_MODE) { $env:AUTO_IMPROVE_UPLOAD_MODE } else { "segments" })
@@ -43,6 +46,91 @@ function Read-DotEnvValue {
         }
     }
     return $null
+}
+
+function Read-ExistingHookToken {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+    $raw = Get-Content -LiteralPath $Path -Raw
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        return $null
+    }
+    try {
+        $config = $raw | ConvertFrom-Json
+    } catch {
+        return $null
+    }
+    if ($config.PSObject.Properties["token"]) {
+        return [string]$config.token
+    }
+    return $null
+}
+
+function Should-ReplaceExistingToken {
+    param([string]$ConfigPath)
+    if ($ForceNewToken) {
+        return $true
+    }
+    if ([Console]::IsInputRedirected) {
+        Write-InstallLog "existing API token found in $ConfigPath; reusing it because no interactive terminal is available"
+        return $false
+    }
+    $answer = Read-Host "auto-improve install: existing API token found in $ConfigPath. Replace it with a new public token? [y/N]"
+    return $answer -match '^(y|yes)$'
+}
+
+function Request-BootstrapToken {
+    try {
+        $response = Invoke-RestMethod -Method Post -Uri $TokenUrl -Headers @{ Accept = "application/json" }
+    } catch {
+        $responseObject = $_.Exception.Response
+        $statusCode = if ($responseObject -and $responseObject.StatusCode) { [int]$responseObject.StatusCode } else { $null }
+        $retryAfter = if ($responseObject -and $responseObject.Headers) { [string]$responseObject.Headers["Retry-After"] } else { "" }
+        if ($statusCode -eq 429) {
+            if ([string]::IsNullOrWhiteSpace($retryAfter)) {
+                throw "Token rate limit exceeded."
+            }
+            throw "Token rate limit exceeded; retry after ${retryAfter}s."
+        }
+        if ($statusCode) {
+            throw "Token endpoint returned HTTP $statusCode."
+        }
+        throw "Cannot request API token from $TokenUrl."
+    }
+
+    $issuedToken = [string]$response.api_token
+    if ([string]::IsNullOrWhiteSpace($issuedToken)) {
+        throw "Token endpoint did not return api_token."
+    }
+    return $issuedToken
+}
+
+function Resolve-InstallToken {
+    param(
+        [string]$CurrentToken,
+        [string]$ConfigPath,
+        [string]$DotEnvPath
+    )
+    if (-not [string]::IsNullOrWhiteSpace($CurrentToken)) {
+        return @{ Token = $CurrentToken; Issued = $false }
+    }
+
+    $existingToken = Read-ExistingHookToken -Path $ConfigPath
+    if (-not [string]::IsNullOrWhiteSpace($existingToken) -and -not (Should-ReplaceExistingToken -ConfigPath $ConfigPath)) {
+        return @{ Token = $existingToken; Issued = $false }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($existingToken) -and -not $ForceNewToken) {
+        $dotEnvToken = Read-DotEnvValue -Path $DotEnvPath -Key "API_ACCESS_TOKEN"
+        if (-not [string]::IsNullOrWhiteSpace($dotEnvToken)) {
+            return @{ Token = $dotEnvToken; Issued = $false }
+        }
+    }
+
+    Write-InstallLog "requesting a new API token from $TokenUrl"
+    return @{ Token = (Request-BootstrapToken); Issued = $true }
 }
 
 function Add-HookCommand {
@@ -107,9 +195,8 @@ if ([string]::IsNullOrWhiteSpace($EnvFile)) {
     $EnvFile = Join-Path (Get-Location).Path ".env"
 }
 
-if ([string]::IsNullOrWhiteSpace($Token)) {
-    $Token = Read-DotEnvValue -Path $EnvFile -Key "API_ACCESS_TOKEN"
-}
+$installDir = if ($env:AUTO_IMPROVE_INSTALL_DIR) { $env:AUTO_IMPROVE_INSTALL_DIR } else { Join-Path $HOME ".auto-improve/hooks" }
+$configFile = if ($env:AUTO_IMPROVE_HOOK_CONFIG) { $env:AUTO_IMPROVE_HOOK_CONFIG } else { Join-Path $HOME ".auto-improve-hook.json" }
 
 if ($UploadMode -eq "delta") {
     $UploadMode = "segments"
@@ -124,12 +211,9 @@ if ($DrainMaxSeconds -le 0) {
     throw "DrainMaxSeconds must be a positive integer."
 }
 
-if ([string]::IsNullOrWhiteSpace($Token)) {
-    throw "API token not found. Pass -Token or set API_ACCESS_TOKEN in $EnvFile."
-}
-
-$installDir = if ($env:AUTO_IMPROVE_INSTALL_DIR) { $env:AUTO_IMPROVE_INSTALL_DIR } else { Join-Path $HOME ".auto-improve/hooks" }
-$configFile = if ($env:AUTO_IMPROVE_HOOK_CONFIG) { $env:AUTO_IMPROVE_HOOK_CONFIG } else { Join-Path $HOME ".auto-improve-hook.json" }
+$tokenResolution = Resolve-InstallToken -CurrentToken $Token -ConfigPath $configFile -DotEnvPath $EnvFile
+$Token = [string]$tokenResolution.Token
+$bootstrapTokenIssued = [bool]$tokenResolution.Issued
 
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 $configDirectory = Split-Path -Path $configFile -Parent
@@ -176,3 +260,6 @@ if ($Agent -eq "claude" -or $Agent -eq "both") {
 }
 
 Write-InstallLog "installed. Endpoint: $Url"
+if ($bootstrapTokenIssued) {
+    Write-InstallLog "issued API token: $Token"
+}

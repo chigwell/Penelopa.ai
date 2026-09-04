@@ -36,11 +36,10 @@ const GITHUB_REPO_NAME = "chigwell/penelopa.ai";
 const INSTALL_COMMANDS: Record<ScriptTab, string> = {
   sh: `curl -fsSL https://penelopa.ai/script | sh -s -- \\
   --agent both \\
-  --url ${INGEST_URL} \\
-  --token YOUR_API_TOKEN`,
+  --url ${INGEST_URL}`,
   powershell: `$installer = Join-Path $env:TEMP "penelopa-auto-improve.ps1"
 Invoke-WebRequest -Uri "https://penelopa.ai/script.ps1" -OutFile $installer
-& $installer -Agent both -Url "${INGEST_URL}" -Token "YOUR_API_TOKEN"`,
+& $installer -Agent both -Url "${INGEST_URL}"`,
 };
 
 const METRICS = [

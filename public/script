@@ -6,6 +6,7 @@ AGENT="both"
 SEGMENT_URL="https://api.penelopa.ai/v2/transcript-segments"
 URL="${AUTO_IMPROVE_URL:-$SEGMENT_URL}"
 TOKEN="${AUTO_IMPROVE_TOKEN:-}"
+TOKEN_URL="${AUTO_IMPROVE_TOKEN_URL:-https://api.penelopa.ai/v1/auth/bootstrap-token}"
 PROJECT_ID="${AUTO_IMPROVE_PROJECT_ID:-}"
 UPLOAD_MODE="${AUTO_IMPROVE_UPLOAD_MODE:-segments}"
 DATA_DIR="${AUTO_IMPROVE_DATA_DIR:-}"
@@ -15,6 +16,8 @@ DRAIN_MAX_ATTEMPTS="${AUTO_IMPROVE_DRAIN_MAX_ATTEMPTS:-16}"
 DRAIN_MAX_SECONDS="${AUTO_IMPROVE_DRAIN_MAX_SECONDS:-40}"
 HOOK_TIMEOUT_SECONDS=60
 INSTALL_DEPS=0
+FORCE_NEW_TOKEN=0
+BOOTSTRAP_TOKEN_ISSUED=0
 SCRIPT_BASE_URL="${AUTO_IMPROVE_SCRIPT_BASE_URL:-https://penelopa.ai}"
 HOOK_DOWNLOAD_URL="${AUTO_IMPROVE_HOOK_DOWNLOAD_URL:-"$SCRIPT_BASE_URL/auto-improve-upload.sh"}"
 
@@ -29,7 +32,9 @@ Usage: install-auto-improve-hooks.sh [options]
 Options:
   --agent codex|claude|both    Configure Codex, Claude Code, or both. Default: both.
   --url URL                    Ingest endpoint. Default: https://api.penelopa.ai/v2/transcript-segments
-  --token TOKEN                API bearer token. Default: API_ACCESS_TOKEN from .env.
+  --token TOKEN                API bearer token. Default: request a new public token.
+  --token-url URL              Public token endpoint. Default: https://api.penelopa.ai/v1/auth/bootstrap-token
+  --force-new-token            Request a new token even when a hook token already exists.
   --env-file FILE              .env file used to read API_ACCESS_TOKEN. Default: project .env.
   --hook-url URL               Uploader hook download URL. Default: https://penelopa.ai/auto-improve-upload.sh.
   --project-id VALUE           Override metadata.project_id. Default: hook cwd basename.
@@ -71,6 +76,60 @@ read_env_value() {
   printf '%s' "$value"
 }
 
+json_field_python() {
+  command_name="$1"
+  input_file="$2"
+  field_name="$3"
+  "$command_name" -c '
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+value = data.get(sys.argv[2])
+if value is not None:
+    print(value, end="")
+' "$input_file" "$field_name" 2>/dev/null
+}
+
+json_field_node() {
+  input_file="$1"
+  field_name="$2"
+  node -e '
+const fs = require("fs");
+const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8") || "{}");
+const value = data[process.argv[2]];
+if (value !== undefined && value !== null) process.stdout.write(String(value));
+' "$input_file" "$field_name" 2>/dev/null
+}
+
+json_field_sed() {
+  input_file="$1"
+  field_name="$2"
+  value=$(sed -n "s/.*\"${field_name}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$input_file" \
+    | head -n 1 \
+    | sed 's#\\/#/#g; s#\\"#"#g; s#\\\\#\\#g')
+  if [ -z "$value" ]; then
+    value=$(sed -n "s/.*\"${field_name}\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "$input_file" \
+      | head -n 1)
+  fi
+  printf '%s' "$value"
+}
+
+json_field() {
+  input_file="$1"
+  field_name="$2"
+  if command -v python3 >/dev/null 2>&1; then
+    json_field_python python3 "$input_file" "$field_name"
+  elif command -v python >/dev/null 2>&1; then
+    json_field_python python "$input_file" "$field_name"
+  elif command -v node >/dev/null 2>&1; then
+    json_field_node "$input_file" "$field_name"
+  else
+    json_field_sed "$input_file" "$field_name"
+  fi
+}
+
 run_as_root() {
   if [ "$(id -u 2>/dev/null || printf 1)" = "0" ]; then
     "$@"
@@ -97,6 +156,15 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -ge 2 ] || die "--token requires a value"
       TOKEN="$2"
       shift 2
+      ;;
+    --token-url)
+      [ "$#" -ge 2 ] || die "--token-url requires a value"
+      TOKEN_URL="$2"
+      shift 2
+      ;;
+    --force-new-token)
+      FORCE_NEW_TOKEN=1
+      shift
       ;;
     --env-file)
       [ "$#" -ge 2 ] || die "--env-file requires a value"
@@ -179,12 +247,6 @@ case "$DRAIN_MAX_SECONDS" in
   ''|*[!0-9]*|0) die "--drain-max-seconds must be a positive integer" ;;
 esac
 
-if [ -z "$TOKEN" ]; then
-  TOKEN=$(read_env_value API_ACCESS_TOKEN "$ENV_FILE")
-fi
-
-[ -n "$TOKEN" ] || die "API token not found. Pass --token or set API_ACCESS_TOKEN in $ENV_FILE"
-
 install_curl() {
   if command -v curl >/dev/null 2>&1; then
     return 0
@@ -211,6 +273,82 @@ install_curl() {
   fi
 
   command -v curl >/dev/null 2>&1 || die "curl installation did not make curl available"
+}
+
+request_bootstrap_token() {
+  response_file=$(mktemp "${TMPDIR:-/tmp}/auto-improve-token.XXXXXX") || die "cannot create token response file"
+  error_file="$response_file.err"
+  curl_exit=0
+  http_code=$(curl \
+    --silent \
+    --show-error \
+    --request POST \
+    --header "Accept: application/json" \
+    --output "$response_file" \
+    --write-out "%{http_code}" \
+    "$TOKEN_URL" \
+    2>"$error_file") || curl_exit=$?
+
+  if [ "$curl_exit" -ne 0 ]; then
+    error_message=$(cat "$error_file" 2>/dev/null || true)
+    rm -f "$response_file" "$error_file"
+    die "cannot request API token from $TOKEN_URL${error_message:+: $error_message}"
+  fi
+
+  case "$http_code" in
+    200|201)
+      issued_token=$(json_field "$response_file" api_token)
+      rm -f "$response_file" "$error_file"
+      [ -n "$issued_token" ] || die "token endpoint did not return api_token"
+      printf '%s' "$issued_token"
+      ;;
+    429)
+      retry_after=$(json_field "$response_file" retry_after_seconds)
+      rm -f "$response_file" "$error_file"
+      die "token rate limit exceeded${retry_after:+; retry after ${retry_after}s}"
+      ;;
+    *)
+      detail=$(json_field "$response_file" detail)
+      rm -f "$response_file" "$error_file"
+      die "token endpoint returned HTTP ${http_code:-000}${detail:+: $detail}"
+      ;;
+  esac
+}
+
+should_replace_existing_token() {
+  if [ "$FORCE_NEW_TOKEN" -eq 1 ]; then
+    return 0
+  fi
+  if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
+    log "existing API token found in $CONFIG_FILE; reusing it because no interactive terminal is available"
+    return 1
+  fi
+
+  printf 'auto-improve install: existing API token found in %s. Replace it with a new public token? [y/N] ' "$CONFIG_FILE" > /dev/tty
+  IFS= read -r answer < /dev/tty || return 1
+  case "$answer" in
+    y|Y|yes|YES|Yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+resolve_token() {
+  [ -n "$TOKEN" ] && return 0
+
+  existing_token=$(read_env_value AUTO_IMPROVE_TOKEN "$CONFIG_FILE")
+  if [ -n "$existing_token" ] && ! should_replace_existing_token; then
+    TOKEN="$existing_token"
+    return 0
+  fi
+
+  if [ -z "$existing_token" ] && [ "$FORCE_NEW_TOKEN" -eq 0 ]; then
+    TOKEN=$(read_env_value API_ACCESS_TOKEN "$ENV_FILE")
+    [ -n "$TOKEN" ] && return 0
+  fi
+
+  log "requesting a new API token from $TOKEN_URL"
+  TOKEN=$(request_bootstrap_token) || exit $?
+  BOOTSTRAP_TOKEN_ISSUED=1
 }
 
 copy_hook_files() {
@@ -455,6 +593,7 @@ if [ "$UPLOAD_MODE" = "segments" ] \
   && ! command -v node >/dev/null 2>&1; then
   die "durable segment mode requires python3, python, or node for strict JSON acknowledgement validation"
 fi
+resolve_token
 copy_hook_files
 
 case "$AGENT" in
@@ -471,3 +610,6 @@ case "$AGENT" in
 esac
 
 log "installed. Endpoint: $URL"
+if [ "$BOOTSTRAP_TOKEN_ISSUED" -eq 1 ]; then
+  log "issued API token: $TOKEN"
+fi

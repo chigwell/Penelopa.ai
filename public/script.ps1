@@ -5,6 +5,9 @@ param(
     [string]$Url = $(if ($env:AUTO_IMPROVE_URL) { $env:AUTO_IMPROVE_URL } else { "https://api.penelopa.ai/v2/transcript-segments" }),
     [string]$Token = $env:AUTO_IMPROVE_TOKEN,
     [string]$TokenUrl = $(if ($env:AUTO_IMPROVE_TOKEN_URL) { $env:AUTO_IMPROVE_TOKEN_URL } else { "https://api.penelopa.ai/v1/auth/bootstrap-token" }),
+    [string]$DashboardUrl = $(if ($env:AUTO_IMPROVE_DASHBOARD_URL) { $env:AUTO_IMPROVE_DASHBOARD_URL } else { "https://penelopa.ai/dashboard" }),
+    [string]$TelegramSettingsUrl = $(if ($env:AUTO_IMPROVE_TELEGRAM_SETTINGS_URL) { $env:AUTO_IMPROVE_TELEGRAM_SETTINGS_URL } else { "https://api.penelopa.ai/v1/user/telegram-notifications" }),
+    [string]$TelegramLinkUrl = $(if ($env:AUTO_IMPROVE_TELEGRAM_LINK_URL) { $env:AUTO_IMPROVE_TELEGRAM_LINK_URL } else { "https://api.penelopa.ai/v1/user/telegram-notifications/link" }),
     [string]$EnvFile,
     [string]$HookUrl = $(if ($env:AUTO_IMPROVE_HOOK_DOWNLOAD_URL) { $env:AUTO_IMPROVE_HOOK_DOWNLOAD_URL } else { "https://penelopa.ai/auto-improve-upload.ps1" }),
     [string]$ProjectId = $env:AUTO_IMPROVE_PROJECT_ID,
@@ -105,6 +108,68 @@ function Request-BootstrapToken {
         throw "Token endpoint did not return api_token."
     }
     return $issuedToken
+}
+
+function New-DashboardTokenLink {
+    param(
+        [string]$BaseUrl,
+        [string]$AccessToken
+    )
+    $dashboardBase = $BaseUrl.TrimEnd("/")
+    $encodedToken = [System.Uri]::EscapeDataString($AccessToken)
+    return "${dashboardBase}#token=$encodedToken"
+}
+
+function New-NotificationsTokenLink {
+    param(
+        [string]$BaseUrl,
+        [string]$AccessToken
+    )
+    $dashboardBase = $BaseUrl.TrimEnd("/")
+    $encodedToken = [System.Uri]::EscapeDataString($AccessToken)
+    return "${dashboardBase}/notifications#token=$encodedToken"
+}
+
+function New-TelegramSetupLink {
+    param(
+        [string]$AccessToken
+    )
+    $headers = @{
+        Accept = "application/json"
+        Authorization = "Bearer $AccessToken"
+    }
+    $settingsBody = @{
+        enabled = $true
+        language = "en"
+        notification_types = @("recommendation_created", "recommendation_approved")
+    } | ConvertTo-Json -Compress
+
+    try {
+        Invoke-RestMethod `
+            -Method Patch `
+            -Uri $TelegramSettingsUrl `
+            -Headers $headers `
+            -ContentType "application/json" `
+            -Body $settingsBody | Out-Null
+
+        $link = Invoke-RestMethod `
+            -Method Post `
+            -Uri $TelegramLinkUrl `
+            -Headers $headers
+
+        $deepLinkUrl = [string]$link.deep_link_url
+        if ([string]::IsNullOrWhiteSpace($deepLinkUrl)) {
+            throw "Telegram setup-link endpoint did not return deep_link_url."
+        }
+
+        return [pscustomobject]@{
+            DeepLinkUrl = $deepLinkUrl
+            ExpiresAt = [string]$link.expires_at
+        }
+    } catch {
+        Write-InstallLog "warning: Telegram setup link could not be generated: $($_.Exception.Message)"
+        return $null
+    }
 }
 
 function Resolve-InstallToken {
@@ -260,6 +325,18 @@ if ($Agent -eq "claude" -or $Agent -eq "both") {
 }
 
 Write-InstallLog "installed. Endpoint: $Url"
+$dashboardLink = New-DashboardTokenLink -BaseUrl $DashboardUrl -AccessToken $Token
+$notificationsLink = New-NotificationsTokenLink -BaseUrl $DashboardUrl -AccessToken $Token
+Write-InstallLog "dashboard: $dashboardLink"
+$telegramSetupLink = New-TelegramSetupLink -AccessToken $Token
+if ($telegramSetupLink) {
+    Write-InstallLog "telegram setup: $($telegramSetupLink.DeepLinkUrl)"
+    if (-not [string]::IsNullOrWhiteSpace($telegramSetupLink.ExpiresAt)) {
+        Write-InstallLog "telegram setup expires at: $($telegramSetupLink.ExpiresAt)"
+    }
+} else {
+    Write-InstallLog "telegram setup unavailable; configure it manually: $notificationsLink"
+}
 if ($bootstrapTokenIssued) {
     Write-InstallLog "issued API token: $Token"
 }

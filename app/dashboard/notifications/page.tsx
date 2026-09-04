@@ -23,9 +23,40 @@ function clearStoredToken() {
   }
 }
 
+function storeToken(value: string) {
+  try {
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, value);
+  } catch {
+    // The token can still be used for this session.
+  }
+}
+
 function readStoredToken() {
   try {
     return window.localStorage.getItem(TOKEN_STORAGE_KEY)?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function consumeTokenFromHash() {
+  try {
+    const rawHash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    if (!rawHash) {
+      return null;
+    }
+
+    const token = new URLSearchParams(rawHash).get("token")?.trim() || null;
+    if (token) {
+      window.history.replaceState(
+        null,
+        document.title,
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+    return token;
   } catch {
     return null;
   }
@@ -45,12 +76,16 @@ export default function TelegramNotificationsPage() {
     setTheme(preferredTheme);
     applyTheme(preferredTheme);
 
-    const storedToken = readStoredToken();
+    const hashToken = consumeTokenFromHash();
+    const storedToken = hashToken || readStoredToken();
     if (!storedToken) {
       setScreen("locked");
       return;
     }
 
+    if (hashToken) {
+      storeToken(hashToken);
+    }
     setToken(storedToken);
     setScreen("ready");
   }, []);
@@ -69,11 +104,7 @@ export default function TelegramNotificationsPage() {
       return;
     }
 
-    try {
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, candidate);
-    } catch {
-      // The token can still be used for this session.
-    }
+    storeToken(candidate);
 
     setToken(candidate);
     setError("");

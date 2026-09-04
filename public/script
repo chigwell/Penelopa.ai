@@ -7,6 +7,9 @@ SEGMENT_URL="https://api.penelopa.ai/v2/transcript-segments"
 URL="${AUTO_IMPROVE_URL:-$SEGMENT_URL}"
 TOKEN="${AUTO_IMPROVE_TOKEN:-}"
 TOKEN_URL="${AUTO_IMPROVE_TOKEN_URL:-https://api.penelopa.ai/v1/auth/bootstrap-token}"
+DASHBOARD_URL="${AUTO_IMPROVE_DASHBOARD_URL:-https://penelopa.ai/dashboard}"
+TELEGRAM_SETTINGS_URL="${AUTO_IMPROVE_TELEGRAM_SETTINGS_URL:-https://api.penelopa.ai/v1/user/telegram-notifications}"
+TELEGRAM_LINK_URL="${AUTO_IMPROVE_TELEGRAM_LINK_URL:-https://api.penelopa.ai/v1/user/telegram-notifications/link}"
 PROJECT_ID="${AUTO_IMPROVE_PROJECT_ID:-}"
 UPLOAD_MODE="${AUTO_IMPROVE_UPLOAD_MODE:-segments}"
 DATA_DIR="${AUTO_IMPROVE_DATA_DIR:-}"
@@ -34,6 +37,9 @@ Options:
   --url URL                    Ingest endpoint. Default: https://api.penelopa.ai/v2/transcript-segments
   --token TOKEN                API bearer token. Default: request a new public token.
   --token-url URL              Public token endpoint. Default: https://api.penelopa.ai/v1/auth/bootstrap-token
+  --dashboard-url URL          Dashboard URL. Default: https://penelopa.ai/dashboard
+  --telegram-settings-url URL  Telegram settings endpoint. Default: https://api.penelopa.ai/v1/user/telegram-notifications
+  --telegram-link-url URL      Telegram setup-link endpoint. Default: https://api.penelopa.ai/v1/user/telegram-notifications/link
   --force-new-token            Request a new token even when a hook token already exists.
   --env-file FILE              .env file used to read API_ACCESS_TOKEN. Default: project .env.
   --hook-url URL               Uploader hook download URL. Default: https://penelopa.ai/auto-improve-upload.sh.
@@ -130,6 +136,33 @@ json_field() {
   fi
 }
 
+urlencode_component() {
+  value="$1"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import sys
+try:
+    from urllib.parse import quote
+except ImportError:
+    from urllib import quote
+sys.stdout.write(quote(sys.argv[1], safe=""))
+' "$value"
+  elif command -v python >/dev/null 2>&1; then
+    python -c '
+import sys
+try:
+    from urllib.parse import quote
+except ImportError:
+    from urllib import quote
+sys.stdout.write(quote(sys.argv[1], safe=""))
+' "$value"
+  elif command -v node >/dev/null 2>&1; then
+    node -e 'process.stdout.write(encodeURIComponent(process.argv[1] || ""));' "$value"
+  else
+    return 1
+  fi
+}
+
 run_as_root() {
   if [ "$(id -u 2>/dev/null || printf 1)" = "0" ]; then
     "$@"
@@ -160,6 +193,21 @@ while [ "$#" -gt 0 ]; do
     --token-url)
       [ "$#" -ge 2 ] || die "--token-url requires a value"
       TOKEN_URL="$2"
+      shift 2
+      ;;
+    --dashboard-url)
+      [ "$#" -ge 2 ] || die "--dashboard-url requires a value"
+      DASHBOARD_URL="$2"
+      shift 2
+      ;;
+    --telegram-settings-url)
+      [ "$#" -ge 2 ] || die "--telegram-settings-url requires a value"
+      TELEGRAM_SETTINGS_URL="$2"
+      shift 2
+      ;;
+    --telegram-link-url)
+      [ "$#" -ge 2 ] || die "--telegram-link-url requires a value"
+      TELEGRAM_LINK_URL="$2"
       shift 2
       ;;
     --force-new-token)
@@ -580,6 +628,103 @@ configure_claude() {
   log "Claude Code hook configured at $config_file"
 }
 
+request_telegram_setup_link() {
+  telegram_settings_response=$(mktemp "${TMPDIR:-/tmp}/auto-improve-telegram-settings.XXXXXX") || return 1
+  telegram_settings_error="$telegram_settings_response.err"
+  telegram_settings_payload='{"enabled":true,"language":"en","notification_types":["recommendation_created","recommendation_approved"]}'
+  telegram_curl_exit=0
+  telegram_http_code=$(curl \
+    --silent \
+    --show-error \
+    --request PATCH \
+    --header "Accept: application/json" \
+    --header "Authorization: Bearer $TOKEN" \
+    --header "Content-Type: application/json" \
+    --data "$telegram_settings_payload" \
+    --output "$telegram_settings_response" \
+    --write-out "%{http_code}" \
+    "$TELEGRAM_SETTINGS_URL" \
+    2>"$telegram_settings_error") || telegram_curl_exit=$?
+
+  if [ "$telegram_curl_exit" -ne 0 ]; then
+    telegram_error_message=$(cat "$telegram_settings_error" 2>/dev/null || true)
+    rm -f "$telegram_settings_response" "$telegram_settings_error"
+    log "warning: Telegram notification settings could not be saved${telegram_error_message:+: $telegram_error_message}"
+    return 1
+  fi
+
+  case "$telegram_http_code" in
+    200|204) ;;
+    *)
+      telegram_detail=$(json_field "$telegram_settings_response" detail)
+      rm -f "$telegram_settings_response" "$telegram_settings_error"
+      log "warning: Telegram notification settings returned HTTP ${telegram_http_code:-000}${telegram_detail:+: $telegram_detail}"
+      return 1
+      ;;
+  esac
+  rm -f "$telegram_settings_response" "$telegram_settings_error"
+
+  telegram_link_response=$(mktemp "${TMPDIR:-/tmp}/auto-improve-telegram-link.XXXXXX") || return 1
+  telegram_link_error="$telegram_link_response.err"
+  telegram_curl_exit=0
+  telegram_http_code=$(curl \
+    --silent \
+    --show-error \
+    --request POST \
+    --header "Accept: application/json" \
+    --header "Authorization: Bearer $TOKEN" \
+    --output "$telegram_link_response" \
+    --write-out "%{http_code}" \
+    "$TELEGRAM_LINK_URL" \
+    2>"$telegram_link_error") || telegram_curl_exit=$?
+
+  if [ "$telegram_curl_exit" -ne 0 ]; then
+    telegram_error_message=$(cat "$telegram_link_error" 2>/dev/null || true)
+    rm -f "$telegram_link_response" "$telegram_link_error"
+    log "warning: Telegram setup link could not be generated${telegram_error_message:+: $telegram_error_message}"
+    return 1
+  fi
+
+  case "$telegram_http_code" in
+    200|201)
+      telegram_deep_link=$(json_field "$telegram_link_response" deep_link_url)
+      telegram_expires_at=$(json_field "$telegram_link_response" expires_at)
+      rm -f "$telegram_link_response" "$telegram_link_error"
+      if [ -z "$telegram_deep_link" ]; then
+        log "warning: Telegram setup-link endpoint did not return deep_link_url"
+        return 1
+      fi
+      log "telegram setup: $telegram_deep_link"
+      if [ -n "$telegram_expires_at" ]; then
+        log "telegram setup expires at: $telegram_expires_at"
+      fi
+      return 0
+      ;;
+    *)
+      telegram_detail=$(json_field "$telegram_link_response" detail)
+      rm -f "$telegram_link_response" "$telegram_link_error"
+      log "warning: Telegram setup-link endpoint returned HTTP ${telegram_http_code:-000}${telegram_detail:+: $telegram_detail}"
+      return 1
+      ;;
+  esac
+}
+
+print_access_links() {
+  encoded_token=$(urlencode_component "$TOKEN") || {
+    log "warning: could not URL-encode token for dashboard links"
+    return 0
+  }
+  dashboard_base=${DASHBOARD_URL%/}
+  [ -n "$dashboard_base" ] || dashboard_base="$DASHBOARD_URL"
+  dashboard_link="${dashboard_base}#token=${encoded_token}"
+  notifications_link="${dashboard_base}/notifications#token=${encoded_token}"
+
+  log "dashboard: $dashboard_link"
+  if ! request_telegram_setup_link; then
+    log "telegram setup unavailable; configure it manually: $notifications_link"
+  fi
+}
+
 install_curl
 if [ "$UPLOAD_MODE" = "segments" ] \
   && ! command -v sha256sum >/dev/null 2>&1 \
@@ -610,6 +755,7 @@ case "$AGENT" in
 esac
 
 log "installed. Endpoint: $URL"
+print_access_links
 if [ "$BOOTSTRAP_TOKEN_ISSUED" -eq 1 ]; then
   log "issued API token: $TOKEN"
 fi

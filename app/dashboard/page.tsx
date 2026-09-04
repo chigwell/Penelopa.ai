@@ -196,9 +196,40 @@ function clearStoredToken() {
   }
 }
 
+function storeToken(value: string) {
+  try {
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, value);
+  } catch {
+    // The token remains usable for the current page even if storage is blocked.
+  }
+}
+
 function readStoredToken() {
   try {
     return window.localStorage.getItem(TOKEN_STORAGE_KEY)?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function consumeTokenFromHash() {
+  try {
+    const rawHash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    if (!rawHash) {
+      return null;
+    }
+
+    const token = new URLSearchParams(rawHash).get("token")?.trim() || null;
+    if (token) {
+      window.history.replaceState(
+        null,
+        document.title,
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+    return token;
   } catch {
     return null;
   }
@@ -236,7 +267,7 @@ export default function DashboardPage() {
       ]);
 
       if (persistToken) {
-        window.localStorage.setItem(TOKEN_STORAGE_KEY, candidate);
+        storeToken(candidate);
       }
       setToken(candidate);
       setDashboard({ summary, activity, recommendations });
@@ -262,12 +293,13 @@ export default function DashboardPage() {
     setTheme(preferredTheme);
     applyTheme(preferredTheme);
 
-    const storedToken = readStoredToken();
+    const hashToken = consumeTokenFromHash();
+    const storedToken = hashToken || readStoredToken();
     if (!storedToken) {
       setScreen("locked");
       return;
     }
-    void loadDashboard(storedToken, 1, false);
+    void loadDashboard(storedToken, 1, Boolean(hashToken));
   }, []);
 
   const chartData = useMemo(

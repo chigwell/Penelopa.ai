@@ -16,7 +16,7 @@ import {
   Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -26,6 +26,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { TelegramNotificationsSettings } from "./TelegramNotifications";
 
 type Theme = "light" | "dark";
 type ScreenState = "locked" | "loading" | "ready";
@@ -303,6 +304,15 @@ export default function DashboardPage() {
     setScreen("locked");
   }
 
+  const handleAuthExpired = useCallback(() => {
+    clearStoredToken();
+    setToken(null);
+    setTokenInput("");
+    setDashboard(null);
+    setError("Your access token has expired. Enter it again.");
+    setScreen("locked");
+  }, []);
+
   async function changePage(page: number) {
     if (!token || !dashboard || pageLoading) {
       return;
@@ -475,6 +485,12 @@ export default function DashboardPage() {
             </article>
           ))}
         </section>
+
+        <TelegramNotificationsSettings
+          mode="compact"
+          token={token}
+          onAuthExpired={handleAuthExpired}
+        />
 
         <section className="activity-panel" aria-labelledby="activity-title">
           <div className="panel-topline">

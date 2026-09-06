@@ -1,5 +1,7 @@
 "use client";
 
+import { useTheme } from "./lib/use-theme";
+
 import type { PublicStatsSummary, GitHubRepoStats } from "./lib/api-types";
 import { formatPublicMetric as formatMetric, formatStars, formatGeneratedAt } from "./lib/formatting";
 import { copyText } from "./lib/clipboard";
@@ -8,7 +10,6 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import PenelopaHowItWorksDemo from "./components/PenelopaHowItWorksDemo";
 
-type Theme = "light" | "dark";
 type ScriptTab = "sh" | "powershell";
 
 const GITHUB_REPO_URL = "https://github.com/chigwell/penelopa.ai";
@@ -33,28 +34,14 @@ const FEATURES = [
   ["03", "Process improvements"],
 ] as const;
 
-function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
-  window.localStorage.setItem("penelopa-theme", theme);
-}
-
 export default function Home() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<ScriptTab>("sh");
   const [stats, setStats] = useState<PublicStatsSummary | null>(null);
   const [statsError, setStatsError] = useState(false);
   const [githubRepo, setGithubRepo] = useState<GitHubRepoStats | null>(null);
   const [githubRepoError, setGithubRepoError] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem("penelopa-theme");
-    const preferredTheme =
-      savedTheme === "light" || savedTheme === "dark" ? savedTheme : "light";
-
-    setTheme(preferredTheme);
-    applyTheme(preferredTheme);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -123,12 +110,6 @@ export default function Home() {
 
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
-  }
-
-  function toggleTheme() {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    applyTheme(nextTheme);
   }
 
   return (

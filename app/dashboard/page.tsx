@@ -1,27 +1,22 @@
 "use client";
 
+import { useTheme } from "../lib/use-theme";
+
 import type { DashboardSummary, DailyActivityPoint, Recommendation, RecommendationPage, RecommendationDetail, DashboardData } from "../lib/api-types";
 import { formatMetric, formatDelta, formatUpdated, formatDay, formatDateTime } from "../lib/formatting";
 import { copyText } from "../lib/clipboard";
 import type { ApiError } from "../lib/penelopa-client";
 
 import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../lib/penelopa-client";
-import { DesktopSignIn } from "./DesktopSignIn";
+import { DashboardTopbar, AccessTokenForm } from "./PageChrome";
 
-import Image from "next/image";
 import {
-  ArrowLeft,
-  ArrowRight,
   ArrowUpRight,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Copy,
-  LogOut,
-  Moon,
-  RefreshCw,
-  Sun,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
@@ -36,7 +31,6 @@ import {
 } from "recharts";
 import { TelegramNotificationsSettings } from "./TelegramNotifications";
 
-type Theme = "light" | "dark";
 type ScreenState = "locked" | "loading" | "ready";
 
 type ChartKey =
@@ -61,14 +55,9 @@ const CHART_SERIES: ReadonlyArray<{
   { key: "processed_tokens_total", label: "Tokens", color: "var(--chart-tokens)", axis: "tokens" },
 ];
 
-function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
-  window.localStorage.setItem("penelopa-theme", theme);
-}
-
 export default function DashboardPage() {
   const desktop = useDesktop();
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggleTheme } = useTheme();
   const [screen, setScreen] = useState<ScreenState>("loading");
   const [tokenInput, setTokenInput] = useState("");
   const [token, setToken] = useState<string | null>(null);
@@ -119,12 +108,6 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    const savedTheme = window.localStorage.getItem("penelopa-theme");
-    const preferredTheme =
-      savedTheme === "light" || savedTheme === "dark" ? savedTheme : "light";
-    setTheme(preferredTheme);
-    applyTheme(preferredTheme);
-
     function loadHashToken() {
       const hashToken = consumeTokenFromHash();
       if (!hashToken) {
@@ -158,12 +141,6 @@ export default function DashboardPage() {
       })) ?? [],
     [dashboard?.activity],
   );
-
-  function toggleTheme() {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    applyTheme(nextTheme);
-  }
 
   function handleSignIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -297,30 +274,14 @@ export default function DashboardPage() {
             <h1 id="token-title">Your own usage.</h1>
             <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
           </div>
-          {desktop ? <DesktopSignIn /> : <form className="token-form" onSubmit={handleSignIn}>
-            <label htmlFor="access-token">Access token</label>
-            <div className="token-field-row">
-              <input
-                id="access-token"
-                type="password"
-                value={tokenInput}
-                onChange={(event) => setTokenInput(event.target.value)}
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                placeholder="Paste your token"
-                disabled={screen === "loading"}
-              />
-              <button className="token-submit" type="submit" disabled={screen === "loading"}>
-                {screen === "loading" ? "Loading" : "Open"}
-                <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
-              </button>
-            </div>
-            <p className={error ? "token-note is-error" : "token-note"}>
-              {error || "Stored only in this browser."
-              }
-            </p>
-          </form>}
+          <AccessTokenForm
+            desktop={desktop}
+            loading={screen === "loading"}
+            value={tokenInput}
+            onChange={setTokenInput}
+            error={error}
+            onSubmit={handleSignIn}
+          />
         </section>
       </main>
     );
@@ -574,52 +535,3 @@ export default function DashboardPage() {
   );
 }
 
-function DashboardTopbar({
-  theme,
-  onThemeToggle,
-  onLogout,
-  onRefresh,
-}: {
-  theme: Theme;
-  onThemeToggle: () => void;
-  onLogout?: () => void;
-  onRefresh?: () => void;
-}) {
-  return (
-    <header className="dashboard-topbar">
-      <div className="dashboard-topbar-inner">
-        <a className="brand" href="/" aria-label="Penelopa.ai home">
-          <span className="brand-mark" aria-hidden="true">
-            <Image src="/penelopa-ai.png" alt="" width={42} height={42} priority className="brand-logo" />
-          </span>
-          <span className="brand-name">Penelopa.ai</span>
-        </a>
-        <div className="dashboard-actions">
-          <a className="back-link" href="/">
-            <ArrowLeft aria-hidden="true" size={15} strokeWidth={1.8} />
-            Public usage
-          </a>
-          {onRefresh ? (
-            <button className="icon-button" type="button" onClick={onRefresh} aria-label="Refresh dashboard" title="Refresh dashboard">
-              <RefreshCw aria-hidden="true" size={16} strokeWidth={1.8} />
-            </button>
-          ) : null}
-          {onLogout ? (
-            <button className="icon-button" type="button" onClick={onLogout} aria-label="Log out" title="Log out">
-              <LogOut aria-hidden="true" size={16} strokeWidth={1.8} />
-            </button>
-          ) : null}
-          <button
-            className="icon-button"
-            type="button"
-            onClick={onThemeToggle}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-            title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          >
-            {theme === "dark" ? <Sun aria-hidden="true" size={16} strokeWidth={1.8} /> : <Moon aria-hidden="true" size={16} strokeWidth={1.8} />}
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}

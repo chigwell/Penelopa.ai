@@ -1,21 +1,8 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
-const { transformSync, buildSync } = require("esbuild");
-
-// Characterize the original private helpers before extracting them. The
-// assertions stay fixed when this loader switches to the shared modules.
-function privateHelpers(relativePath, componentMarker, names, globals = {}) {
-  const file = path.join(__dirname, relativePath);
-  const original = fs.readFileSync(file, "utf8").split(componentMarker)[0];
-  const declarations = original.replace(/^import[\s\S]*?from ["'][^"']+["'];$/gm, "");
-  const source = transformSync(`${declarations}\nexport { ${names.join(", ")} };`, { loader: "ts", format: "cjs" }).code;
-  const module = { exports: {} };
-  vm.runInNewContext(source, { module, exports: module.exports, Intl, Date, ...globals });
-  return module.exports;
-}
+const { buildSync } = require("esbuild");
 
 function sharedHelpers(relativePath, globals = {}) {
   const source = buildSync({ entryPoints: [path.join(__dirname, relativePath)], bundle: true,
@@ -27,10 +14,7 @@ function sharedHelpers(relativePath, globals = {}) {
 
 const dashboard = sharedHelpers("formatting.ts");
 const home = { ...dashboard, formatMetric: dashboard.formatPublicMetric };
-const telegram = privateHelpers("../dashboard/TelegramNotifications.tsx", "export function TelegramNotificationsSettings", [
-  "formatDateTime", "normalizeNotificationTypes", "getStatusLabel", "getStatusTone", "getDeliveryLabel", "getStatusCopy",
-  "getStateLabel", "getStateHeading", "getTypeSummary", "getExpiryTime", "getPendingInstruction", "getTimeRemainingLabel", "getLastCheckedLabel", "isSetupAvailable",
-], { formatSharedDateTime: dashboard.formatDateTime });
+const telegram = sharedHelpers("../dashboard/telegram/helpers.ts");
 
 test("homepage and dashboard preserve distinct placeholders and metric thresholds", () => {
   assert.equal(home.formatMetric(undefined), "...");

@@ -7,6 +7,7 @@ const os = require('node:os');
 const http = require('node:http');
 const { spawn, spawnSync } = require('node:child_process');
 const { extractZip } = require('../runtime/archive.cjs');
+const { sourceArchive } = require('./assets.cjs');
 const { capture } = require('../runtime/hook.cjs');
 const { readJson, writeJson, atomicWrite } = require('../runtime/files.cjs');
 const { download } = require('../runtime/network.cjs');
@@ -39,7 +40,7 @@ async function setup(t, prefix = 'penelopa-delivery-') {
     await stopWorker(root);
     fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
-  const source = path.join(root, 'release'); extractZip(fs.readFileSync(path.join(__dirname, `../../public/desktop/releases/${require("../package.json").version}/source.zip`)), source);
+  const source = path.join(root, 'release'); extractZip(sourceArchive(), source);
   const env = { ...process.env, PENELOPA_TESTING: '1', AUTO_IMPROVE_HOME: root, CODEX_HOME: path.join(root, 'codex'), CLAUDE_CONFIG_DIR: path.join(root, 'claude'), AUTO_IMPROVE_HOOK_CONFIG: path.join(root, process.platform === 'win32' ? 'credential.json' : 'credential.env'), AUTO_IMPROVE_TOKEN: 'test-only-token', AUTO_IMPROVE_DATA_DIR: root };
   const result = spawnSync(process.execPath, [path.join(source, 'runtime/install.cjs'), '--no-desktop', '--drain-max-seconds', '2'], { env, encoding: 'utf8', timeout: 60_000 });
   assert.equal(result.status, 0, result.stderr); return { root, source, env };

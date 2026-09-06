@@ -10,14 +10,15 @@ const { editHooks } = require('../runtime/hooks-config.cjs');
 const { validateRequest, externalUrl } = require('../runtime/api.cjs');
 const { advance } = require('../runtime/notifications.cjs');
 const { AuthSession } = require('../runtime/auth.cjs');
-const { writeJson, readJson, atomicWrite, fingerprint } = require('../runtime/files.cjs');
+const { writeJson, readJson, atomicWrite } = require('../runtime/files.cjs');
 const { capture } = require('../runtime/hook.cjs');
 const { newer } = require('../runtime/update.cjs');
+const { sourceArchive } = require('./assets.cjs');
 
 function temporary(t) { const root = fs.mkdtempSync(path.join(os.tmpdir(), "penelopa spaces ' ü-")); t.after(() => fs.rmSync(root, { recursive: true, force: true })); return root; }
 function fixture(t) {
   const root = temporary(t), source = path.join(root, 'release');
-  const archive = fs.readFileSync(path.join(__dirname, `../../public/desktop/releases/${require("../package.json").version}/source.zip`));
+  const archive = sourceArchive();
   extractZip(archive, source);
   const configFile = path.join(root, process.platform === 'win32' ? 'credential.json' : 'credential.env');
   const env = { ...process.env, AUTO_IMPROVE_HOME: root, CODEX_HOME: path.join(root, 'codex'), CLAUDE_CONFIG_DIR: path.join(root, 'claude'), AUTO_IMPROVE_HOOK_CONFIG: configFile, AUTO_IMPROVE_TOKEN: 'fixture-private-token', AUTO_IMPROVE_DATA_DIR: root };
@@ -127,10 +128,4 @@ test('malformed agent JSON aborts before credentials or other agent files change
   writeJson(codex, { preserved: true }); atomicWrite(claude, '{ broken');
   const result = f.run('--no-desktop'); assert.equal(result.status, 1); assert.deepEqual(readJson(codex), { preserved: true });
   assert.equal(fs.existsSync(f.configFile), false); assert.equal(fs.readFileSync(claude, 'utf8'), '{ broken');
-});
-test('published artifacts match their pinned manifest', () => {
-  const base = path.join(__dirname, '../../public/desktop'); const manifest = readJson(path.join(base, 'manifest.json'));
-  assert.equal(fingerprint(fs.readFileSync(path.join(base, `releases/${manifest.version}/source.zip`))), manifest.source.sha256);
-  assert.equal(fingerprint(fs.readFileSync(path.join(base, 'bootstrap.cjs'))), manifest.bootstrap.sha256);
-  assert.ok(fs.readFileSync(path.join(__dirname, '../../public/script'), 'utf8').includes(manifest.bootstrap.sha256));
 });

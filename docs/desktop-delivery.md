@@ -13,7 +13,7 @@ The root project serves the existing dashboard and static installer assets. `des
 
 ## Release assets
 
-Run `npm run release:desktop` after changes to desktop code, bootstrap templates, uploaders or pinned versions. This generates:
+Run `npm run release:desktop` explicitly to prepare a new desktop release after changes to desktop code, bootstrap templates, uploaders or pinned versions. Website builds and tests do not prepare releases. This generates:
 
 - `public/desktop/bootstrap.cjs`: bundled bootstrap with only Node built-ins.
 - `public/desktop/releases/<version>/source.zip`: deterministic ZIP/STORE source bundle; no installed dependencies or user data.
@@ -22,7 +22,7 @@ Run `npm run release:desktop` after changes to desktop code, bootstrap templates
 
 The POSIX bootstrap needs standard OS shell tools and curl or wget. Windows uses Windows PowerShell/.NET and Expand-Archive. Once Node is available, source ZIP extraction and upload HTTP requests use Node built-ins. npm runs privately and with lifecycle scripts disabled. Artifact SHA-256 validation provides integrity checking over HTTPS; it is not an Apple/Microsoft publisher signature or independent protection against compromise of the release server.
 
-Versioned release URLs are immutable after publication. Bump both `desktop/package.json` and `desktop/release-config.json` for every published source change. Keep previously published version directories available when deploying a later release; retain them in the static asset deployment or an archive origin. Do not regenerate an already published version from different source and overwrite its URL.
+Versioned release URLs are immutable after publication. Bump `desktop/package.json`, `desktop/package-lock.json` and `desktop/release-config.json` together for every published source change. Generation checks both versioned files before writing any entrypoints and refuses different content at an existing version; identical regeneration is allowed. Keep previously published version directories available when deploying a later release; retain them in the static asset deployment or an archive origin. Do not regenerate an already published version from different source and overwrite its URL.
 
 Deployment sequence:
 
@@ -36,9 +36,17 @@ There is no automatic production deployment in the verification workflow. Instal
 
 ## Verification
 
+- `npm run build` builds only the website from the checked-in static assets.
+- `npm run test:desktop` generates current desktop source and bootstrap assets in a temporary directory, runs isolated fixtures against that source, and removes the generated assets afterward. Direct `node --test desktop/test/*.test.cjs` invocations also generate temporary current-source bundles when needed.
+- `npm run verify:desktop-assets` checks every checked-in versioned source archive, current/versioned manifest parity, and the current bootstrap/installer hashes without writing files. It verifies published integrity, not parity with unpublished working source.
+- `npm run verify:desktop-build` generates current-source assets in its retained temporary build directory and runs native packaging/launch verification against them.
+- `npm run release:desktop` is the explicit publication-preparation command; it does not deploy anything.
+
+The generator accepts an explicit source root and output directory, uses deterministic ZIP/STORE entries, and preserves the public asset layout. Tests compare independent generations, current-source contents, immutable-release rejection, and source-tree non-mutation. CI separately checks published integrity and rejects tracked changes after validation.
+
 `npm run test:desktop` runs isolated fixtures. The tests never use personal agent directories or production credentials. Network tests use loopback HTTP and synthetic transcripts; environments that forbid local listening need permission to run those tests outside the sandbox.
 
-The native build verifier (`node scripts/verify-desktop-build.cjs`) downloads the pinned private Node into a temporary directory, extracts a verified local source archive, packages for the host CPU, ad-hoc signs on macOS, and starts the resulting executable. Its launch check renders the local UI, verifies the isolated preload bridge, and saves a screenshot beside the marker under the temporary build directory. It does not install into Applications, register autostart, access Keychain or modify the user's hooks.
+The native build verifier (`node scripts/verify-desktop-build.cjs`) downloads the pinned private Node into a temporary directory, extracts a verified temporary archive generated from current source, packages for the host CPU, ad-hoc signs on macOS, and starts the resulting executable. Its launch check renders the local UI, verifies the isolated preload bridge, and saves a screenshot beside the marker under the temporary build directory. It does not install into Applications, register autostart, access Keychain or modify the user's hooks.
 
 The GitHub workflow covers Linux hooks, macOS arm64/x64 and Windows x64. Hosted runners have developer tools installed; the isolated installer test and minimal PATH checks reduce accidental dependency on them, but do not replace testing clean consumer OS images.
 

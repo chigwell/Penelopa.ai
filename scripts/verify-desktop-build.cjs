@@ -5,6 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { ensureRuntime } = require('../desktop/runtime/releases.cjs');
 const { extractZip } = require('../desktop/runtime/archive.cjs');
+const { generateDesktopAssets } = require('./desktop-assets.cjs');
 const { writeJson, readJson, fingerprint } = require('../desktop/runtime/files.cjs');
 async function main() {
   if (process.argv[2] === '--child') {
@@ -26,8 +27,9 @@ async function main() {
   if (!['darwin', 'win32'].includes(process.platform)) throw new Error('Native desktop verification runs on macOS or Windows. Use test:desktop for Linux hooks.');
   const root = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || os.tmpdir(), 'penelopa-build-'));
   process.env.AUTO_IMPROVE_HOME = root;
-  const manifest = readJson(path.join(__dirname, '../public/desktop/manifest.json'));
-  const archive = fs.readFileSync(path.join(__dirname, `../public/desktop/releases/${manifest.version}/source.zip`));
+  const assets = path.join(root, 'assets');
+  const manifest = generateDesktopAssets(path.resolve(__dirname, '..'), assets);
+  const archive = fs.readFileSync(path.join(assets, 'desktop/releases', manifest.version, 'source.zip'));
   if (fingerprint(archive) !== manifest.source.sha256) throw new Error('Local source checksum mismatch.');
   extractZip(archive, path.join(root, 'release'));
   const node = await ensureRuntime(manifest, root);

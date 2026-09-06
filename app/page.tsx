@@ -1,32 +1,15 @@
 "use client";
 
+import type { PublicStatsSummary, GitHubRepoStats } from "./lib/api-types";
+import { formatPublicMetric as formatMetric, formatStars, formatGeneratedAt } from "./lib/formatting";
+import { copyText } from "./lib/clipboard";
+
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import PenelopaHowItWorksDemo from "./components/PenelopaHowItWorksDemo";
 
 type Theme = "light" | "dark";
 type ScriptTab = "sh" | "powershell";
-
-type PublicStatsCounters = {
-  total_tokens: number;
-  messages_count: number;
-  recommendations_count: number;
-};
-
-type PublicStatsSummary = {
-  all_time: PublicStatsCounters;
-  last_24h: PublicStatsCounters;
-  generated_at: string;
-  cache_ttl_seconds: number;
-};
-
-type GitHubRepoStats = {
-  full_name: string;
-  html_url: string;
-  stargazers_count: number;
-  generated_at: string;
-  cache_ttl_seconds: number;
-};
 
 const GITHUB_REPO_URL = "https://github.com/chigwell/penelopa.ai";
 const GITHUB_REPO_NAME = "chigwell/penelopa.ai";
@@ -53,43 +36,6 @@ const FEATURES = [
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem("penelopa-theme", theme);
-}
-
-function formatMetric(value: number | undefined) {
-  if (value === undefined) {
-    return "...";
-  }
-
-  return new Intl.NumberFormat("en", {
-    maximumFractionDigits: value >= 100_000 ? 1 : 0,
-    notation: value >= 100_000 ? "compact" : "standard",
-  }).format(value);
-}
-
-function formatStars(value: number | undefined) {
-  if (value === undefined) {
-    return "... stars";
-  }
-
-  return `${formatMetric(value)} ${value === 1 ? "star" : "stars"}`;
-}
-
-function formatGeneratedAt(value: string | undefined) {
-  if (!value) {
-    return "Updating";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Live";
-  }
-
-  return `Updated ${new Intl.DateTimeFormat("en", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-  }).format(date)}`;
 }
 
 export default function Home() {
@@ -173,19 +119,7 @@ export default function Home() {
   );
 
   async function copyInstallCommand() {
-    try {
-      await window.navigator.clipboard.writeText(installCommand);
-    } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = installCommand;
-      textarea.setAttribute("readonly", "");
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      textarea.remove();
-    }
+    await copyText(installCommand);
 
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);

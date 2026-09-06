@@ -1,16 +1,10 @@
+import type { GitHubRepoStats } from "../../lib/api-types";
+
 const GITHUB_REPO_API_URL = "https://api.github.com/repos/chigwell/penelopa.ai";
 const GITHUB_REPO_URL = "https://github.com/chigwell/penelopa.ai";
 const GITHUB_REPO_NAME = "chigwell/penelopa.ai";
 const CACHE_TTL_SECONDS = 3600;
 const CACHE_CONTROL = `public, max-age=300, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=86400`;
-
-type GitHubRepoStats = {
-  full_name: string;
-  html_url: string;
-  stargazers_count: number;
-  generated_at: string;
-  cache_ttl_seconds: number;
-};
 
 type GitHubRepoPayload = {
   stargazers_count: number;

@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
-const { transformSync } = require("esbuild");
+const { transformSync, buildSync } = require("esbuild");
 
 // Characterize the original private helpers before extracting them. The
 // assertions stay fixed when this loader switches to the shared modules.
@@ -17,12 +17,20 @@ function privateHelpers(relativePath, componentMarker, names, globals = {}) {
   return module.exports;
 }
 
-const home = privateHelpers("../page.tsx", "export default function Home", ["formatMetric", "formatStars", "formatGeneratedAt"]);
-const dashboard = privateHelpers("../dashboard/page.tsx", "export default function DashboardPage", ["formatMetric", "formatDelta", "formatDay", "formatDateTime"]);
+function sharedHelpers(relativePath, globals = {}) {
+  const source = buildSync({ entryPoints: [path.join(__dirname, relativePath)], bundle: true,
+    platform: "node", format: "cjs", write: false }).outputFiles[0].text;
+  const module = { exports: {} };
+  vm.runInNewContext(source, { module, exports: module.exports, Intl, Date, ...globals });
+  return module.exports;
+}
+
+const dashboard = sharedHelpers("formatting.ts");
+const home = { ...dashboard, formatMetric: dashboard.formatPublicMetric };
 const telegram = privateHelpers("../dashboard/TelegramNotifications.tsx", "export function TelegramNotificationsSettings", [
   "formatDateTime", "normalizeNotificationTypes", "getStatusLabel", "getStatusTone", "getDeliveryLabel", "getStatusCopy",
   "getStateLabel", "getStateHeading", "getTypeSummary", "getExpiryTime", "getPendingInstruction", "getTimeRemainingLabel", "getLastCheckedLabel", "isSetupAvailable",
-]);
+], { formatSharedDateTime: dashboard.formatDateTime });
 
 test("homepage and dashboard preserve distinct placeholders and metric thresholds", () => {
   assert.equal(home.formatMetric(undefined), "...");
@@ -114,7 +122,7 @@ test("copy fallback preserves text, read-only selection, cleanup, and legacy fal
     select: () => calls.push(["select"]),
     remove: () => calls.push(["remove"]),
   };
-  const { copyText } = privateHelpers("../dashboard/page.tsx", "export default function DashboardPage", ["copyText"], {
+  const { copyText } = sharedHelpers("clipboard.ts", {
     navigator: { clipboard: { writeText: async (value) => {
       calls.push(["clipboard", value]);
       throw new Error("Denied");

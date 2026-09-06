@@ -1,5 +1,10 @@
 "use client";
 
+import type { RecommendationDetail } from "../../../lib/api-types";
+import { formatDateTime } from "../../../lib/formatting";
+import { copyText } from "../../../lib/clipboard";
+import type { ApiError } from "../../../lib/penelopa-client";
+
 import { apiGet, clearStoredToken, storeToken, readStoredToken, useDesktop } from "../../../lib/penelopa-client";
 import { DesktopSignIn } from "../../DesktopSignIn";
 
@@ -11,52 +16,10 @@ import { useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 type ScreenState = "locked" | "loading" | "ready";
-type ApiError = Error & { status: number };
-
-type RecommendationDetail = {
-  id: string;
-  title: string;
-  project_key: string | null;
-  session_count: number;
-  result_type: "recommendation" | "process_improvement_idea" | "insufficient_evidence" | "legacy";
-  intervention_type: "script" | "skill" | "instruction" | "workflow_change" | null;
-  created_at: string;
-  report_markdown: string;
-};
 
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem("penelopa-theme", theme);
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat("en", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-async function copyText(value: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.setAttribute("readonly", "");
-    textarea.style.opacity = "0";
-    textarea.style.position = "fixed";
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  }
 }
 
 export default function RecommendationPage() {

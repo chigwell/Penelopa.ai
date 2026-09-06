@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 import type { DesktopApiRequest, DesktopBridge } from "../../desktop/contracts";
 
 export type ApiError = Error & { status: number };
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    typeof (error as ApiError).status === "number"
+  );
+}
 export type { DesktopAuthState, DesktopApiRequest, DesktopBridge } from "../../desktop/contracts";
 declare global { interface Window { penelopaDesktop?: DesktopBridge } }
 

@@ -1,5 +1,10 @@
 "use client";
 
+import type { DashboardSummary, DailyActivityPoint, Recommendation, RecommendationPage, RecommendationDetail, DashboardData } from "../lib/api-types";
+import { formatMetric, formatDelta, formatUpdated, formatDay, formatDateTime } from "../lib/formatting";
+import { copyText } from "../lib/clipboard";
+import type { ApiError } from "../lib/penelopa-client";
+
 import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../lib/penelopa-client";
 import { DesktopSignIn } from "./DesktopSignIn";
 
@@ -34,64 +39,12 @@ import { TelegramNotificationsSettings } from "./TelegramNotifications";
 type Theme = "light" | "dark";
 type ScreenState = "locked" | "loading" | "ready";
 
-type DashboardSummary = {
-  saved_sessions_count: number;
-  saved_sessions_delta_24h: number;
-  saved_messages_count: number;
-  saved_messages_delta_24h?: number;
-  processed_tokens_total: number;
-  processed_tokens_delta_24h: number;
-  unique_projects_count: number;
-  unique_projects_delta_24h?: number;
-  recommendations_count?: number;
-  recommendations_delta_24h?: number;
-};
-
-type DailyActivityPoint = {
-  day: string;
-  sessions_count: number;
-  messages_count: number;
-  projects_count: number;
-  recommendations_count: number;
-  processed_tokens_total: number;
-};
-
-type Recommendation = {
-  id: string;
-  title: string;
-  preview_markdown: string;
-  project_key: string | null;
-  session_count: number;
-  result_type: "recommendation" | "process_improvement_idea" | "insufficient_evidence" | "legacy";
-  intervention_type: "script" | "skill" | "instruction" | "workflow_change" | null;
-  created_at: string;
-};
-
-type RecommendationPage = {
-  items: Recommendation[];
-  page: number;
-  page_size: number;
-  total: number;
-};
-
-type RecommendationDetail = Recommendation & {
-  report_markdown: string;
-};
-
-type DashboardData = {
-  summary: DashboardSummary;
-  activity: DailyActivityPoint[];
-  recommendations: RecommendationPage;
-};
-
 type ChartKey =
   | "sessions_count"
   | "messages_count"
   | "projects_count"
   | "recommendations_count"
   | "processed_tokens_total";
-
-type ApiError = Error & { status: number };
 
 const RECOMMENDATIONS_PAGE_SIZE = 10;
 
@@ -111,67 +64,6 @@ const CHART_SERIES: ReadonlyArray<{
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem("penelopa-theme", theme);
-}
-
-function formatMetric(value: number | null | undefined) {
-  if (value === null || value === undefined) {
-    return "—";
-  }
-  return new Intl.NumberFormat("en", {
-    maximumFractionDigits: value >= 100_000 ? 1 : 0,
-    notation: value >= 100_000 ? "compact" : "standard",
-  }).format(value);
-}
-
-function formatDelta(value: number | null | undefined) {
-  return value === null || value === undefined
-    ? "— / 24h"
-    : `+${formatMetric(value)} / 24h`;
-}
-
-function formatUpdated(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatDay(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(`${value}T00:00:00Z`));
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat("en", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-async function copyText(value: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.setAttribute("readonly", "");
-    textarea.style.opacity = "0";
-    textarea.style.position = "fixed";
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  }
 }
 
 export default function DashboardPage() {

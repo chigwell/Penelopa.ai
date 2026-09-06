@@ -1,6 +1,10 @@
 "use client";
 
-import { apiRequest } from "../lib/penelopa-client";
+import type { TelegramNotificationStatus, TelegramNotificationLanguage, TelegramNotificationType, TelegramNotificationState, TelegramSetupLinkResponse } from "../lib/api-types";
+export type { TelegramNotificationStatus, TelegramNotificationLanguage, TelegramNotificationType, TelegramNotificationState } from "../lib/api-types";
+import { formatDateTime as formatSharedDateTime } from "../lib/formatting";
+
+import { apiRequest, isApiError } from "../lib/penelopa-client";
 
 import {
   ArrowRight,
@@ -14,31 +18,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export type TelegramNotificationStatus = "DISABLED" | "PENDING" | "CONNECTED";
-export type TelegramNotificationLanguage = "ru" | "en";
-export type TelegramNotificationType =
-  | "recommendation_created"
-  | "recommendation_approved";
-
-export type TelegramNotificationState = {
-  enabled: boolean;
-  status: TelegramNotificationStatus;
-  language: TelegramNotificationLanguage;
-  notification_types: TelegramNotificationType[];
-  setup_available?: boolean;
-  setup_unavailable_reason?: "missing_config" | null;
-  telegram_username?: string | null;
-  telegram_chat_id?: string | number | null;
-  link_expires_at?: string | null;
-};
-
-type TelegramSetupLinkResponse = {
-  deep_link_url: string;
-  expires_at: string;
-  status: "PENDING";
-};
-
-type ApiError = Error & { status: number };
 type ComponentMode = "compact" | "full";
 
 const SETTINGS_PATH = "/user/telegram-notifications";
@@ -69,35 +48,12 @@ const NOTIFICATION_TYPE_OPTIONS: ReadonlyArray<{
   },
 ];
 
-function isApiError(error: unknown): error is ApiError {
-  return (
-    error instanceof Error &&
-    "status" in error &&
-    typeof (error as ApiError).status === "number"
-  );
-}
-
-async function telegramApi<T>(path: string, token: string, init: RequestInit = {}): Promise<T | null> {
-  return apiRequest<T | null>(path, token, init);
-}
-
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "No active expiry";
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "No active expiry";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return formatSharedDateTime(value, "No active expiry");
 }
 
 function normalizeNotificationTypes(
@@ -313,7 +269,7 @@ export function TelegramNotificationsSettings({
       }
 
       try {
-        const nextSettings = await telegramApi<TelegramNotificationState>(
+        const nextSettings = await apiRequest<TelegramNotificationState | null>(
           SETTINGS_PATH,
           token,
         );
@@ -452,7 +408,7 @@ export function TelegramNotificationsSettings({
     }
 
     try {
-      const updated = await telegramApi<TelegramNotificationState>(
+      const updated = await apiRequest<TelegramNotificationState | null>(
         SETTINGS_PATH,
         token,
         {
@@ -541,7 +497,7 @@ export function TelegramNotificationsSettings({
         return;
       }
 
-      const link = await telegramApi<TelegramSetupLinkResponse>(
+      const link = await apiRequest<TelegramSetupLinkResponse | null>(
         `${SETTINGS_PATH}/link`,
         token,
         { method: "POST" },
@@ -595,7 +551,7 @@ export function TelegramNotificationsSettings({
     setMessage("");
 
     try {
-      await telegramApi<void>(`${SETTINGS_PATH}/connection`, token, {
+      await apiRequest<void | null>(`${SETTINGS_PATH}/connection`, token, {
         method: "DELETE",
       });
       const nextSettings: TelegramNotificationState = {

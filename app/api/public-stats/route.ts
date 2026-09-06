@@ -1,18 +1,7 @@
+import type { PublicStatsCounters, PublicStatsSummary } from "../../lib/api-types";
+
 const PUBLIC_STATS_URL = "https://api.penelopa.ai/v1/public/stats/summary";
 const CACHE_CONTROL = "public, max-age=30, s-maxage=30";
-
-type PublicStatsCounters = {
-  total_tokens: number;
-  messages_count: number;
-  recommendations_count: number;
-};
-
-type PublicStatsSummary = {
-  all_time: PublicStatsCounters;
-  last_24h: PublicStatsCounters;
-  generated_at: string;
-  cache_ttl_seconds: number;
-};
 
 function isCounter(value: unknown): value is PublicStatsCounters {
   if (!value || typeof value !== "object") {

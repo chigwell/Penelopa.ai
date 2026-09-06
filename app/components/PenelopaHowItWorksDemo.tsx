@@ -1,10 +1,13 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronLeft, Copy, LogOut, Moon, RefreshCw, Send, Sun } from "lucide-react";
+import { Moon, RefreshCw, Sun } from "lucide-react";
 
-import { DEMO_CONFIG, TOKEN_POSITIONS } from "./demo/scenario";
+import { DEMO_CONFIG } from "./demo/scenario";
+import { AgentScreen } from "./demo/AgentScreen";
+import { AnalysisScreen } from "./demo/AnalysisScreen";
+import { RecommendationScreen } from "./demo/RecommendationScreen";
 import type {
   AgentKey,
   ComposerState,
@@ -48,16 +51,6 @@ function renderTitle(text: string) {
       ) : null}
     </span>
   ));
-}
-
-function renderInlineCode(text: string) {
-  return text.split(/(`[^`]+`)/g).map((part, index) => {
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-      return <code key={`${part}-${index}`}>{part.slice(1, -1)}</code>;
-    }
-
-    return <span key={`${part}-${index}`}>{part}</span>;
-  });
 }
 
 function isAbortError(error: unknown) {
@@ -108,7 +101,6 @@ export default function PenelopaHowItWorksDemo({
   const phaseText = DEMO_CONFIG.labels.phaseFormat
     .replace("{index}", phase.index)
     .replace("{label}", phase.label);
-  const copyButtonLabel = copyState === "copied" ? DEMO_CONFIG.labels.copied : DEMO_CONFIG.labels.copy;
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const agentAccent = theme === "dark" ? activeAgentConfig.accentDark : activeAgentConfig.accentLight;
   const rootStyle = useMemo(
@@ -588,57 +580,6 @@ export default function PenelopaHowItWorksDemo({
     return () => activeControllerRef.current?.abort();
   }, []);
 
-  function renderConversationItem(item: ConversationItem): ReactNode {
-    if (item.kind === "message") {
-      return (
-        <article
-          className="pd-message"
-          data-role={item.role}
-          data-variant={item.variant}
-          key={item.id}
-        >
-          <div className="pd-message__label">{item.label}</div>
-          <div className={item.streaming ? "pd-message__body is-streaming" : "pd-message__body"}>
-            {item.text}
-          </div>
-          {item.points && item.points.length > 0 ? (
-            <ul className="pd-message__points">
-              {item.points.map((point) => (
-                <li key={point}>{point}</li>
-              ))}
-            </ul>
-          ) : null}
-        </article>
-      );
-    }
-
-    if (item.kind === "reasoning") {
-      return (
-        <section className={item.complete ? "pd-working is-complete" : "pd-working"} key={item.id}>
-          <div className="pd-working__head">
-            <span className="pd-working__pulse" />
-            <span className="pd-working__label">{item.label}</span>
-            <span className="pd-working__state">{item.complete ? "Ready" : "Working"}</span>
-          </div>
-          <div className="pd-working__body">{item.text}</div>
-        </section>
-      );
-    }
-
-    return (
-      <section className={item.hasResult ? "pd-tool has-result" : "pd-tool"} data-state={item.state} key={item.id}>
-        <div className="pd-tool__head">
-          <div className="pd-tool__identity">
-            <span className="pd-tool__icon">&gt;_</span>
-            <span className="pd-tool__name">{item.name}</span>
-          </div>
-          <span className="pd-tool__status">{item.state === "complete" ? "Complete" : "Running"}</span>
-        </div>
-        <pre className="pd-tool__command">{item.input}</pre>
-        <pre className="pd-tool__result">{item.result}</pre>
-      </section>
-    );
-  }
 
   return (
     <section
@@ -693,218 +634,22 @@ export default function PenelopaHowItWorksDemo({
           </div>
 
           <div className="pd-stage">
-            <section className={screen === "agent" ? "pd-screen pd-agent is-active" : "pd-screen pd-agent"}>
-              <header className="pd-agent__topbar">
-                <div className="pd-agent__mark">{activeAgentConfig.mark}</div>
-                <div className="pd-agent__identity">
-                  <p className="pd-agent__name">
-                    {activeAgentConfig.label} · {DEMO_CONFIG.project.name}
-                  </p>
-                  <p className="pd-agent__meta">
-                    {activeAgentConfig.model} · {DEMO_CONFIG.project.branch}
-                  </p>
-                </div>
-                <div className="pd-agent__connection">
-                  <span>{DEMO_CONFIG.labels.workspaceConnected}</span>
-                </div>
-              </header>
-
-              <div className="pd-agent__body">
-                <aside className="pd-agent__sidebar" aria-label="Project files">
-                  <p className="pd-agent__sidebar-label">{DEMO_CONFIG.labels.explorer}</p>
-                  <div className="pd-agent__tree">
-                    {DEMO_CONFIG.project.files.map((file) => (
-                      <div
-                        className="pd-agent__file"
-                        data-kind={file.kind}
-                        data-depth={file.depth}
-                        data-active={file.active ? "true" : "false"}
-                        key={`${file.depth}-${file.name}`}
-                      >
-                        {file.name}
-                      </div>
-                    ))}
-                  </div>
-                </aside>
-
-                <main className="pd-agent__chat">
-                  <div className="pd-conversation" ref={conversationRef}>
-                    <div className="pd-conversation__inner">
-                      {conversation.map((item) => renderConversationItem(item))}
-                    </div>
-                  </div>
-
-                  <div
-                    className={composer.pasting ? "pd-composer is-pasting" : "pd-composer"}
-                    data-ready={composer.ready ? "true" : "false"}
-                  >
-                    <div className="pd-composer__main">
-                      <div
-                        className={composer.streaming ? "pd-composer__text is-streaming" : "pd-composer__text"}
-                        data-empty={composer.empty ? "true" : "false"}
-                      >
-                        {composer.text}
-                      </div>
-                      <button
-                        className={composer.sending ? "pd-composer__send is-sending" : "pd-composer__send"}
-                        type="button"
-                        tabIndex={-1}
-                        aria-hidden="true"
-                      >
-                        <Send aria-hidden="true" />
-                      </button>
-                    </div>
-                    <div className="pd-composer__footer">
-                      <span>{activeAgentConfig.model}</span>
-                      <span>{DEMO_CONFIG.labels.repositoryContext}</span>
-                    </div>
-                  </div>
-                </main>
-              </div>
-            </section>
-
-            <section
-              className={
-                screen === "analysis"
-                  ? analysis.resolving
-                    ? "pd-screen pd-analysis is-active is-resolving"
-                    : "pd-screen pd-analysis is-active"
-                  : "pd-screen pd-analysis"
-              }
-            >
-              <div className="pd-analysis__stream" key={analysis.cycle}>
-                {DEMO_CONFIG.analysis.tokens.map((token, index) => {
-                  const position = TOKEN_POSITIONS[index % TOKEN_POSITIONS.length];
-                  return (
-                    <span
-                      className="pd-analysis__token"
-                      key={`${token}-${index}`}
-                      style={
-                        {
-                          "--x": position[0],
-                          "--y": position[1],
-                          "--from-x": position[2],
-                          "--from-y": position[3],
-                          "--to-x": position[4],
-                          "--to-y": position[5],
-                          "--duration": position[6],
-                          "--delay": position[7],
-                        } as CSSProperties
-                      }
-                    >
-                      {token}
-                    </span>
-                  );
-                })}
-              </div>
-              <div className="pd-analysis__core">
-                <p className="pd-analysis__eyebrow">{DEMO_CONFIG.analysis.eyebrow}</p>
-                <div className="pd-analysis__orb" aria-hidden="true">
-                  <span className="pd-analysis__ring pd-analysis__ring--outer" />
-                  <span className="pd-analysis__ring pd-analysis__ring--middle" />
-                  <span className="pd-analysis__ring pd-analysis__ring--inner" />
-                  <span className="pd-analysis__brand-mark">
-                    <img src={DEMO_CONFIG.brand.logoUrl} alt="" />
-                  </span>
-                </div>
-                <h3 className="pd-analysis__title">{analysis.title}</h3>
-                <p className="pd-analysis__copy">{analysis.copy}</p>
-                <div className="pd-analysis__status">{analysis.status}</div>
-              </div>
-              <div className="pd-analysis__document" aria-hidden="true" />
-            </section>
-
-            <section
-              className={screen === "penelopa" ? "pd-screen pd-recommendation is-active" : "pd-screen pd-recommendation"}
-              aria-label="Penelopa recommendation preview"
-            >
-              <nav className="pd-recommendation__nav">
-                <span className="pd-recommendation__brand" aria-hidden="true">
-                  <span className="pd-recommendation__logo">
-                    <img src={DEMO_CONFIG.brand.logoUrl} alt="" />
-                  </span>
-                  <span className="pd-recommendation__brand-text">{DEMO_CONFIG.brand.name}</span>
-                </span>
-                <div className="pd-recommendation__actions">
-                  <button className="pd-recommendation__back" type="button" tabIndex={-1}>
-                    <ChevronLeft aria-hidden="true" />
-                    <span>{DEMO_CONFIG.labels.dashboard}</span>
-                  </button>
-                  <button className="pd-icon-button" type="button" tabIndex={-1} aria-hidden="true">
-                    <LogOut aria-hidden="true" />
-                  </button>
-                  <button className="pd-icon-button" type="button" tabIndex={-1} aria-hidden="true">
-                    <ThemeIcon aria-hidden="true" />
-                  </button>
-                </div>
-              </nav>
-
-              <div className="pd-recommendation__scroller" ref={recommendationScrollerRef}>
-                <article className="pd-recommendation__article">
-                  <header className="pd-recommendation__header">
-                    <p className="pd-recommendation__eyebrow">{DEMO_CONFIG.recommendation.eyebrow}</p>
-                    <h3 className="pd-recommendation__title">{DEMO_CONFIG.recommendation.title}</h3>
-                    <div className="pd-recommendation__meta-row">
-                      {DEMO_CONFIG.recommendation.metadata.map((item) => (
-                        <span className="pd-recommendation__meta" key={item}>
-                          {item}
-                        </span>
-                      ))}
-                      <button
-                        className={
-                          copyState === "pressed"
-                            ? "pd-copy-button is-pressed"
-                            : copyState === "copied"
-                              ? "pd-copy-button is-copied"
-                              : "pd-copy-button"
-                        }
-                        type="button"
-                        onClick={copyRecommendationToClipboard}
-                      >
-                        {copyState === "copied" ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-                        <span>{copyButtonLabel}</span>
-                      </button>
-                    </div>
-                  </header>
-
-                  <div className="pd-recommendation__report">
-                    {DEMO_CONFIG.recommendation.report.map((block, index) => {
-                      if (block.type === "heading") {
-                        return block.level === 3 ? (
-                          <h3 key={`${block.text}-${index}`}>{block.text}</h3>
-                        ) : (
-                          <h2 key={`${block.text}-${index}`}>{block.text}</h2>
-                        );
-                      }
-
-                      if (block.type === "paragraph") {
-                        return <p key={`${block.text}-${index}`}>{renderInlineCode(block.text)}</p>;
-                      }
-
-                      if (block.type === "quote") {
-                        return (
-                          <blockquote key={`${block.text}-${index}`}>
-                            <p>{block.text}</p>
-                          </blockquote>
-                        );
-                      }
-
-                      return (
-                        <ul key={`list-${index}`}>
-                          {block.items.map((item) => (
-                            <li key={item}>{renderInlineCode(item)}</li>
-                          ))}
-                        </ul>
-                      );
-                    })}
-                  </div>
-                </article>
-              </div>
-
-              <div className={toastVisible ? "pd-copy-toast is-visible" : "pd-copy-toast"}>
-                {DEMO_CONFIG.labels.copyToast}
-              </div>
-            </section>
+            <AgentScreen
+              activeAgentConfig={activeAgentConfig}
+              screen={screen}
+              conversation={conversation}
+              composer={composer}
+              conversationRef={conversationRef}
+            />
+            <AnalysisScreen screen={screen} analysis={analysis} />
+            <RecommendationScreen
+              theme={theme}
+              screen={screen}
+              copyState={copyState}
+              toastVisible={toastVisible}
+              recommendationScrollerRef={recommendationScrollerRef}
+              copyRecommendationToClipboard={copyRecommendationToClipboard}
+            />
 
             <aside className={finishVisible ? "pd-finish is-visible" : "pd-finish"} aria-live="polite">
               <span className="pd-finish__label">{DEMO_CONFIG.labels.complete}</span>

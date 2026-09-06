@@ -144,3 +144,12 @@ export type ComposerState = {
   sending: boolean;
 };
 
+export type AnalysisState = {
+  title: string;
+  copy: string;
+  status: string;
+  resolving: boolean;
+  cycle: number;
+};
+
+export type CopyState = "idle" | "pressed" | "copied";

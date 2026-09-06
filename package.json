@@ -15,17 +15,19 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "latest",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "latest",
     "@types/node": "^26.4.0",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
     "@vitejs/plugin-rsc": "latest",
+    "esbuild": "0.28.1",
+    "postcss": "8.5.26",
     "tailwindcss": "latest",
     "typescript": "latest",
     "vite": "latest",
-    "wrangler": "^4.127.1",
-    "esbuild": "0.28.1"
+    "wrangler": "^4.127.1"
   },
   "type": "module",
   "scripts": {

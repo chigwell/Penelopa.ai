@@ -35,7 +35,10 @@ function createApiRequest({ validateRequest, net, getAuth, showPage }) {
           data = JSON.parse(text);
         } catch {}
       }
-      if ([401, 403].includes(response.status) && getAuth().token === accountToken) {
+      if (
+        [401, 403].includes(response.status) &&
+        getAuth().token === accountToken
+      ) {
         getAuth().signOut("Your installed account needs to be reconnected.");
         showPage("connection");
       }

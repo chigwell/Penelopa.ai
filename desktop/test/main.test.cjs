@@ -98,7 +98,7 @@ function fixture(t) {
   }
   const context = vm.createContext({
     require: mockedRequire, __dirname: path.dirname(filename), module: { exports: {} },
-    process: { ...process, argv: ['node', filename], env: { ...process.env, AUTO_IMPROVE_HOME: root } },
+    process: { ...process, platform: 'darwin', argv: ['node', filename], env: { ...process.env, AUTO_IMPROVE_HOME: root } },
     console, URL, Response, AbortSignal,
     setTimeout: () => 1, setInterval: () => 1, clearTimeout() {},
   });

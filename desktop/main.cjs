@@ -46,6 +46,7 @@ const { AuthSession } = require("./runtime/auth.cjs");
 const { status, diagnostics } = require("./runtime/status.cjs");
 const { RecommendationPoller } = require("./runtime/notifications.cjs");
 const { createApiRequest } = require("./runtime/desktop-api.cjs");
+const { createLocalAction } = require("./runtime/local-actions.cjs");
 const root = home();
 mkdir(root);
 const smokeIndex = process.argv.indexOf("--penelopa-smoke-test");
@@ -186,7 +187,10 @@ function trustedLocal(event) {
     throw new Error("Untrusted IPC sender.");
 }
 const apiRequest = createApiRequest({
-  validateRequest, net, getAuth: () => auth, showPage,
+  validateRequest,
+  net,
+  getAuth: () => auth,
+  showPage,
 });
 async function managedCommand(args) {
   const state = installState(root);
@@ -318,103 +322,37 @@ async function checkUpdate() {
   }
   pushState();
 }
-async function localAction(action, data) {
-  switch (action) {
-    case "state":
-      return localState();
-    case "navigate":
-      if (
-        !["dashboard", "notifications", "connection", "settings"].includes(data)
-      )
-        throw new Error("Unknown page.");
-      showPage(data);
-      break;
-    case "retry":
-      wakeWorker();
-      break;
-    case "repair":
-      await managedCommand(["--repair"]);
-      nativeError = null;
-      break;
-    case "connect":
-      await auth.connect();
-      if (auth.token) showPage("dashboard");
-      break;
-    case "sign-out":
-      auth.signOut();
-      showPage("connection");
-      break;
-    case "preferences": {
-      if (
-        !data ||
-        Array.isArray(data) ||
-        Object.entries(data).some(
-          ([key, value]) =>
-            !["paused", "notifications", "autostart"].includes(key) ||
-            typeof value !== "boolean",
-        )
-      )
-        throw new Error("Invalid app settings.");
-      const old = settings(root);
-      const next = { ...old, ...data };
-      if (next.autostart !== old.autostart)
-        require("./runtime/startup.cjs").setAutostart(
-          next.autostart,
-          installState(root),
-        );
-      if (next.notifications !== old.notifications)
-        fs.rmSync(path.join(root, "notification-state.json"), { force: true });
-      writeJson(path.join(root, "preferences.json"), next);
-      if (!next.paused) wakeWorker();
-      break;
-    }
-    case "test-notification":
-      notify([
-        { id: "", title: "Notifications are enabled for this computer." },
-      ]);
-      break;
-    case "export-diagnostics": {
-      const result = await dialog.showSaveDialog(window, {
-        title: "Export connection diagnostics",
-        defaultPath: "penelopa-diagnostics.json",
-        filters: [{ name: "JSON", extensions: ["json"] }],
-      });
-      if (!result.canceled && result.filePath)
-        writeJson(result.filePath, diagnostics(root));
-      break;
-    }
-    case "check-update":
-      await checkUpdate();
-      break;
-    case "update":
-      startUpdater("--prepare");
-      break;
-    case "uninstall": {
-      const result = await dialog.showMessageBox(window, {
-        type: "question",
-        buttons: ["Cancel", "Uninstall"],
-        defaultId: 0,
-        cancelId: 0,
-        message: "Uninstall Penelopa.ai?",
-        detail:
-          "Only Penelopa hooks, the app and its startup entry will be removed. Other agent settings stay in place.",
-        checkboxLabel: "Also delete my local credentials and queued data",
-        checkboxChecked: false,
-      });
-      if (result.response === 1)
-        startUpdater("--uninstall", result.checkboxChecked);
-      break;
-    }
-    case "quit":
-      quitting = true;
-      app.quit();
-      break;
-    default:
-      throw new Error("Unknown desktop action.");
-  }
-  pushState();
-  return localState();
-}
+const localAction = createLocalAction({
+  root,
+  getAuth: () => auth,
+  getWindow: () => window,
+  dialog,
+  localState,
+  pushState,
+  clearNativeError: () => {
+    nativeError = null;
+  },
+  quit: () => {
+    quitting = true;
+    app.quit();
+  },
+  commands: {
+    showPage,
+    wakeWorker,
+    managedCommand,
+    notify,
+    checkUpdate,
+    startUpdater,
+  },
+  runtime: {
+    settings,
+    installState,
+    writeJson,
+    diagnostics,
+    setAutostart: (...args) =>
+      require("./runtime/startup.cjs").setAutostart(...args),
+  },
+});
 function configureContent(contents, remote) {
   contents.setWindowOpenHandler(({ url }) => {
     if (externalUrl(url)) void shell.openExternal(url);

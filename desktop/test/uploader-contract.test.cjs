@@ -9,9 +9,11 @@ const { atomicWrite, writeJson, readJson } = require('../runtime/files.cjs');
 
 const { temporary, powershellPath } = require('./fixtures.cjs');
 const powershell = powershellPath();
+const powershellPlatform = { name: 'PowerShell', enabled: Boolean(powershell), command: powershell, args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.resolve(__dirname, '../../public/auto-improve-upload.ps1')] };
 const platforms = [
   { name: 'POSIX', enabled: process.platform !== 'win32', command: '/bin/sh', args: [path.resolve(__dirname, '../../public/auto-improve-upload.sh')] },
-  { name: 'PowerShell', enabled: Boolean(powershell), command: powershell, args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.resolve(__dirname, '../../public/auto-improve-upload.ps1')] },
+  powershellPlatform,
+  { ...powershellPlatform, bufferedInput: true },
 ];
 
 function fixture(t, platform) {
@@ -27,15 +29,33 @@ function fixture(t, platform) {
     AUTO_IMPROVE_TIMEOUT_SECONDS: '3', AUTO_IMPROVE_DRAIN_MAX_SECONDS: '3',
     AUTO_IMPROVE_RECEIPT_FILE: path.join(root, 'receipt.json'),
   };
+  let args = platform.args;
+  if (platform.bufferedInput) {
+    const wrapper = path.join(root, 'buffered-host.ps1');
+    // Reproduce Windows PowerShell predecoding stdin before the uploader can
+    // select UTF-8, including on hosts where PowerShell normally uses UTF-8.
+    atomicWrite(wrapper, '\uFEFF' + `param([string]$Source)
+$reader = [IO.StreamReader]::new([Console]::OpenStandardInput(), [Text.Encoding]::ASCII)
+try { $buffered = $reader.ReadToEnd() } finally { $reader.Dispose() }
+$buffered | & $env:PENELOPA_UPLOADER_UNDER_TEST $Source
+`);
+    env.PENELOPA_UPLOADER_UNDER_TEST = platform.args.at(-1);
+    args = [...platform.args.slice(0, -1), wrapper];
+  }
   async function run(event = 'Stop', overrides = {}) {
     const result = await new Promise((resolve, reject) => {
-      const child = spawn(platform.command, [...platform.args, 'codex-openai'], { env: { ...env, ...overrides }, windowsHide: true, timeout: 45_000 });
+      const child = spawn(platform.command, [...args, 'codex-openai'], { env: { ...env, ...overrides }, windowsHide: true, timeout: 45_000 });
       let output = '', error = '';
       child.stdout.on('data', bytes => { output += bytes; });
       child.stderr.on('data', bytes => { error += bytes; });
       child.on('error', reject);
       child.on('close', (code, signal) => resolve({ code, signal, output, error }));
-      child.stdin.end(JSON.stringify({ hook_event_name: event, transcript_path: transcript, session_id: 'shared ü session', cwd: root }));
+      const payload = JSON.stringify({ hook_event_name: event, transcript_path: transcript, session_id: 'shared ü session 🧵', cwd: root });
+      // Match executeUploader's existing Windows wire format. JSON escapes
+      // survive an early host-code-page decode and restore the Unicode values.
+      child.stdin.end(platform.name === 'PowerShell'
+        ? payload.replace(/[\u007f-\uffff]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`)
+        : payload);
     });
     assert.equal(result.code, 0, JSON.stringify(result));
     assert.equal(result.output.trim(), '{}', result.error);
@@ -58,11 +78,13 @@ function fixture(t, platform) {
 }
 
 for (const platform of platforms) {
-  test(`${platform.name} retains partial JSONL, handles EOF finalization, and preserves queued bytes across transcript replacement and truncation`, { skip: !platform.enabled, timeout: 120_000 }, async t => {
+  const label = `${platform.name}${platform.bufferedInput ? ' with buffered stdin' : ''}`;
+  test(`${label} retains partial JSONL, handles EOF finalization, and preserves queued bytes across transcript replacement and truncation`, { skip: !platform.enabled, timeout: 120_000 }, async t => {
     const f = fixture(t, platform), first = '{"message":"first ü"}\n', partial = '{"message":"second';
     atomicWrite(f.transcript, first + partial);
-    await f.run();
-    assert.deepEqual(f.items().map(item => item.bytes), [first]);
+    const firstRun = await f.run();
+    assert.deepEqual(f.items().map(item => item.bytes), [first], firstRun.error);
+    if (platform.name === 'PowerShell') assert.equal(f.items()[0].request.externalSessionId, 'shared ü session 🧵');
     const originalEpoch = String(f.items()[0].request.epoch);
     fs.appendFileSync(f.transcript, '"}');
     await f.run('SessionEnd');
@@ -85,7 +107,7 @@ for (const platform of platforms) {
     assert.equal(f.items().length, 4, 'New epochs must retain previously queued bytes.');
   });
 
-  test(`${platform.name} drains captured bytes and quarantines a conclusive rejection without advancing acknowledgement`, { skip: !platform.enabled, timeout: 90_000 }, async t => {
+  test(`${label} drains captured bytes and quarantines a conclusive rejection without advancing acknowledgement`, { skip: !platform.enabled, timeout: 90_000 }, async t => {
     const f = fixture(t, platform), captured = '{"message":"captured ü"}\n', received = [];
     const server = http.createServer(async (request, response) => {
       try {
@@ -99,8 +121,8 @@ for (const platform of platforms) {
     t.after(() => { server.closeAllConnections(); server.close(); });
     const endpoint = `http://127.0.0.1:${server.address().port}/v2/transcript-segments`;
     atomicWrite(f.transcript, captured + '{"message":"outside captured boundary"}\n');
-    await f.run('Stop', { AUTO_IMPROVE_SNAPSHOT_SIZE: String(Buffer.byteLength(captured)), AUTO_IMPROVE_URL: endpoint });
-    assert.deepEqual(f.items().map(item => item.bytes), [captured]);
+    const capturedRun = await f.run('Stop', { AUTO_IMPROVE_SNAPSHOT_SIZE: String(Buffer.byteLength(captured)), AUTO_IMPROVE_URL: endpoint });
+    assert.deepEqual(f.items().map(item => item.bytes), [captured], capturedRun.error);
     const queued = f.items()[0];
     await f.run('Drain', { AUTO_IMPROVE_TOKEN: 'synthetic-contract-token' });
     assert.deepEqual(received, [{ end: Buffer.byteLength(captured), bytes: captured }]);

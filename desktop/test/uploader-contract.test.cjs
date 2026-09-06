@@ -2,23 +2,20 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const { spawn, spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const { atomicWrite, writeJson, readJson } = require('../runtime/files.cjs');
 
-const powershell = process.platform === 'win32'
-  ? path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe')
-  : spawnSync('which', ['pwsh'], { encoding: 'utf8' }).stdout?.trim();
+const { temporary, powershellPath } = require('./fixtures.cjs');
+const powershell = powershellPath();
 const platforms = [
   { name: 'POSIX', enabled: process.platform !== 'win32', command: '/bin/sh', args: [path.resolve(__dirname, '../../public/auto-improve-upload.sh')] },
   { name: 'PowerShell', enabled: Boolean(powershell), command: powershell, args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.resolve(__dirname, '../../public/auto-improve-upload.ps1')] },
 ];
 
 function fixture(t, platform) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "penelopa uploader ' ü 日本語-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  const root = temporary(t, "penelopa uploader ' ü 日本語-");
   const transcript = path.join(root, 'session ü.jsonl');
   const configFile = path.join(root, platform.name === 'PowerShell' ? 'credential.json' : 'credential.env');
   if (platform.name === 'PowerShell') writeJson(configFile, { token: '', dataDir: root, uploadMode: 'segments' });

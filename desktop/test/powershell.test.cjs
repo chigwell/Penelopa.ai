@@ -3,20 +3,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const http = require('node:http');
 const { spawnSync } = require('node:child_process');
 const { atomicWrite, writeJson, readJson } = require('../runtime/files.cjs');
 const { capture } = require('../runtime/hook.cjs');
 const { executeUploader } = require('../runtime/worker.cjs');
-const powershell = process.platform === 'win32' ? path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe') : 'pwsh';
-const available = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', 'exit 0'], { timeout: 15_000, windowsHide: true }).status === 0;
+const { temporary, powershellPath } = require('./fixtures.cjs');
+const powershell = powershellPath();
+const available = Boolean(powershell);
 // Simulate the Windows PowerShell host's cached, non-UTF-8 Console.In reader.
 // Changing Console.InputEncoding does not replace an explicitly supplied reader.
 const invocation = `[Console]::SetIn([IO.StreamReader]::new([Console]::OpenStandardInput(), [Text.Encoding]::ASCII)); & $env:PENELOPA_SCRIPT_UNDER_TEST codex-openai`;
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "penelopa PS ' ü 日本語-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = temporary(t, "penelopa PS ' ü 日本語-");
   const transcript = path.join(root, 'session ü 日本語.jsonl');
   atomicWrite(transcript, '{"message":"synthetic Unicode fixture"}\n');
   const payload = { hook_event_name: 'SessionEnd', transcript_path: transcript, session_id: 'fixture', cwd: root };

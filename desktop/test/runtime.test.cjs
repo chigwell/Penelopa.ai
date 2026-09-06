@@ -3,8 +3,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
-const { spawnSync } = require('node:child_process');
 const { createZip, extractZip } = require('../runtime/archive.cjs');
 const { editHooks } = require('../runtime/hooks-config.cjs');
 const { validateRequest, externalUrl } = require('../runtime/api.cjs');
@@ -13,17 +11,9 @@ const { AuthSession } = require('../runtime/auth.cjs');
 const { writeJson, readJson, atomicWrite } = require('../runtime/files.cjs');
 const { capture } = require('../runtime/hook.cjs');
 const { newer } = require('../runtime/update.cjs');
-const { sourceArchive } = require('./assets.cjs');
+const { temporary, installation } = require('./fixtures.cjs');
 
-function temporary(t) { const root = fs.mkdtempSync(path.join(os.tmpdir(), "penelopa spaces ' ü-")); t.after(() => fs.rmSync(root, { recursive: true, force: true })); return root; }
-function fixture(t) {
-  const root = temporary(t), source = path.join(root, 'release');
-  const archive = sourceArchive();
-  extractZip(archive, source);
-  const configFile = path.join(root, process.platform === 'win32' ? 'credential.json' : 'credential.env');
-  const env = { ...process.env, AUTO_IMPROVE_HOME: root, CODEX_HOME: path.join(root, 'codex'), CLAUDE_CONFIG_DIR: path.join(root, 'claude'), AUTO_IMPROVE_HOOK_CONFIG: configFile, AUTO_IMPROVE_TOKEN: 'fixture-private-token', AUTO_IMPROVE_DATA_DIR: root };
-  return { root, source, env, configFile, run: (...args) => spawnSync(process.execPath, [path.join(source, 'runtime/install.cjs'), ...args], { env, encoding: 'utf8', timeout: 60_000 }) };
-}
+function fixture(t) { return installation(temporary(t)); }
 test('archive round-trip is deterministic and rejects path traversal and corruption', t => {
   const root = temporary(t);
   const entries = [['package.json', '{}'], ['nested/hello ü.txt', 'hello']];

@@ -26,19 +26,22 @@ function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); }
   catch (error) { if (error.code === 'ENOENT') return fallback; throw new Error(`Cannot read valid JSON: ${path.basename(file)}`); }
 }
+function currentWindowsSid() {
+  const sid = execFileSync('whoami.exe', ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8', windowsHide: true }).match(/S-1-5-[0-9-]+/);
+  if (!sid) throw new Error('Cannot determine the current Windows user.');
+  return sid[0];
+}
 function protect(dir) {
   mkdir(dir);
   if (process.platform === 'win32') {
-    const sid = execFileSync('whoami.exe', ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8', windowsHide: true }).match(/S-1-5-[0-9-]+/);
-    if (!sid) throw new Error('Cannot determine the current Windows user.');
-    execFileSync('icacls.exe', [dir, '/inheritance:r', '/grant:r', `*${sid[0]}:(OI)(CI)F`, '*S-1-5-18:(OI)(CI)F'], { stdio: 'ignore', windowsHide: true });
+    const sid = currentWindowsSid();
+    execFileSync('icacls.exe', [dir, '/inheritance:r', '/grant:r', `*${sid}:(OI)(CI)F`, '*S-1-5-18:(OI)(CI)F'], { stdio: 'ignore', windowsHide: true });
   } else fs.chmodSync(dir, 0o700);
 }
 function protectFile(file) {
   if (process.platform !== 'win32') return fs.chmodSync(file, 0o600);
-  const sid = execFileSync('whoami.exe', ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8', windowsHide: true }).match(/S-1-5-[0-9-]+/);
-  if (!sid) throw new Error('Cannot determine the current Windows user.');
-  execFileSync('icacls.exe', [file, '/inheritance:r', '/grant:r', `*${sid[0]}:F`, '*S-1-5-18:F'], { stdio: 'ignore', windowsHide: true });
+  const sid = currentWindowsSid();
+  execFileSync('icacls.exe', [file, '/inheritance:r', '/grant:r', `*${sid}:F`, '*S-1-5-18:F'], { stdio: 'ignore', windowsHide: true });
 }
 function lock(file) {
   mkdir(path.dirname(file));

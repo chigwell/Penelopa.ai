@@ -2,17 +2,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const { generateDesktopAssets, verifyDesktopAssets } = require('../../scripts/desktop-assets.cjs');
 const { extractZip } = require('../runtime/archive.cjs');
 const sourceRoot = path.resolve(__dirname, '../..');
 
-function temporary(t) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-artifacts-'));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  return directory;
-}
+const { temporary } = require('./fixtures.cjs');
+
 function files(directory, prefix = '') {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(item => {
     const name = path.join(prefix, item.name);
@@ -24,7 +20,7 @@ function snapshot(directory) {
 }
 
 test('desktop generation is deterministic, includes current maintained source and leaves published files unchanged', t => {
-  const directory = temporary(t), first = path.join(directory, 'first'), second = path.join(directory, 'second');
+  const directory = temporary(t, 'penelopa-artifacts-'), first = path.join(directory, 'first'), second = path.join(directory, 'second');
   const published = snapshot(path.join(sourceRoot, 'public/desktop'));
   const installers = ['script', 'script.ps1'].map(name => fs.readFileSync(path.join(sourceRoot, 'public', name)));
   const manifest = generateDesktopAssets(sourceRoot, first);
@@ -46,7 +42,7 @@ test('desktop generation is deterministic, includes current maintained source an
 });
 
 test('release generation permits identical bytes and refuses changed version content before writing entrypoints', t => {
-  const directory = temporary(t), output = path.join(directory, 'assets');
+  const directory = temporary(t, 'penelopa-artifacts-'), output = path.join(directory, 'assets');
   const manifest = generateDesktopAssets(sourceRoot, output);
   assert.doesNotThrow(() => generateDesktopAssets(sourceRoot, output));
   for (const name of ['source.zip', 'manifest.json']) {
@@ -61,7 +57,7 @@ test('release generation permits identical bytes and refuses changed version con
 });
 
 test('published integrity verification is read-only and detects corrupted assets', t => {
-  const directory = temporary(t);
+  const directory = temporary(t, 'penelopa-artifacts-');
   const manifest = generateDesktopAssets(sourceRoot, directory);
   const before = snapshot(directory);
   verifyDesktopAssets(directory);

@@ -3,11 +3,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const http = require('node:http');
 const { spawn, spawnSync } = require('node:child_process');
-const { extractZip } = require('../runtime/archive.cjs');
-const { sourceArchive } = require('./assets.cjs');
+const { temporary, installation } = require('./fixtures.cjs');
 const { capture } = require('../runtime/hook.cjs');
 const { readJson, writeJson, atomicWrite } = require('../runtime/files.cjs');
 const { download } = require('../runtime/network.cjs');
@@ -34,17 +32,16 @@ function child(file, env) {
   });
 }
 async function setup(t, prefix = 'penelopa-delivery-') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  t.after(async () => {
+  const root = temporary(t, prefix, async root => {
     atomicWrite(path.join(root, 'collection-disabled'), 'fixture cleanup\n');
     await stopWorker(root);
-    fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
-  const source = path.join(root, 'release'); extractZip(sourceArchive(), source);
-  const env = { ...process.env, PENELOPA_TESTING: '1', AUTO_IMPROVE_HOME: root, CODEX_HOME: path.join(root, 'codex'), CLAUDE_CONFIG_DIR: path.join(root, 'claude'), AUTO_IMPROVE_HOOK_CONFIG: path.join(root, process.platform === 'win32' ? 'credential.json' : 'credential.env'), AUTO_IMPROVE_TOKEN: 'test-only-token', AUTO_IMPROVE_DATA_DIR: root };
-  const result = spawnSync(process.execPath, [path.join(source, 'runtime/install.cjs'), '--no-desktop', '--drain-max-seconds', '2'], { env, encoding: 'utf8', timeout: 60_000 });
-  assert.equal(result.status, 0, result.stderr); return { root, source, env };
+  const fixture = installation(root, 'test-only-token', { PENELOPA_TESTING: '1' });
+  const result = fixture.run('--no-desktop', '--drain-max-seconds', '2');
+  assert.equal(result.status, 0, result.stderr);
+  return fixture;
 }
+
 function deliveryStatus(root) {
   const health = Object.fromEntries(['capture-error', 'worker-error', 'delivery-error', 'upload'].map(name => [name, readJson(path.join(root, 'health', `${name}.json`), null)]));
   const events = fs.existsSync(path.join(root, 'events')) ? fs.readdirSync(path.join(root, 'events')) : [];
@@ -95,7 +92,7 @@ test('missing transcript remains an actionable event instead of becoming a succe
   const failure = readJson(path.join(f.root, 'events', files.find(name => name.endsWith('.error')))); assert.match(failure.error, /no longer available/);
 });
 test('checksum failures never publish a downloaded file', async t => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-download-')); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = temporary(t, 'penelopa-download-');
   const old = process.env.PENELOPA_TESTING; process.env.PENELOPA_TESTING = '1'; t.after(() => { if (old === undefined) delete process.env.PENELOPA_TESTING; else process.env.PENELOPA_TESTING = old; });
   const server = http.createServer((_req, res) => res.end('tampered'));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => server.close());

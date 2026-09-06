@@ -1,6 +1,6 @@
 "use client";
 
-import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../../../lib/penelopa-client";
+import { apiGet, clearStoredToken, storeToken, readStoredToken, useDesktop } from "../../../lib/penelopa-client";
 import { DesktopSignIn } from "../../DesktopSignIn";
 
 import Image from "next/image";
@@ -69,7 +69,6 @@ export default function RecommendationPage() {
   const [theme, setTheme] = useState<Theme>("light");
   const [screen, setScreen] = useState<ScreenState>("loading");
   const [tokenInput, setTokenInput] = useState("");
-  const [token, setToken] = useState<string | null>(null);
   const [recommendation, setRecommendation] = useState<RecommendationDetail | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -90,14 +89,12 @@ export default function RecommendationPage() {
       if (persistToken) {
         storeToken(candidate);
       }
-      setToken(candidate);
       setRecommendation(detail);
       setScreen("ready");
     } catch (caught) {
       const requestError = caught as ApiError;
       if (requestError.status === 401 || requestError.status === 403) {
         clearStoredToken();
-        setToken(null);
         setError("That access token is not valid.");
         setScreen("locked");
         return;
@@ -145,7 +142,6 @@ export default function RecommendationPage() {
 
   function handleLogout() {
     clearStoredToken();
-    setToken(null);
     setTokenInput("");
     setRecommendation(null);
     setError("");

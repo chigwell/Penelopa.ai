@@ -28,7 +28,6 @@ type GitHubRepoStats = {
   cache_ttl_seconds: number;
 };
 
-const API_DOMAIN = "https://api.penelopa.ai";
 const GITHUB_REPO_URL = "https://github.com/chigwell/penelopa.ai";
 const GITHUB_REPO_NAME = "chigwell/penelopa.ai";
 

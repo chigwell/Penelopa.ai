@@ -1,6 +1,6 @@
 "use client";
 
-import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../../lib/penelopa-client";
+import { clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../../lib/penelopa-client";
 import { DesktopSignIn } from "../DesktopSignIn";
 
 import Image from "next/image";

@@ -29,15 +29,14 @@ type GitHubRepoStats = {
 };
 
 const API_DOMAIN = "https://api.penelopa.ai";
-const INGEST_URL = `${API_DOMAIN}/v2/transcript-segments`;
 const GITHUB_REPO_URL = "https://github.com/chigwell/penelopa.ai";
 const GITHUB_REPO_NAME = "chigwell/penelopa.ai";
 
 const INSTALL_COMMANDS: Record<ScriptTab, string> = {
   sh: "curl -fsSL https://penelopa.ai/script | sh",
   powershell: `$installer = Join-Path $env:TEMP "penelopa-auto-improve.ps1"
-Invoke-WebRequest -Uri "https://penelopa.ai/script.ps1" -OutFile $installer
-& $installer`,
+Invoke-WebRequest -UseBasicParsing -Uri "https://penelopa.ai/script.ps1" -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer`,
 };
 
 const METRICS = [
@@ -183,7 +182,7 @@ export default function Home() {
       textarea.setAttribute("readonly", "");
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
-      document.body.append(textarea);
+      document.body.appendChild(textarea);
       textarea.select();
       document.execCommand("copy");
       textarea.remove();
@@ -269,7 +268,7 @@ export default function Home() {
         <div className="install-intro">
           <p className="eyebrow">01 / Install</p>
           <h2 id="install-title">Set it up once.</h2>
-          <p className="install-detail">Codex and Claude Code.</p>
+          <p className="install-detail">Codex and Claude Code. Your desktop app, ready to use.</p>
         </div>
 
         <div className="install-surface">
@@ -282,7 +281,7 @@ export default function Home() {
                 aria-selected={activeTab === "sh"}
                 onClick={() => setActiveTab("sh")}
               >
-                sh
+                Mac / Linux
               </button>
               <button
                 className={activeTab === "powershell" ? "tab active" : "tab"}
@@ -309,9 +308,10 @@ export default function Home() {
             <button className="copy-button" type="button" onClick={copyInstallCommand}>
               {copied ? "Copied" : "Copy command"}
             </button>
-            <code className="api-endpoint">{INGEST_URL}</code>
+            <span className="api-endpoint">Mac &amp; Windows desktop · Linux hooks</span>
           </div>
         </div>
+        <p className="install-detail">No Git, npm, or Python required. The installer prepares what Penelopa needs and opens your app. Review new hooks in Codex to finish connecting.</p>
       </section>
 
       <section className="feature-rail" aria-label="Auto-improve features">

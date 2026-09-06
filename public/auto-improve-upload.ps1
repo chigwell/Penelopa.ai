@@ -4,6 +4,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding = $OutputEncoding
+[Console]::OutputEncoding = $OutputEncoding
 $script:HookFinished = $false
 $script:StateLockStream = $null
 $script:StateLockPath = $null
@@ -18,6 +21,14 @@ $DefaultDrainMaxSeconds = 40
 function Write-HookLog {
     param([string]$Message)
     [Console]::Error.WriteLine("auto-improve hook: $Message")
+}
+
+function Write-DeliveryError {
+    param([string]$Message)
+    if ($env:AUTO_IMPROVE_HEALTH_DIR) {
+        New-Item -ItemType Directory -Force -Path $env:AUTO_IMPROVE_HEALTH_DIR | Out-Null
+        Write-JsonAtomic (Join-Path $env:AUTO_IMPROVE_HEALTH_DIR 'delivery-error.json') @{ at = [DateTime]::UtcNow.ToString('o'); error = $Message }
+    }
 }
 
 function Finish-Hook {
@@ -38,7 +49,7 @@ function Read-Config {
     }
     $config = [ordered]@{}
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-        $raw = Get-Content -LiteralPath $configPath -Raw
+        $raw = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8
         if (-not [string]::IsNullOrWhiteSpace($raw)) {
             $parsed = $raw | ConvertFrom-Json
             foreach ($property in $parsed.PSObject.Properties) {
@@ -116,6 +127,12 @@ function Sync-DirectoryToDisk {
     param([string]$Path)
     $bindingFlags = [System.Reflection.BindingFlags]"NonPublic,Public,Static"
     $runningOnWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+    if ($runningOnWindows -and $env:AUTO_IMPROVE_NODE) {
+        # Managed delivery flushes every data/state file before atomic publication.
+        # Windows has no documented user-level directory fsync API; do not depend
+        # on private PowerShell reflection types or request volume-flush privileges.
+        return
+    }
     if ($runningOnWindows) {
         # PowerShell already ships the kernel32 CreateFile declaration. Opening
         # the directory with BACKUP_SEMANTICS lets FileStream.Flush(true) issue
@@ -211,7 +228,9 @@ function Move-AtomicDurable {
     }
     $sourceParent = [System.IO.Path]::GetDirectoryName($SourcePath)
     $destinationParent = [System.IO.Path]::GetDirectoryName($DestinationPath)
-    Move-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force
+    if (-not $Directory -and [System.IO.File]::Exists($DestinationPath)) {
+        [System.IO.File]::Replace($SourcePath, $DestinationPath, $null)
+    } else { Move-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force }
     if (-not [string]::Equals($sourceParent, $destinationParent, [System.StringComparison]::OrdinalIgnoreCase)) {
         Sync-DirectoryToDisk $sourceParent
     }
@@ -230,7 +249,7 @@ function Read-JsonFile {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         return $null
     }
-    return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
 function Get-RangeTailHash {
@@ -635,7 +654,7 @@ function Test-SuccessAcknowledgement {
             return $false
         }
         if (-not $ack.PSObject.Properties["accepted_offset"] -or
-            $ack.accepted_offset -isnot [long] -or
+            ($ack.accepted_offset -isnot [long] -and $ack.accepted_offset -isnot [int]) -or
             [long]$ack.accepted_offset -ne [long]$Request.byteEnd) {
             return $false
         }
@@ -714,6 +733,7 @@ function Send-OutboxItem {
     }
 
     $handler = [System.Net.Http.HttpClientHandler]::new()
+    $handler.AllowAutoRedirect = $false
     $client = [System.Net.Http.HttpClient]::new($handler)
     $content = [System.Net.Http.MultipartFormDataContent]::new()
     $stream = $null
@@ -751,6 +771,13 @@ function Send-OutboxItem {
                 if (Acquire-StateLock $stateLockPath) {
                     try {
                         Advance-StateForItem $request $StateDirectory
+                        if ($env:AUTO_IMPROVE_HEALTH_DIR) {
+                            New-Item -ItemType Directory -Force -Path $env:AUTO_IMPROVE_HEALTH_DIR | Out-Null
+                            Remove-Item -LiteralPath (Join-Path $env:AUTO_IMPROVE_HEALTH_DIR "delivery-error.json") -Force -ErrorAction SilentlyContinue
+                            $healthPath = Join-Path $env:AUTO_IMPROVE_HEALTH_DIR "upload.json"
+                            [System.IO.File]::WriteAllText("$healthPath.tmp", ('{"lastUploadAt":' + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + '}'), [System.Text.UTF8Encoding]::new($false))
+                            Move-Item -LiteralPath "$healthPath.tmp" -Destination $healthPath -Force
+                        }
                         if ($stream) { $stream.Dispose(); $stream = $null }
                         Remove-Item -LiteralPath $Item.FullName -Recurse -Force
                         return "Delivered"
@@ -763,9 +790,11 @@ function Send-OutboxItem {
                 return "Blocked"
             }
             Set-RetrySchedule $request $requestPath $response
+            Write-DeliveryError 'The server returned an invalid acknowledgement. Queued data is retained for retry.'
             Write-HookLog "segment upload returned an invalid acknowledgement; retained in durable outbox"
             return "Blocked"
         }
+        Write-DeliveryError $(if ([int]$response.StatusCode -in @(401,403)) { 'The server rejected the installed account token. Reconnect your account; queued data is retained.' } else { "Delivery returned HTTP $([int]$response.StatusCode). Queued data is retained for retry or review." })
         if ([int]$response.StatusCode -in @(409, 413, 415, 422)) {
             $stateLockPath = Join-Path $LocksDirectory "state-$($request.stateKey).lock"
             if (Acquire-StateLock $stateLockPath) {
@@ -790,6 +819,7 @@ function Send-OutboxItem {
         return "Blocked"
     } catch {
         Set-RetrySchedule $request $requestPath $null
+        Write-DeliveryError 'The upload could not reach the server. Check your connection; queued data is retained.'
         Write-HookLog "segment upload deferred ($($_.Exception.GetType().Name))"
         return "Blocked"
     } finally {
@@ -874,13 +904,13 @@ try {
     if ([string]::IsNullOrWhiteSpace($inputJson)) { Finish-Hook 0 }
 
     $event = $inputJson | ConvertFrom-Json
-    if ($event.hook_event_name -notin @("Stop", "SessionEnd")) { Finish-Hook 0 }
+    if ($event.hook_event_name -notin @("Stop", "SessionEnd", "Drain")) { Finish-Hook 0 }
     $transcriptPath = [string]$event.transcript_path
-    if ([string]::IsNullOrWhiteSpace($transcriptPath) -or -not (Test-Path -LiteralPath $transcriptPath -PathType Leaf)) {
+    if ($event.hook_event_name -ne "Drain" -and ([string]::IsNullOrWhiteSpace($transcriptPath) -or -not (Test-Path -LiteralPath $transcriptPath -PathType Leaf))) {
         Write-HookLog "transcript_path is missing or unreadable"
         Finish-Hook 0
     }
-    $transcriptPath = (Get-Item -LiteralPath $transcriptPath).FullName
+    if ($event.hook_event_name -ne "Drain") { $transcriptPath = (Get-Item -LiteralPath $transcriptPath).FullName }
     if ($Source -eq "auto") {
         $Source = if ($transcriptPath -match "[\\/]\.claude[\\/]") { "claude-anthropic" } else { "codex-openai" }
     }
@@ -967,6 +997,14 @@ try {
         Sync-DirectoryToDisk $dataParent
     }
 
+    if ($event.hook_event_name -eq "Drain") {
+        if ($token -and (Acquire-DrainLock (Join-Path $locksDirectory "drain.lock"))) {
+            try { Drain-Outbox $outboxDirectory $token $timeoutSeconds $stateDirectory $locksDirectory $drainMaxAttempts $drainMaxSeconds }
+            finally { Release-DrainLock }
+        }
+        Finish-Hook 0
+    }
+
     $logicalSession = if ($sessionId) { $sessionId } else { $transcriptPath }
     $sessionId = $logicalSession
     $stateKey = Get-Sha256Text "$Source|$logicalSession|$transcriptPath"
@@ -984,8 +1022,18 @@ try {
     $statePath = Join-Path $stateDirectory "$stateKey.json"
     $fileInfo = Get-Item -LiteralPath $transcriptPath
     $currentSize = [long]$fileInfo.Length
+    if ($env:AUTO_IMPROVE_SNAPSHOT_SIZE) {
+        $limit = [long]$env:AUTO_IMPROVE_SNAPSHOT_SIZE
+        if ($limit -lt 0 -or $currentSize -lt $limit) { throw "Transcript was truncated before processing." }
+        $currentSize = $limit
+    }
     $fileIdentity = Get-FileIdentity $transcriptPath
     $state = Read-JsonFile $statePath
+    if ($env:AUTO_IMPROVE_SNAPSHOT_SIZE -and $state -and $state.fileIdentity -eq $fileIdentity -and [long]$state.ackOffset -gt $currentSize -and
+        [string]$state.ackPrefixSha256 -eq (Get-RangePrefixHash $transcriptPath ([long]$state.ackOffset))) {
+        if ($env:AUTO_IMPROVE_RECEIPT_FILE) { [System.IO.File]::WriteAllText($env:AUTO_IMPROVE_RECEIPT_FILE, '{"spooled":true}') }
+        Finish-Hook 0
+    }
     $resetState = -not $state
     if ($state) {
         if ([string]$state.epoch -notmatch '^\d+$' -or
@@ -1010,6 +1058,11 @@ try {
     }
 
     $cursor = Get-PendingCursor $outboxDirectory $stateKey $state.epoch ([long]$state.ackOffset) ([long]$state.nextSegmentSeq) ([string]$state.ackPrefixSha256) ([string]$state.ackTailSha256) ([long]$state.finalizedOffset)
+    if ($env:AUTO_IMPROVE_SNAPSHOT_SIZE -and $currentSize -lt $cursor.Offset -and
+        [string]$cursor.PrefixSha256 -eq (Get-RangePrefixHash $transcriptPath ([long]$cursor.Offset))) {
+        if ($env:AUTO_IMPROVE_RECEIPT_FILE) { [System.IO.File]::WriteAllText($env:AUTO_IMPROVE_RECEIPT_FILE, '{"spooled":true}') }
+        Finish-Hook 0
+    }
     $spoolSnapshotInvalid = $currentSize -lt $cursor.Offset
     if (-not $spoolSnapshotInvalid -and
         [long]$cursor.Offset -gt [long]$state.ackOffset) {
@@ -1085,7 +1138,15 @@ try {
         }
     }
 
+    if ($env:AUTO_IMPROVE_RECEIPT_FILE) {
+        if (($cursor.Offset -eq $currentSize -or ($event.hook_event_name -eq "Stop" -and $copyResult -and $copyResult.Length -eq 0)) -and
+            ($event.hook_event_name -ne "SessionEnd" -or $cursor.FinalizedOffset -eq $currentSize)) {
+            [System.IO.File]::WriteAllText($env:AUTO_IMPROVE_RECEIPT_FILE, '{"spooled":true}', [System.Text.UTF8Encoding]::new($false))
+            Sync-FileToDisk $env:AUTO_IMPROVE_RECEIPT_FILE
+        }
+    }
     Release-StateLock
+    if ($env:AUTO_IMPROVE_SPOOL_ONLY -eq "1") { Finish-Hook 0 }
 
     if ([string]::IsNullOrWhiteSpace($token)) {
         Write-HookLog "AUTO_IMPROVE_TOKEN is not configured; segment retained in durable outbox"

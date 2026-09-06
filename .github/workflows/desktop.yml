@@ -1,0 +1,40 @@
+name: Desktop and installer verification
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-15-intel, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.20.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:desktop
+      - name: Build website
+        if: runner.os == 'Linux'
+        run: npm run build
+      - name: Package and verify native launch with the private runtime
+        if: runner.os != 'Linux'
+        run: npm run verify:desktop-build
+      - name: Retain native verification evidence
+        if: always() && runner.os != 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-verification-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/penelopa-build-*/verification.json
+            ${{ runner.temp }}/penelopa-build-*/build/*.png
+          if-no-files-found: ignore

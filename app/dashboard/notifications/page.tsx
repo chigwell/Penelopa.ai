@@ -1,5 +1,8 @@
 "use client";
 
+import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../../lib/penelopa-client";
+import { DesktopSignIn } from "../DesktopSignIn";
+
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, LogOut, Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -8,61 +11,13 @@ import { TelegramNotificationsSettings } from "../TelegramNotifications";
 type Theme = "light" | "dark";
 type ScreenState = "locked" | "loading" | "ready";
 
-const TOKEN_STORAGE_KEY = "penelopa-api-token";
-
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem("penelopa-theme", theme);
 }
 
-function clearStoredToken() {
-  try {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch {
-    // The page still returns to its token gate when browser storage is unavailable.
-  }
-}
-
-function storeToken(value: string) {
-  try {
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, value);
-  } catch {
-    // The token can still be used for this session.
-  }
-}
-
-function readStoredToken() {
-  try {
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY)?.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-function consumeTokenFromHash() {
-  try {
-    const rawHash = window.location.hash.startsWith("#")
-      ? window.location.hash.slice(1)
-      : window.location.hash;
-    if (!rawHash) {
-      return null;
-    }
-
-    const token = new URLSearchParams(rawHash).get("token")?.trim() || null;
-    if (token) {
-      window.history.replaceState(
-        null,
-        document.title,
-        `${window.location.pathname}${window.location.search}`,
-      );
-    }
-    return token;
-  } catch {
-    return null;
-  }
-}
-
 export default function TelegramNotificationsPage() {
+  const desktop = useDesktop();
   const [theme, setTheme] = useState<Theme>("light");
   const [screen, setScreen] = useState<ScreenState>("loading");
   const [tokenInput, setTokenInput] = useState("");
@@ -155,9 +110,9 @@ export default function TelegramNotificationsPage() {
           <div className="token-gate-copy">
             <p className="eyebrow">Telegram notifications</p>
             <h1 id="token-title">Your alerts.</h1>
-            <p>Enter the API token used by your hook.</p>
+            <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
           </div>
-          <form className="token-form" onSubmit={handleSignIn}>
+          {desktop ? <DesktopSignIn /> : <form className="token-form" onSubmit={handleSignIn}>
             <label htmlFor="access-token">Access token</label>
             <div className="token-field-row">
               <input
@@ -179,7 +134,7 @@ export default function TelegramNotificationsPage() {
             <p className={error ? "token-note is-error" : "token-note"}>
               {error || "Stored only in this browser."}
             </p>
-          </form>
+          </form>}
         </section>
       </main>
     );

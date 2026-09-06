@@ -24,15 +24,20 @@
     "tailwindcss": "latest",
     "typescript": "latest",
     "vite": "latest",
-    "wrangler": "^4.127.1"
+    "wrangler": "^4.127.1",
+    "esbuild": "0.28.1"
   },
   "type": "module",
   "scripts": {
     "dev": "vinext dev",
-    "build": "vinext build",
+    "build": "npm run release:desktop && vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "deploy": "npm run build && vinext-cloudflare deploy --config dist/server/wrangler.json",
     "preview": "npm run build && npm run start --",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv ./worker-configuration.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv ./worker-configuration.d.ts",
+    "release:desktop": "node scripts/release-desktop.cjs",
+    "test:desktop": "npm run release:desktop && node --test desktop/test/*.test.cjs",
+    "typecheck": "tsc --noEmit --incremental false",
+    "verify:desktop-build": "node scripts/verify-desktop-build.cjs"
   }
 }

@@ -1,5 +1,8 @@
 "use client";
 
+import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../../../lib/penelopa-client";
+import { DesktopSignIn } from "../../DesktopSignIn";
+
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, Check, Copy, LogOut, Moon, Sun } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -21,28 +24,9 @@ type RecommendationDetail = {
   report_markdown: string;
 };
 
-const API_BASE = "https://api.penelopa.ai/v1";
-const TOKEN_STORAGE_KEY = "penelopa-api-token";
-
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem("penelopa-theme", theme);
-}
-
-function clearStoredToken() {
-  try {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch {
-    // The page still returns to its token gate when browser storage is unavailable.
-  }
-}
-
-function readStoredToken() {
-  try {
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY)?.trim() || null;
-  } catch {
-    return null;
-  }
 }
 
 function formatDateTime(value: string) {
@@ -59,19 +43,6 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
-async function apiGet<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
-    const error = new Error(payload?.detail || "Unable to load recommendation") as ApiError;
-    error.status = response.status;
-    throw error;
-  }
-  return response.json() as Promise<T>;
-}
-
 async function copyText(value: string) {
   try {
     await navigator.clipboard.writeText(value);
@@ -81,7 +52,7 @@ async function copyText(value: string) {
     textarea.setAttribute("readonly", "");
     textarea.style.opacity = "0";
     textarea.style.position = "fixed";
-    document.body.append(textarea);
+    document.body.appendChild(textarea);
     textarea.select();
     document.execCommand("copy");
     textarea.remove();
@@ -89,6 +60,7 @@ async function copyText(value: string) {
 }
 
 export default function RecommendationPage() {
+  const desktop = useDesktop();
   const params = useParams<{ id?: string | string[] }>();
   const rawRecommendationId = params?.id;
   const recommendationId = Array.isArray(rawRecommendationId)
@@ -116,7 +88,7 @@ export default function RecommendationPage() {
         candidate,
       );
       if (persistToken) {
-        window.localStorage.setItem(TOKEN_STORAGE_KEY, candidate);
+        storeToken(candidate);
       }
       setToken(candidate);
       setRecommendation(detail);
@@ -197,9 +169,9 @@ export default function RecommendationPage() {
           <div className="token-gate-copy">
             <p className="eyebrow">Personal recommendation</p>
             <h1 id="token-title">One clear idea.</h1>
-            <p>Enter the API token used by your hook.</p>
+            <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
           </div>
-          <form className="token-form" onSubmit={handleSignIn}>
+          {desktop ? <DesktopSignIn /> : <form className="token-form" onSubmit={handleSignIn}>
             <label htmlFor="access-token">Access token</label>
             <div className="token-field-row">
               <input
@@ -221,7 +193,7 @@ export default function RecommendationPage() {
             <p className={error ? "token-note is-error" : "token-note"}>
               {error || "Stored only in this browser."}
             </p>
-          </form>
+          </form>}
         </section>
       </main>
     );

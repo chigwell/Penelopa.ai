@@ -1,0 +1,20 @@
+{
+  "name": "penelopa-desktop",
+  "productName": "Penelopa.ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Penelopa.ai desktop companion",
+  "author": "Penelopa.ai",
+  "license": "AGPL-3.0-only",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "package": "node runtime/package.cjs",
+    "test": "node --test test/*.test.cjs"
+  },
+  "devDependencies": {
+    "@electron/osx-sign": "2.7.0",
+    "@electron/packager": "20.3.0",
+    "electron": "44.2.0"
+  }
+}

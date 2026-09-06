@@ -5,6 +5,12 @@
 
 set -u
 
+# Use the private runtime when hooks are launched with a minimal GUI PATH.
+if [ -n "${AUTO_IMPROVE_NODE:-}" ] && [ -x "$AUTO_IMPROVE_NODE" ]; then
+  PATH="$(dirname "$AUTO_IMPROVE_NODE"):${PATH:-/usr/bin:/bin}"
+  export PATH
+fi
+
 SOURCE="${1:-auto}"
 CONFIG_FILE="${AUTO_IMPROVE_HOOK_CONFIG:-"$HOME/.auto-improve-hook.env"}"
 DEFAULT_SEGMENT_URL="https://api.penelopa.ai/v2/transcript-segments"
@@ -89,7 +95,9 @@ json_field_sed() {
 json_field() {
   input_file="$1"
   field_name="$2"
-  if command -v python3 >/dev/null 2>&1; then
+  if [ -n "${AUTO_IMPROVE_NODE:-}" ]; then
+    json_field_node "$input_file" "$field_name"
+  elif command -v python3 >/dev/null 2>&1; then
     json_field_python python3 "$input_file" "$field_name"
   elif command -v python >/dev/null 2>&1; then
     json_field_python python "$input_file" "$field_name"
@@ -135,6 +143,10 @@ file_size() {
 # command (global sync is slower, but preserves the durability guarantee).
 durable_sync_paths() {
   [ "$#" -gt 0 ] || return 0
+  if [ -n "${AUTO_IMPROVE_NODE:-}" ]; then
+    "$AUTO_IMPROVE_NODE" -e 'const fs=require("node:fs");for(const p of process.argv.slice(1)){const fd=fs.openSync(p,"r");try{fs.fsyncSync(fd)}finally{fs.closeSync(fd)}}' "$@"
+    return $?
+  fi
   if command -v python3 >/dev/null 2>&1; then
     python3 -c '
 import os
@@ -471,7 +483,9 @@ success_response_is_valid() {
   expected_offset=$(item_value "$item" byte_end)
   expected_sha=$(item_value "$item" segment_sha256 | tr '[:upper:]' '[:lower:]')
   case "$expected_offset" in ''|*[!0-9]*) return 1 ;; esac
-  if command -v python3 >/dev/null 2>&1; then
+  if [ -n "${AUTO_IMPROVE_NODE:-}" ]; then
+    success_response_node "$response_file" "$expected_offset" "$expected_sha"
+  elif command -v python3 >/dev/null 2>&1; then
     success_response_python python3 "$response_file" "$expected_offset" "$expected_sha"
   elif command -v python >/dev/null 2>&1; then
     success_response_python python "$response_file" "$expected_offset" "$expected_sha"
@@ -535,7 +549,7 @@ send_outbox_item() {
   item="$1"
   item_timeout="${2:-$TIMEOUT_SECONDS}"
   NETWORK_ATTEMPTED=0
-  if [ -z "$token" ] || ! command -v curl >/dev/null 2>&1; then
+  if [ -z "$token" ] || { [ -z "${AUTO_IMPROVE_TRANSPORT:-}" ] && ! command -v curl >/dev/null 2>&1; }; then
     return 1
   fi
   next_attempt=$(item_value "$item" next_attempt_at)
@@ -573,6 +587,9 @@ send_outbox_item() {
   response_file="$WORK_DIR/response.$$.tmp"
   curl_exit=0
   NETWORK_ATTEMPTED=1
+  if [ -n "${AUTO_IMPROVE_TRANSPORT:-}" ]; then
+    http_code=$("$AUTO_IMPROVE_NODE" "$AUTO_IMPROVE_TRANSPORT" "$item" "$response_file" "$headers_file" "$item_timeout" "$CONFIG_FILE") || curl_exit=$?
+  else
   http_code=$(curl \
     --silent \
     --show-error \
@@ -596,6 +613,7 @@ send_outbox_item() {
     --form-string "metadata=$(item_value "$item" metadata)" \
     --form "segment=@$item/segment.jsonl;type=application/x-ndjson" \
     2>/dev/null) || curl_exit=$?
+  fi
 
   invalid_ack=0
   local_commit_deferred=0
@@ -605,6 +623,12 @@ send_outbox_item() {
         if success_response_is_valid "$item" "$response_file"; then
           if [ -n "$item_state_key" ] && acquire_state_lock "$item_state_key"; then
             if advance_state_for_item "$item"; then
+              if [ -n "${AUTO_IMPROVE_HEALTH_DIR:-}" ]; then
+                mkdir -p "$AUTO_IMPROVE_HEALTH_DIR"
+                rm -f "$AUTO_IMPROVE_HEALTH_DIR/delivery-error.json"
+                printf '{"lastUploadAt":%s}\n' "$(date +%s)" > "$AUTO_IMPROVE_HEALTH_DIR/upload.json.tmp.$$"
+                mv "$AUTO_IMPROVE_HEALTH_DIR/upload.json.tmp.$$" "$AUTO_IMPROVE_HEALTH_DIR/upload.json"
+              fi
               rm -rf "$item"
               release_state_lock
               rm -f "$headers_file" "$response_file"
@@ -827,12 +851,12 @@ cat > "$tmp_input"
 
 hook_event_name=$(json_field "$tmp_input" hook_event_name)
 case "$hook_event_name" in
-  Stop|SessionEnd) ;;
+  Stop|SessionEnd|Drain) ;;
   *) finish 0 ;;
 esac
 
 transcript_path=$(json_field "$tmp_input" transcript_path)
-if [ -z "$transcript_path" ] || [ ! -f "$transcript_path" ]; then
+if [ "$hook_event_name" != "Drain" ] && { [ -z "$transcript_path" ] || [ ! -f "$transcript_path" ]; }; then
   log "transcript_path is missing or unreadable"
   finish 0
 fi
@@ -918,6 +942,14 @@ if ! durable_sync_paths \
   finish 0
 fi
 
+if [ "$hook_event_name" = "Drain" ]; then
+  if [ -n "$token" ] && acquire_drain_lock; then
+    drain_outbox || true
+    release_drain_lock
+  fi
+  finish 0
+fi
+
 canonical_path=$(canonicalize_path "$transcript_path") || canonical_path="$transcript_path"
 logical_session="${session_id:-$canonical_path}"
 session_id="$logical_session"
@@ -933,6 +965,11 @@ fi
 
 # Snapshot the current local transcript before any potentially slow network I/O.
 current_size=$(file_size "$transcript_path")
+if [ -n "${AUTO_IMPROVE_SNAPSHOT_SIZE:-}" ]; then
+  case "$AUTO_IMPROVE_SNAPSHOT_SIZE" in *[!0-9]*) finish 0 ;; esac
+  [ "$current_size" -ge "$AUTO_IMPROVE_SNAPSHOT_SIZE" ] || finish 0
+  current_size="$AUTO_IMPROVE_SNAPSHOT_SIZE"
+fi
 file_id=$(file_identity "$transcript_path")
 state_file="$STATE_DIR/$state_key.state"
 tail_probe="$WORK_DIR/state-tail.$$.tmp"
@@ -950,6 +987,11 @@ if [ -f "$state_file" ]; then
   case "$epoch:$ack_offset:$next_sequence" in *[!0-9:]*) reset_state=1 ;; esac
   [ -n "$saved_prefix_sha" ] || reset_state=1
   [ "$saved_file_id" = "$file_id" ] || reset_state=1
+  if [ -n "${AUTO_IMPROVE_SNAPSHOT_SIZE:-}" ] && [ "$reset_state" -eq 0 ] && [ "$current_size" -lt "$ack_offset" ] \
+    && [ "$(range_prefix_hash "$transcript_path" "$ack_offset" || true)" = "$saved_prefix_sha" ]; then
+    [ -z "${AUTO_IMPROVE_RECEIPT_FILE:-}" ] || printf '{"spooled":true}\n' > "$AUTO_IMPROVE_RECEIPT_FILE"
+    finish 0
+  fi
   if [ "$reset_state" -eq 0 ] && [ "$current_size" -lt "$ack_offset" ]; then
     reset_state=1
   fi
@@ -978,6 +1020,11 @@ if [ "$reset_state" -eq 1 ]; then
 fi
 
 pending_cursor "$state_key" "$epoch" "$ack_offset" "$next_sequence" "$saved_prefix_sha" "$saved_tail_sha" "$saved_finalized_offset"
+if [ -n "${AUTO_IMPROVE_SNAPSHOT_SIZE:-}" ] && [ "$current_size" -lt "$SPOOL_OFFSET" ] \
+  && [ "$(range_prefix_hash "$transcript_path" "$SPOOL_OFFSET" || true)" = "$SPOOL_PREFIX_SHA" ]; then
+  [ -z "${AUTO_IMPROVE_RECEIPT_FILE:-}" ] || printf '{"spooled":true}\n' > "$AUTO_IMPROVE_RECEIPT_FILE"
+  finish 0
+fi
 spool_snapshot_invalid=0
 if [ "$current_size" -lt "$SPOOL_OFFSET" ]; then
   spool_snapshot_invalid=1
@@ -1088,11 +1135,22 @@ if [ "$hook_event_name" = "SessionEnd" ] \
   rm -f "$final_marker"
 fi
 
+if [ -n "${AUTO_IMPROVE_RECEIPT_FILE:-}" ]; then
+  # Stop leaves an incomplete JSONL suffix for the next event.
+  if [ "$spool_offset" -eq "$current_size" ] || { [ "$hook_event_name" = "Stop" ] && [ "${complete_size:-0}" -eq 0 ]; }; then
+    if [ "$hook_event_name" != "SessionEnd" ] || [ "$SPOOL_FINALIZED_OFFSET" = "$current_size" ]; then
+      printf '{"spooled":true}\n' > "$AUTO_IMPROVE_RECEIPT_FILE"
+      durable_sync_paths "$AUTO_IMPROVE_RECEIPT_FILE" || true
+    fi
+  fi
+fi
 release_state_lock
 
-if [ -z "$token" ]; then
+if [ "${AUTO_IMPROVE_SPOOL_ONLY:-}" = "1" ]; then
+  finish 0
+elif [ -z "$token" ]; then
   log "AUTO_IMPROVE_TOKEN is not configured; segment retained in durable outbox"
-elif ! command -v curl >/dev/null 2>&1; then
+elif [ -z "${AUTO_IMPROVE_TRANSPORT:-}" ] && ! command -v curl >/dev/null 2>&1; then
   log "curl is unavailable; segment retained in durable outbox"
 elif ! acquire_drain_lock; then
   log "another outbox drain is active; the durable snapshot will be retried by a later hook"

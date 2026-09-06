@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** 4 September 2026
+**Last updated:** 6 September 2026
 
 This Privacy Policy explains how **Penelopa.ai** (**"we"**, **"us"**, **"our"**) collects and processes personal data when you use our website, dashboard, APIs, scripts, uploads, integrations, and related services (the **"Service"**).
 
@@ -36,6 +36,12 @@ Together, these materials are **"User Content"**.
 
 - Request counts, processed-token counts, recommendation counts, timestamps, dashboard activity, quota/rate-limit state, script status, delivery state, retry metadata, and basic performance/error metrics.
 - API token issuance, revocation, expiry, status, and access logs where token-based access is used.
+
+**Desktop companion and local storage**
+
+The optional desktop companion displays the Penelopa dashboard and stores app preferences, installation status, pending hook events, queued transcript segments, delivery diagnostics and recommendation notification IDs on your computer. It imports the account token already used by your installed hooks. The desktop credential copy uses the operating system's secure storage through Electron; the independent hooks retain a credential file restricted to your user account. Signing out of the desktop interface does not stop hook collection; use Pause collection or uninstall the hooks to stop collection.
+
+System notifications and launch at login are optional and initially disabled. Diagnostic export is initiated by you, saves a local file and excludes tokens and transcript contents; the app does not automatically send the exported file to support. Installation and updates contact Penelopa and the official Node.js, npm and Electron distribution services to download application dependencies. The remote dashboard continues to use the existing Penelopa APIs.
 
 **Network, security, and abuse-prevention data**
 

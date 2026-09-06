@@ -1,5 +1,8 @@
 "use client";
 
+import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../lib/penelopa-client";
+import { DesktopSignIn } from "./DesktopSignIn";
+
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -90,8 +93,6 @@ type ChartKey =
 
 type ApiError = Error & { status: number };
 
-const API_BASE = "https://api.penelopa.ai/v1";
-const TOKEN_STORAGE_KEY = "penelopa-api-token";
 const RECOMMENDATIONS_PAGE_SIZE = 10;
 
 const CHART_SERIES: ReadonlyArray<{
@@ -157,21 +158,6 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
-async function apiGet<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
-    const error = new Error(payload?.detail || "Unable to load dashboard data") as ApiError;
-    error.status = response.status;
-    throw error;
-  }
-
-  return response.json() as Promise<T>;
-}
-
 async function copyText(value: string) {
   try {
     await navigator.clipboard.writeText(value);
@@ -181,61 +167,15 @@ async function copyText(value: string) {
     textarea.setAttribute("readonly", "");
     textarea.style.opacity = "0";
     textarea.style.position = "fixed";
-    document.body.append(textarea);
+    document.body.appendChild(textarea);
     textarea.select();
     document.execCommand("copy");
     textarea.remove();
   }
 }
 
-function clearStoredToken() {
-  try {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch {
-    // The UI remains locked even when browser storage is unavailable.
-  }
-}
-
-function storeToken(value: string) {
-  try {
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, value);
-  } catch {
-    // The token remains usable for the current page even if storage is blocked.
-  }
-}
-
-function readStoredToken() {
-  try {
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY)?.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-function consumeTokenFromHash() {
-  try {
-    const rawHash = window.location.hash.startsWith("#")
-      ? window.location.hash.slice(1)
-      : window.location.hash;
-    if (!rawHash) {
-      return null;
-    }
-
-    const token = new URLSearchParams(rawHash).get("token")?.trim() || null;
-    if (token) {
-      window.history.replaceState(
-        null,
-        document.title,
-        `${window.location.pathname}${window.location.search}`,
-      );
-    }
-    return token;
-  } catch {
-    return null;
-  }
-}
-
 export default function DashboardPage() {
+  const desktop = useDesktop();
   const [theme, setTheme] = useState<Theme>("light");
   const [screen, setScreen] = useState<ScreenState>("loading");
   const [tokenInput, setTokenInput] = useState("");
@@ -455,7 +395,7 @@ export default function DashboardPage() {
     });
   }
 
-  if (screen !== "ready" || !dashboard) {
+  if (screen !== "ready" || !dashboard || !token) {
     return (
       <main className="dashboard-shell token-shell">
         <DashboardTopbar theme={theme} onThemeToggle={toggleTheme} />
@@ -463,9 +403,9 @@ export default function DashboardPage() {
           <div className="token-gate-copy">
             <p className="eyebrow">Personal dashboard</p>
             <h1 id="token-title">Your own usage.</h1>
-            <p>Enter the API token used by your hook.</p>
+            <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
           </div>
-          <form className="token-form" onSubmit={handleSignIn}>
+          {desktop ? <DesktopSignIn /> : <form className="token-form" onSubmit={handleSignIn}>
             <label htmlFor="access-token">Access token</label>
             <div className="token-field-row">
               <input
@@ -488,7 +428,7 @@ export default function DashboardPage() {
               {error || "Stored only in this browser."
               }
             </p>
-          </form>
+          </form>}
         </section>
       </main>
     );

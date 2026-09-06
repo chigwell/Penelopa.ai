@@ -2,8 +2,8 @@
 set -eu
 umask 077
 
-NODE_VERSION='24.20.0'
-BOOTSTRAP_SHA='e39daa0c7722d8e2e1f7c81d4adf3a3860310432a6bb7a27a2828ff07863c5a6'
+NODE_VERSION='@@NODE_VERSION@@'
+BOOTSTRAP_SHA='@@BOOTSTRAP_SHA@@'
 BASE_URL="${AUTO_IMPROVE_RELEASE_BASE_URL:-https://penelopa.ai/desktop}"
 ROOT="${AUTO_IMPROVE_HOME:-$HOME/.auto-improve}"
 log() { printf 'Penelopa: %s\n' "$*" >&2; }
@@ -73,10 +73,7 @@ esac
 case "$architecture" in aarch64|arm64) architecture=arm64 ;; x86_64|amd64) architecture=x64 ;; *) die 'This CPU architecture has no supported private runtime.' ;; esac
 key="$platform-$architecture"
 case "$key" in
-  darwin-arm64) node_sha='40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8' ;;
-  darwin-x64) node_sha='9e5b2644cf107befb6aefca676b96d3296bc10138096f022ed378d6233ed81f4' ;;
-  linux-arm64) node_sha='3515603e2487879a39bc75716f1a2affd027500c64ba50e845cf72cb33219013' ;;
-  linux-x64) node_sha='855d581f8a4eb1a8117e3426de25fe02770592febcfb31369aee1ffbfee9e8ec' ;;
+@@NODE_HASH_CASES@@
   *) die 'This platform has no verified private runtime.' ;;
 esac
 mkdir -p "$ROOT/cache" "$ROOT/runtime"

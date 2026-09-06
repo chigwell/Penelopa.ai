@@ -1,5 +1,7 @@
 "use client";
 
+import { apiRequest } from "../lib/penelopa-client";
+
 import {
   ArrowRight,
   ArrowUpRight,
@@ -39,7 +41,6 @@ type TelegramSetupLinkResponse = {
 type ApiError = Error & { status: number };
 type ComponentMode = "compact" | "full";
 
-const API_BASE = "https://api.penelopa.ai/v1";
 const SETTINGS_PATH = "/user/telegram-notifications";
 const POLL_INTERVAL_MS = 2000;
 
@@ -76,45 +77,8 @@ function isApiError(error: unknown): error is ApiError {
   );
 }
 
-async function telegramApi<T>(
-  path: string,
-  token: string,
-  init: RequestInit = {},
-): Promise<T | null> {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  headers.set("Authorization", `Bearer ${token}`);
-
-  if (init.body !== undefined) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { detail?: string }
-      | null;
-    const error = new Error(
-      payload?.detail || "Telegram notification settings are unavailable.",
-    ) as ApiError;
-    error.status = response.status;
-    throw error;
-  }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  const text = await response.text();
-  if (!text) {
-    return null;
-  }
-
-  return JSON.parse(text) as T;
+async function telegramApi<T>(path: string, token: string, init: RequestInit = {}): Promise<T | null> {
+  return apiRequest<T | null>(path, token, init);
 }
 
 function formatDateTime(value: string | null | undefined) {

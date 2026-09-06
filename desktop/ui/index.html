@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Penelopa.ai</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <aside>
+    <div class="brand"><span class="brand-mark">P</span><span>Penelopa.ai</span></div>
+    <p class="nav-label">YOUR WORKSPACE</p>
+    <nav aria-label="Main navigation">
+      <button data-page="dashboard"><span>◷</span> Overview</button>
+      <button data-page="notifications"><span>◉</span> Telegram alerts</button>
+      <button data-page="connection"><span>⇄</span> Connection</button>
+      <button data-page="settings"><span>⚙</span> App settings</button>
+    </nav>
+    <div class="sidebar-bottom"><span id="connection-dot" class="dot"></span><span id="connection-label">Checking connection</span><small id="version"></small></div>
+  </aside>
+  <header><span id="page-title">Your workspace</span><span class="header-right">Continuous improvement, connected.</span></header>
+  <main id="content" aria-live="polite"><div class="loading">Opening your workspace…</div></main>
+  <div id="message" role="status" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

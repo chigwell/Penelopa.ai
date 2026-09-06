@@ -1,0 +1,3164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A configurable animated How it works demo for Penelopa.ai."
+    />
+    <title>Penelopa.ai — How it works demo</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      html {
+        background: #fcfbf8;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      .pd-demo,
+      .pd-demo * {
+        box-sizing: border-box;
+      }
+
+      .pd-demo {
+        --pd-canvas: #fcfbf8;
+        --pd-surface: #f4f1e9;
+        --pd-raised: #fffefa;
+        --pd-border: #e3e0d8;
+        --pd-strong-border: #bdb9af;
+        --pd-text: #26231f;
+        --pd-ink: #11100f;
+        --pd-muted: #777169;
+        --pd-inverse-bg: #171614;
+        --pd-inverse-text: #fffdf8;
+        --pd-success: #587052;
+        --pd-success-soft: rgba(88, 112, 82, 0.12);
+        --pd-shadow: rgba(38, 35, 31, 0.07);
+        --pd-grid: rgba(38, 35, 31, 0.055);
+        --pd-ease: cubic-bezier(0.22, 1, 0.36, 1);
+        --pd-agent-accent: #516a57;
+
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        width: 100%;
+        padding: clamp(72px, 9vw, 136px) 0;
+        color: var(--pd-text);
+        background: var(--pd-canvas);
+        font-family: "DM Sans", "Avenir Next", sans-serif;
+        font-variant-ligatures: none;
+        letter-spacing: 0;
+        color-scheme: light;
+      }
+
+      .pd-demo[data-theme="dark"] {
+        --pd-canvas: #12110f;
+        --pd-surface: #1c1a17;
+        --pd-raised: #24211d;
+        --pd-border: #3c3933;
+        --pd-strong-border: #706b60;
+        --pd-text: #eee9de;
+        --pd-ink: #fffdf8;
+        --pd-muted: #aaa397;
+        --pd-inverse-bg: #f9f6ee;
+        --pd-inverse-text: #171614;
+        --pd-success: #a8c39c;
+        --pd-success-soft: rgba(168, 195, 156, 0.12);
+        --pd-shadow: rgba(0, 0, 0, 0.2);
+        --pd-grid: rgba(255, 253, 248, 0.055);
+        --pd-agent-accent: #abc5b1;
+        color-scheme: dark;
+      }
+
+      .pd-demo button,
+      .pd-demo input,
+      .pd-demo textarea {
+        font: inherit;
+      }
+
+      .pd-demo :where(button) {
+        color: inherit;
+      }
+
+      .pd-demo__inner {
+        width: min(100% - 64px, 1240px);
+        margin: 0 auto;
+      }
+
+      .pd-demo__intro {
+        display: grid;
+        grid-template-columns: minmax(0, 0.88fr) minmax(300px, 0.62fr);
+        align-items: end;
+        gap: 40px;
+        margin-bottom: clamp(36px, 5vw, 62px);
+      }
+
+      .pd-demo__eyebrow,
+      .pd-demo__phase,
+      .pd-agent__meta,
+      .pd-agent__file,
+      .pd-message__label,
+      .pd-working__label,
+      .pd-tool__name,
+      .pd-tool__status,
+      .pd-analysis__eyebrow,
+      .pd-analysis__status,
+      .pd-recommendation__eyebrow,
+      .pd-recommendation__meta,
+      .pd-finish__label {
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        letter-spacing: 0;
+      }
+
+      .pd-demo__eyebrow {
+        margin: 0 0 16px;
+        color: var(--pd-muted);
+        font-size: 11px;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+
+      .pd-demo__title {
+        max-width: 820px;
+        margin: 0;
+        color: var(--pd-ink);
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: clamp(48px, 6.3vw, 86px);
+        font-weight: 400;
+        line-height: 0.94;
+        letter-spacing: -0.03em;
+      }
+
+      .pd-demo__summary {
+        max-width: 540px;
+        margin: 0 0 5px;
+        color: var(--pd-muted);
+        font-size: clamp(16px, 1.5vw, 19px);
+        line-height: 1.65;
+      }
+
+      .pd-shell {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--pd-border);
+        border-radius: 10px;
+        background: var(--pd-raised);
+        box-shadow: 0 26px 80px var(--pd-shadow);
+      }
+
+      .pd-shell__toolbar {
+        position: relative;
+        z-index: 20;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        min-height: 56px;
+        padding: 0 14px 0 18px;
+        border-bottom: 1px solid var(--pd-border);
+        background: color-mix(in srgb, var(--pd-raised) 91%, transparent);
+        backdrop-filter: blur(16px);
+      }
+
+      .pd-agent-tabs {
+        display: inline-flex;
+        align-items: center;
+        justify-self: start;
+        gap: 4px;
+        padding: 3px;
+        border: 1px solid var(--pd-border);
+        background: var(--pd-surface);
+      }
+
+      .pd-agent-tab {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 5px 11px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: var(--pd-muted);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        cursor: pointer;
+        transition:
+          color 180ms ease,
+          background 180ms ease,
+          transform 180ms ease;
+      }
+
+      .pd-agent-tab:hover {
+        color: var(--pd-ink);
+      }
+
+      .pd-agent-tab[aria-selected="true"] {
+        color: var(--pd-inverse-text);
+        background: var(--pd-inverse-bg);
+      }
+
+      .pd-agent-tab:active {
+        transform: translateY(1px);
+      }
+
+      .pd-demo__phase {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        justify-self: center;
+        color: var(--pd-muted);
+        font-size: 10px;
+        line-height: 1;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .pd-demo__phase::before {
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--pd-agent-accent);
+        content: "";
+        box-shadow: 0 0 0 5px color-mix(in srgb, var(--pd-agent-accent) 13%, transparent);
+      }
+
+      .pd-toolbar-actions {
+        display: inline-flex;
+        align-items: center;
+        justify-self: end;
+        gap: 8px;
+      }
+
+      .pd-icon-button {
+        display: inline-grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--pd-border);
+        border-radius: 0;
+        background: transparent;
+        cursor: pointer;
+        transition:
+          background 180ms ease,
+          border-color 180ms ease,
+          transform 180ms ease;
+      }
+
+      .pd-icon-button:hover {
+        border-color: var(--pd-strong-border);
+        background: var(--pd-surface);
+      }
+
+      .pd-icon-button:active {
+        transform: translateY(1px);
+      }
+
+      .pd-icon-button svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.7;
+      }
+
+      .pd-stage {
+        position: relative;
+        height: clamp(650px, 62vw, 742px);
+        min-height: 650px;
+        overflow: hidden;
+        background: var(--pd-raised);
+      }
+
+      .pd-screen {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(12px) scale(0.992);
+        filter: blur(5px);
+        pointer-events: none;
+        transition:
+          opacity 560ms var(--pd-ease),
+          transform 720ms var(--pd-ease),
+          filter 560ms var(--pd-ease),
+          visibility 0s linear 720ms;
+      }
+
+      .pd-screen.is-active {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        filter: none;
+        pointer-events: auto;
+        transition-delay: 0s;
+      }
+
+      .pd-shell__progress {
+        position: absolute;
+        z-index: 30;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 2px;
+        background: var(--pd-border);
+      }
+
+      .pd-shell__progress-value {
+        display: block;
+        width: 0;
+        height: 100%;
+        background: var(--pd-ink);
+        transition: width 700ms var(--pd-ease);
+      }
+
+      /* Agent workspace */
+
+      .pd-agent {
+        display: grid;
+        grid-template-rows: 47px minmax(0, 1fr);
+        background:
+          linear-gradient(var(--pd-grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--pd-grid) 1px, transparent 1px),
+          var(--pd-canvas);
+        background-size: 38px 38px;
+      }
+
+      .pd-agent__topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--pd-border);
+        background: color-mix(in srgb, var(--pd-canvas) 94%, transparent);
+      }
+
+      .pd-agent__mark {
+        display: grid;
+        flex: 0 0 auto;
+        width: 25px;
+        height: 25px;
+        place-items: center;
+        border: 1px solid var(--pd-strong-border);
+        color: var(--pd-ink);
+        background: var(--pd-raised);
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: 15px;
+        line-height: 1;
+      }
+
+      .pd-agent__identity {
+        min-width: 0;
+      }
+
+      .pd-agent__name {
+        overflow: hidden;
+        margin: 0;
+        color: var(--pd-ink);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .pd-agent__meta {
+        overflow: hidden;
+        margin: 2px 0 0;
+        color: var(--pd-muted);
+        font-size: 9px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .pd-agent__connection {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-left: auto;
+        color: var(--pd-muted);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+      }
+
+      .pd-agent__connection::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--pd-success);
+        content: "";
+        box-shadow: 0 0 0 4px var(--pd-success-soft);
+      }
+
+      .pd-agent__body {
+        display: grid;
+        grid-template-columns: 206px minmax(0, 1fr);
+        min-height: 0;
+      }
+
+      .pd-agent__sidebar {
+        min-height: 0;
+        padding: 18px 14px;
+        border-right: 1px solid var(--pd-border);
+        background: color-mix(in srgb, var(--pd-surface) 68%, transparent);
+      }
+
+      .pd-agent__sidebar-label {
+        margin: 0 0 14px;
+        color: var(--pd-muted);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 9px;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .pd-agent__tree {
+        display: grid;
+        gap: 3px;
+      }
+
+      .pd-agent__file {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+        min-height: 25px;
+        padding: 3px 7px;
+        color: var(--pd-muted);
+        font-size: 9px;
+        line-height: 1.2;
+      }
+
+      .pd-agent__file::before {
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        border: 1px solid var(--pd-strong-border);
+        content: "";
+      }
+
+      .pd-agent__file[data-kind="folder"]::before {
+        height: 6px;
+        border-top-width: 3px;
+      }
+
+      .pd-agent__file[data-active="true"] {
+        color: var(--pd-ink);
+        background: var(--pd-raised);
+      }
+
+      .pd-agent__file[data-depth="1"] {
+        padding-left: 18px;
+      }
+
+      .pd-agent__file[data-depth="2"] {
+        padding-left: 29px;
+      }
+
+      .pd-agent__chat {
+        position: relative;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) auto;
+        min-width: 0;
+        min-height: 0;
+        background: color-mix(in srgb, var(--pd-canvas) 92%, transparent);
+      }
+
+      .pd-conversation {
+        min-height: 0;
+        overflow: auto;
+        padding: 28px clamp(24px, 5vw, 66px) 34px;
+        scroll-behavior: auto;
+        scrollbar-width: none;
+      }
+
+      .pd-conversation::-webkit-scrollbar,
+      .pd-recommendation__scroller::-webkit-scrollbar {
+        display: none;
+      }
+
+      .pd-conversation__inner {
+        width: min(100%, 760px);
+        min-height: 100%;
+        margin: 0 auto;
+      }
+
+      .pd-message,
+      .pd-working,
+      .pd-tool {
+        opacity: 0;
+        transform: translateY(12px);
+        animation: pd-rise 580ms var(--pd-ease) forwards;
+      }
+
+      .pd-message {
+        display: grid;
+        gap: 8px;
+        margin: 0 0 24px;
+      }
+
+      .pd-message[data-role="user"] {
+        width: min(88%, 610px);
+        margin-left: auto;
+        padding: 14px 16px;
+        border: 1px solid var(--pd-border);
+        background: var(--pd-raised);
+      }
+
+      .pd-message[data-role="assistant"] {
+        padding-left: 14px;
+        border-left: 2px solid var(--pd-strong-border);
+      }
+
+      .pd-message[data-variant="final"] {
+        padding-top: 2px;
+        border-left-color: var(--pd-agent-accent);
+      }
+
+      .pd-message__label {
+        color: var(--pd-muted);
+        font-size: 9px;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .pd-message__body {
+        min-height: 1.5em;
+        color: var(--pd-text);
+        font-size: 14px;
+        line-height: 1.62;
+        white-space: pre-line;
+      }
+
+      .pd-message__body.is-streaming::after,
+      .pd-composer__text.is-streaming::after {
+        display: inline-block;
+        width: 1px;
+        height: 1em;
+        margin-left: 2px;
+        background: currentColor;
+        vertical-align: -0.12em;
+        content: "";
+        animation: pd-caret 780ms steps(1, end) infinite;
+      }
+
+      .pd-message__points {
+        display: grid;
+        gap: 6px;
+        margin: 2px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .pd-message__points li {
+        position: relative;
+        padding-left: 14px;
+        color: var(--pd-muted);
+        font-size: 12px;
+        line-height: 1.52;
+      }
+
+      .pd-message__points li::before {
+        position: absolute;
+        top: 0.72em;
+        left: 0;
+        width: 5px;
+        height: 1px;
+        background: var(--pd-strong-border);
+        content: "";
+      }
+
+      .pd-working {
+        margin: 0 0 18px;
+        padding: 13px 14px 14px;
+        border: 1px solid var(--pd-border);
+        background: color-mix(in srgb, var(--pd-surface) 72%, transparent);
+      }
+
+      .pd-working__head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 9px;
+      }
+
+      .pd-working__pulse {
+        position: relative;
+        width: 8px;
+        height: 8px;
+        border: 1px solid var(--pd-agent-accent);
+        border-radius: 999px;
+      }
+
+      .pd-working:not(.is-complete) .pd-working__pulse::after {
+        position: absolute;
+        inset: -1px;
+        border: 1px solid var(--pd-agent-accent);
+        border-radius: inherit;
+        content: "";
+        animation: pd-ping 1.35s ease-out infinite;
+      }
+
+      .pd-working.is-complete .pd-working__pulse {
+        background: var(--pd-agent-accent);
+      }
+
+      .pd-working__label {
+        color: var(--pd-muted);
+        font-size: 9px;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .pd-working__state {
+        margin-left: auto;
+        color: var(--pd-muted);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+      }
+
+      .pd-working__body {
+        color: var(--pd-muted);
+        font-size: 12px;
+        line-height: 1.58;
+        white-space: pre-line;
+      }
+
+      .pd-tool {
+        overflow: hidden;
+        margin: 0 0 10px;
+        border: 1px solid var(--pd-border);
+        background: var(--pd-raised);
+      }
+
+      .pd-tool__head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px;
+        min-height: 35px;
+        padding: 7px 11px;
+        border-bottom: 1px solid var(--pd-border);
+      }
+
+      .pd-tool__identity {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 8px;
+      }
+
+      .pd-tool__icon {
+        display: inline-grid;
+        flex: 0 0 auto;
+        width: 17px;
+        height: 17px;
+        place-items: center;
+        border: 1px solid var(--pd-strong-border);
+        color: var(--pd-muted);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 9px;
+      }
+
+      .pd-tool__name {
+        overflow: hidden;
+        color: var(--pd-ink);
+        font-size: 10px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .pd-tool__status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--pd-muted);
+        font-size: 8px;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .pd-tool__status::before {
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--pd-strong-border);
+        content: "";
+      }
+
+      .pd-tool[data-state="running"] .pd-tool__status::before {
+        background: var(--pd-agent-accent);
+        animation: pd-opacity 900ms ease-in-out infinite alternate;
+      }
+
+      .pd-tool[data-state="complete"] .pd-tool__status {
+        color: var(--pd-success);
+      }
+
+      .pd-tool[data-state="complete"] .pd-tool__status::before {
+        background: var(--pd-success);
+      }
+
+      .pd-tool__command,
+      .pd-tool__result {
+        margin: 0;
+        padding: 10px 12px;
+        color: var(--pd-muted);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 9px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .pd-tool__result {
+        display: none;
+        border-top: 1px solid var(--pd-border);
+        color: var(--pd-text);
+        background: color-mix(in srgb, var(--pd-surface) 58%, transparent);
+      }
+
+      .pd-tool.has-result .pd-tool__result {
+        display: block;
+        animation: pd-reveal 420ms var(--pd-ease) both;
+      }
+
+      .pd-composer {
+        position: relative;
+        z-index: 5;
+        width: min(calc(100% - 48px), 760px);
+        margin: 0 auto 22px;
+        border: 1px solid var(--pd-strong-border);
+        background: var(--pd-raised);
+      }
+
+      .pd-composer.is-pasting {
+        animation: pd-paste 420ms var(--pd-ease);
+      }
+
+      .pd-composer__main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 12px;
+        min-height: 62px;
+        padding: 12px 12px 10px 14px;
+      }
+
+      .pd-composer__text {
+        max-height: 88px;
+        overflow: hidden;
+        color: var(--pd-text);
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-line;
+      }
+
+      .pd-composer__text[data-empty="true"] {
+        color: var(--pd-muted);
+      }
+
+      .pd-composer__send {
+        display: grid;
+        width: 31px;
+        height: 31px;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        color: var(--pd-inverse-text);
+        background: var(--pd-inverse-bg);
+        opacity: 0.34;
+        cursor: default;
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease;
+      }
+
+      .pd-composer[data-ready="true"] .pd-composer__send {
+        opacity: 1;
+      }
+
+      .pd-composer__send.is-sending {
+        transform: scale(0.88);
+      }
+
+      .pd-composer__send svg {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .pd-composer__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 27px;
+        padding: 5px 12px;
+        border-top: 1px solid var(--pd-border);
+        color: var(--pd-muted);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 8px;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      /* Analysis transition */
+
+      .pd-analysis {
+        display: grid;
+        place-items: center;
+        background:
+          linear-gradient(var(--pd-grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--pd-grid) 1px, transparent 1px),
+          var(--pd-canvas);
+        background-size: 42px 42px;
+      }
+
+      .pd-analysis::before {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 50% 48%,
+          color-mix(in srgb, var(--pd-agent-accent) 10%, transparent),
+          transparent 44%
+        );
+        content: "";
+      }
+
+      .pd-analysis__stream {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .pd-analysis__token {
+        position: absolute;
+        left: var(--x);
+        top: var(--y);
+        max-width: 160px;
+        padding: 5px 7px;
+        border: 1px solid var(--pd-border);
+        color: var(--pd-muted);
+        background: color-mix(in srgb, var(--pd-raised) 84%, transparent);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 8px;
+        line-height: 1.3;
+        white-space: nowrap;
+        opacity: 0;
+        transform: translate3d(var(--from-x), var(--from-y), 0) scale(0.92);
+        animation: pd-token-flow var(--duration) var(--delay) var(--pd-ease) infinite;
+      }
+
+      .pd-analysis__core {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        width: min(calc(100% - 48px), 560px);
+        justify-items: center;
+        text-align: center;
+      }
+
+      .pd-analysis__eyebrow {
+        margin: 0 0 20px;
+        color: var(--pd-muted);
+        font-size: 10px;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .pd-analysis__orb {
+        position: relative;
+        display: grid;
+        width: 150px;
+        height: 150px;
+        place-items: center;
+        margin-bottom: 27px;
+      }
+
+      .pd-analysis__ring {
+        position: absolute;
+        inset: var(--inset);
+        border: 1px solid color-mix(in srgb, var(--pd-strong-border) 76%, transparent);
+        border-radius: 999px;
+        animation: pd-ring var(--ring-speed) linear infinite;
+      }
+
+      .pd-analysis__ring::before,
+      .pd-analysis__ring::after {
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--pd-agent-accent);
+        content: "";
+      }
+
+      .pd-analysis__ring::before {
+        top: 12%;
+        left: 12%;
+      }
+
+      .pd-analysis__ring::after {
+        right: 5%;
+        bottom: 25%;
+      }
+
+      .pd-analysis__brand-mark {
+        display: grid;
+        width: 54px;
+        height: 54px;
+        place-items: center;
+        border: 1px solid var(--pd-strong-border);
+        border-radius: 8px;
+        color: var(--pd-ink);
+        background: var(--pd-raised);
+        box-shadow: 0 0 0 10px color-mix(in srgb, var(--pd-raised) 72%, transparent);
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: 29px;
+      }
+
+      .pd-analysis__title {
+        min-height: 1.2em;
+        margin: 0;
+        color: var(--pd-ink);
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: clamp(34px, 4vw, 50px);
+        font-weight: 400;
+        line-height: 1.02;
+        letter-spacing: -0.025em;
+      }
+
+      .pd-analysis__copy {
+        min-height: 3.2em;
+        max-width: 470px;
+        margin: 13px 0 20px;
+        color: var(--pd-muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .pd-analysis__status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--pd-muted);
+        font-size: 9px;
+        text-transform: uppercase;
+      }
+
+      .pd-analysis__status::before {
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--pd-agent-accent);
+        content: "";
+        animation: pd-opacity 800ms ease-in-out infinite alternate;
+      }
+
+      .pd-analysis__document {
+        position: absolute;
+        z-index: 5;
+        top: 50%;
+        left: 50%;
+        width: 160px;
+        height: 210px;
+        border: 1px solid var(--pd-strong-border);
+        background: var(--pd-raised);
+        opacity: 0;
+        transform: translate(-50%, -47%) scale(0.3);
+        pointer-events: none;
+      }
+
+      .pd-analysis.is-resolving .pd-analysis__core,
+      .pd-analysis.is-resolving .pd-analysis__stream {
+        opacity: 0;
+        transform: scale(0.95);
+        transition:
+          opacity 360ms ease,
+          transform 560ms var(--pd-ease);
+      }
+
+      .pd-analysis.is-resolving .pd-analysis__document {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(7.5);
+        transition:
+          opacity 160ms ease,
+          transform 900ms var(--pd-ease);
+      }
+
+      /* Penelopa recommendation */
+
+      .pd-recommendation {
+        display: grid;
+        grid-template-rows: 66px minmax(0, 1fr);
+        color: var(--pd-text);
+        background: var(--pd-canvas);
+      }
+
+      .pd-recommendation__nav {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        padding: 0 22px;
+        border-bottom: 1px solid var(--pd-border);
+      }
+
+      .pd-recommendation__brand {
+        display: inline-flex;
+        align-items: center;
+        min-width: 0;
+        gap: 10px;
+        color: var(--pd-ink);
+        text-decoration: none;
+      }
+
+      .pd-recommendation__logo {
+        display: grid;
+        flex: 0 0 auto;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid var(--pd-border);
+        border-radius: 8px;
+        background: #fffdf8;
+        color: #171614;
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: 22px;
+      }
+
+      .pd-recommendation__logo img {
+        display: block;
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+      }
+
+      .pd-recommendation__brand-text {
+        overflow: hidden;
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: 21px;
+        line-height: 1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .pd-recommendation__actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        margin-left: auto;
+      }
+
+      .pd-recommendation__back {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 0;
+        background: transparent;
+        color: var(--pd-muted);
+        font-size: 12px;
+      }
+
+      .pd-recommendation__back svg,
+      .pd-copy-button svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.7;
+      }
+
+      .pd-recommendation__scroller {
+        min-height: 0;
+        overflow: auto;
+        scrollbar-width: none;
+      }
+
+      .pd-recommendation__article {
+        width: min(calc(100% - 64px), 1040px);
+        margin: 0 auto;
+        padding: 58px 0 82px;
+      }
+
+      .pd-recommendation__header {
+        padding-bottom: 30px;
+        border-bottom: 1px solid var(--pd-border);
+      }
+
+      .pd-recommendation__eyebrow {
+        margin: 0 0 19px;
+        color: var(--pd-muted);
+        font-size: 10px;
+        text-transform: uppercase;
+      }
+
+      .pd-recommendation__title {
+        max-width: 900px;
+        margin: 0;
+        color: var(--pd-ink);
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: clamp(43px, 6.2vw, 76px);
+        font-weight: 400;
+        line-height: 0.94;
+        letter-spacing: -0.035em;
+      }
+
+      .pd-recommendation__meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px 18px;
+        margin-top: 25px;
+      }
+
+      .pd-recommendation__meta {
+        color: var(--pd-muted);
+        font-size: 9px;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+
+      .pd-copy-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        margin-left: auto;
+        padding: 8px 14px;
+        gap: 8px;
+        border: 0;
+        border-radius: 0;
+        color: var(--pd-inverse-text);
+        background: var(--pd-inverse-bg);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease;
+      }
+
+      .pd-copy-button:hover {
+        opacity: 0.86;
+        transform: translateY(-1px);
+      }
+
+      .pd-copy-button.is-pressed {
+        transform: translateY(1px) scale(0.97);
+      }
+
+      .pd-copy-button.is-copied {
+        background: var(--pd-success);
+        color: #fffdf8;
+      }
+
+      .pd-recommendation__report {
+        max-width: 810px;
+        padding: 38px 0 48px;
+        border-bottom: 1px solid var(--pd-border);
+      }
+
+      .pd-recommendation__report h2 {
+        margin: 36px 0 13px;
+        color: var(--pd-ink);
+        font-family: "DM Serif Display", Georgia, serif;
+        font-size: 31px;
+        font-weight: 400;
+        line-height: 1.08;
+      }
+
+      .pd-recommendation__report h2:first-child {
+        margin-top: 0;
+      }
+
+      .pd-recommendation__report h3 {
+        margin: 27px 0 10px;
+        color: var(--pd-ink);
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+
+      .pd-recommendation__report p,
+      .pd-recommendation__report li {
+        color: var(--pd-text);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .pd-recommendation__report p {
+        margin: 0 0 16px;
+      }
+
+      .pd-recommendation__report ul {
+        display: grid;
+        gap: 7px;
+        margin: 0 0 19px;
+        padding-left: 20px;
+      }
+
+      .pd-recommendation__report code {
+        padding: 0.12em 0.34em;
+        background: color-mix(in srgb, var(--pd-ink) 8%, transparent);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 0.88em;
+      }
+
+      .pd-recommendation__report blockquote {
+        margin: 23px 0;
+        padding: 2px 0 2px 17px;
+        border-left: 2px solid var(--pd-strong-border);
+        color: var(--pd-muted);
+      }
+
+      .pd-recommendation__report blockquote p {
+        color: inherit;
+      }
+
+      .pd-copy-toast {
+        position: absolute;
+        z-index: 30;
+        right: 22px;
+        bottom: 22px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border: 1px solid var(--pd-strong-border);
+        color: var(--pd-text);
+        background: var(--pd-raised);
+        font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        opacity: 0;
+        transform: translateY(10px);
+        pointer-events: none;
+      }
+
+      .pd-copy-toast.is-visible {
+        opacity: 1;
+        transform: none;
+        transition:
+          opacity 320ms ease,
+          transform 420ms var(--pd-ease);
+      }
+
+      .pd-copy-toast::before {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--pd-success);
+        content: "";
+      }
+
+      /* Completion control */
+
+      .pd-finish {
+        position: absolute;
+        z-index: 40;
+        right: 24px;
+        bottom: 24px;
+        display: grid;
+        min-width: 220px;
+        gap: 8px;
+        padding: 13px;
+        border: 1px solid var(--pd-strong-border);
+        color: var(--pd-text);
+        background: color-mix(in srgb, var(--pd-raised) 94%, transparent);
+        box-shadow: 0 16px 48px var(--pd-shadow);
+        backdrop-filter: blur(16px);
+        opacity: 0;
+        transform: translateY(16px) scale(0.98);
+        visibility: hidden;
+        transition:
+          opacity 320ms ease,
+          transform 480ms var(--pd-ease),
+          visibility 0s linear 480ms;
+      }
+
+      .pd-finish.is-visible {
+        opacity: 1;
+        transform: none;
+        visibility: visible;
+        transition-delay: 0s;
+      }
+
+      .pd-finish__label {
+        color: var(--pd-muted);
+        font-size: 9px;
+        text-transform: uppercase;
+      }
+
+      .pd-finish__button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 39px;
+        padding: 8px 10px 8px 12px;
+        gap: 18px;
+        border: 0;
+        border-radius: 0;
+        color: var(--pd-inverse-text);
+        background: var(--pd-inverse-bg);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease;
+      }
+
+      .pd-finish__button:hover {
+        opacity: 0.86;
+        transform: translateY(-1px);
+      }
+
+      .pd-finish__button svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.7;
+      }
+
+      @keyframes pd-rise {
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes pd-reveal {
+        from {
+          opacity: 0;
+          transform: translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes pd-caret {
+        0%,
+        48% {
+          opacity: 1;
+        }
+        49%,
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes pd-ping {
+        from {
+          opacity: 0.6;
+          transform: scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: scale(2.2);
+        }
+      }
+
+      @keyframes pd-opacity {
+        from {
+          opacity: 0.35;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes pd-paste {
+        0% {
+          background: var(--pd-raised);
+        }
+        42% {
+          background: color-mix(in srgb, var(--pd-agent-accent) 13%, var(--pd-raised));
+        }
+        100% {
+          background: var(--pd-raised);
+        }
+      }
+
+      @keyframes pd-ring {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes pd-token-flow {
+        0% {
+          opacity: 0;
+          transform: translate3d(var(--from-x), var(--from-y), 0) scale(0.92);
+        }
+        18% {
+          opacity: 0.65;
+        }
+        68% {
+          opacity: 0.36;
+        }
+        100% {
+          opacity: 0;
+          transform: translate3d(var(--to-x), var(--to-y), 0) scale(0.72);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .pd-demo__intro {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+
+        .pd-demo__summary {
+          max-width: 680px;
+        }
+
+        .pd-agent__body {
+          grid-template-columns: 166px minmax(0, 1fr);
+        }
+
+        .pd-recommendation__article {
+          width: min(calc(100% - 48px), 1040px);
+        }
+      }
+
+      @media (max-width: 760px) {
+        .pd-demo {
+          padding: 68px 0 80px;
+        }
+
+        .pd-demo__inner {
+          width: min(100% - 36px, 1240px);
+        }
+
+        .pd-demo__title {
+          font-size: clamp(46px, 13vw, 68px);
+        }
+
+        .pd-shell__toolbar {
+          grid-template-columns: 1fr auto;
+          min-height: 54px;
+          padding-left: 10px;
+        }
+
+        .pd-demo__phase {
+          display: none;
+        }
+
+        .pd-stage {
+          height: 690px;
+          min-height: 690px;
+        }
+
+        .pd-agent__body {
+          grid-template-columns: 1fr;
+        }
+
+        .pd-agent__sidebar {
+          display: none;
+        }
+
+        .pd-conversation {
+          padding: 22px 18px 28px;
+        }
+
+        .pd-composer {
+          width: calc(100% - 28px);
+          margin-bottom: 14px;
+        }
+
+        .pd-message[data-role="user"] {
+          width: min(94%, 610px);
+        }
+
+        .pd-recommendation {
+          grid-template-rows: 60px minmax(0, 1fr);
+        }
+
+        .pd-recommendation__nav {
+          padding: 0 14px;
+        }
+
+        .pd-recommendation__back span {
+          display: none;
+        }
+
+        .pd-recommendation__article {
+          width: calc(100% - 36px);
+          padding: 43px 0 64px;
+        }
+
+        .pd-recommendation__title {
+          font-size: clamp(40px, 11vw, 61px);
+        }
+
+        .pd-copy-button {
+          order: 5;
+          width: 100%;
+          margin-left: 0;
+        }
+
+        .pd-recommendation__meta-row {
+          align-items: stretch;
+        }
+
+        .pd-finish {
+          right: 14px;
+          bottom: 14px;
+          left: 14px;
+          min-width: 0;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .pd-demo__inner {
+          width: min(100% - 24px, 1240px);
+        }
+
+        .pd-demo__summary {
+          font-size: 15px;
+        }
+
+        .pd-agent-tab {
+          padding-inline: 9px;
+          font-size: 11px;
+        }
+
+        .pd-stage {
+          height: 720px;
+          min-height: 720px;
+        }
+
+        .pd-agent__connection span,
+        .pd-recommendation__brand-text {
+          display: none;
+        }
+
+        .pd-agent__topbar {
+          padding-inline: 12px;
+        }
+
+        .pd-conversation {
+          padding-inline: 12px;
+        }
+
+        .pd-message__body {
+          font-size: 13px;
+        }
+
+        .pd-composer__footer span:last-child {
+          display: none;
+        }
+
+        .pd-analysis__core {
+          width: calc(100% - 28px);
+        }
+
+        .pd-analysis__title {
+          font-size: 36px;
+        }
+
+        .pd-recommendation__logo {
+          width: 36px;
+          height: 36px;
+        }
+
+        .pd-recommendation__actions {
+          gap: 6px;
+        }
+
+        .pd-recommendation__actions .pd-icon-button:first-of-type {
+          display: none;
+        }
+
+        .pd-recommendation__article {
+          width: calc(100% - 28px);
+        }
+
+        .pd-recommendation__title {
+          font-size: 40px;
+        }
+
+        .pd-copy-toast {
+          right: 12px;
+          bottom: 12px;
+          left: 12px;
+          justify-content: center;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .pd-demo *,
+        .pd-demo *::before,
+        .pd-demo *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 1ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 1ms !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <section
+      class="pd-demo"
+      data-pd-demo
+      data-theme="light"
+      aria-labelledby="pd-demo-title"
+    >
+      <div class="pd-demo__inner">
+        <header class="pd-demo__intro">
+          <div>
+            <p class="pd-demo__eyebrow" data-section-eyebrow>How it works</p>
+            <h2 class="pd-demo__title" id="pd-demo-title" data-section-title>
+              Your agent works.<br />Penelopa learns.
+            </h2>
+          </div>
+          <p class="pd-demo__summary" data-section-summary>
+            Penelopa turns real Codex and Claude Code sessions into concrete,
+            reusable improvements—then helps your agent apply them.
+          </p>
+        </header>
+
+        <div class="pd-shell">
+          <div class="pd-shell__toolbar">
+            <div class="pd-agent-tabs" role="tablist" aria-label="Select AI agent">
+              <button
+                class="pd-agent-tab"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                data-agent-tab="codex"
+              >
+                Codex
+              </button>
+              <button
+                class="pd-agent-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-agent-tab="claude"
+              >
+                Claude
+              </button>
+            </div>
+
+            <div class="pd-demo__phase" aria-live="polite" data-phase>
+              01 / Session
+            </div>
+
+            <div class="pd-toolbar-actions">
+              <button
+                class="pd-icon-button"
+                type="button"
+                aria-label="Switch to dark theme"
+                data-theme-toggle
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3v2.25M12 18.75V21M3 12h2.25M18.75 12H21" />
+                  <path d="m5.64 5.64 1.59 1.59m9.54 9.54 1.59 1.59m0-12.72-1.59 1.59M7.23 16.77l-1.59 1.59" />
+                  <circle cx="12" cy="12" r="3.75" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="pd-stage">
+            <section class="pd-screen pd-agent is-active" data-screen="agent">
+              <header class="pd-agent__topbar">
+                <div class="pd-agent__mark" data-agent-mark>C</div>
+                <div class="pd-agent__identity">
+                  <p class="pd-agent__name" data-agent-name>Codex · transcript-ingestion</p>
+                  <p class="pd-agent__meta" data-agent-meta>GPT-5.6 Codex · main</p>
+                </div>
+                <div class="pd-agent__connection">
+                  <span data-agent-status>Workspace connected</span>
+                </div>
+              </header>
+
+              <div class="pd-agent__body">
+                <aside class="pd-agent__sidebar" aria-label="Project files">
+                  <p class="pd-agent__sidebar-label" data-project-label>Explorer</p>
+                  <div class="pd-agent__tree" data-project-tree></div>
+                </aside>
+
+                <main class="pd-agent__chat">
+                  <div class="pd-conversation" data-conversation>
+                    <div class="pd-conversation__inner" data-conversation-inner></div>
+                  </div>
+
+                  <div class="pd-composer" data-composer data-ready="false">
+                    <div class="pd-composer__main">
+                      <div
+                        class="pd-composer__text"
+                        data-composer-text
+                        data-empty="true"
+                      >
+                        Ask Codex to follow up
+                      </div>
+                      <button
+                        class="pd-composer__send"
+                        type="button"
+                        tabindex="-1"
+                        aria-hidden="true"
+                        data-composer-send
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="m5 12 14-7-4.5 14-3-5.5L5 12Z" />
+                          <path d="m11.5 13.5 3-3" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="pd-composer__footer">
+                      <span data-composer-model>GPT-5.6 Codex</span>
+                      <span data-repository-context>Repository context enabled</span>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </section>
+
+            <section class="pd-screen pd-analysis" data-screen="analysis">
+              <div class="pd-analysis__stream" data-analysis-stream></div>
+              <div class="pd-analysis__core">
+                <p class="pd-analysis__eyebrow" data-analysis-eyebrow>
+                  Penelopa.ai / Auto-improve
+                </p>
+                <div class="pd-analysis__orb" aria-hidden="true">
+                  <span
+                    class="pd-analysis__ring"
+                    style="--inset: 0px; --ring-speed: 12s"
+                  ></span>
+                  <span
+                    class="pd-analysis__ring"
+                    style="--inset: 20px; --ring-speed: 8s; animation-direction: reverse"
+                  ></span>
+                  <span
+                    class="pd-analysis__ring"
+                    style="--inset: 39px; --ring-speed: 5s"
+                  ></span>
+                  <span class="pd-analysis__brand-mark">P</span>
+                </div>
+                <h3 class="pd-analysis__title" data-analysis-title>
+                  Reading the work behind the answer.
+                </h3>
+                <p class="pd-analysis__copy" data-analysis-copy>
+                  Mapping repeated actions, tool usage and recovery patterns across
+                  sessions.
+                </p>
+                <div class="pd-analysis__status" data-analysis-status>
+                  Ingesting transcript
+                </div>
+              </div>
+              <div class="pd-analysis__document" aria-hidden="true"></div>
+            </section>
+
+            <section
+              class="pd-screen pd-recommendation"
+              data-screen="penelopa"
+              aria-label="Penelopa recommendation preview"
+            >
+              <nav class="pd-recommendation__nav">
+                <a class="pd-recommendation__brand" href="#" tabindex="-1">
+                  <span class="pd-recommendation__logo" data-brand-logo>P</span>
+                  <span class="pd-recommendation__brand-text" data-brand-name
+                    >Penelopa.ai</span
+                  >
+                </a>
+                <div class="pd-recommendation__actions">
+                  <button class="pd-recommendation__back" type="button" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                    <span data-dashboard-label>Dashboard</span>
+                  </button>
+                  <button
+                    class="pd-icon-button"
+                    type="button"
+                    tabindex="-1"
+                    aria-hidden="true"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M9 8V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-3" />
+                      <path d="m13 12-9 0m4-4-4 4 4 4" />
+                    </svg>
+                  </button>
+                  <button
+                    class="pd-icon-button"
+                    type="button"
+                    tabindex="-1"
+                    aria-hidden="true"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3v2.25M12 18.75V21M3 12h2.25M18.75 12H21" />
+                      <path d="m5.64 5.64 1.59 1.59m9.54 9.54 1.59 1.59m0-12.72-1.59 1.59M7.23 16.77l-1.59 1.59" />
+                      <circle cx="12" cy="12" r="3.75" />
+                    </svg>
+                  </button>
+                </div>
+              </nav>
+
+              <div class="pd-recommendation__scroller" data-recommendation-scroller>
+                <article class="pd-recommendation__article">
+                  <header class="pd-recommendation__header">
+                    <p class="pd-recommendation__eyebrow" data-rec-eyebrow>
+                      Recommendation
+                    </p>
+                    <h3 class="pd-recommendation__title" data-rec-title>
+                      Turn repeated ingestion checks into a reusable verification skill
+                    </h3>
+                    <div class="pd-recommendation__meta-row" data-rec-meta-row>
+                      <button class="pd-copy-button" type="button" data-copy-button>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="9" y="9" width="11" height="11" rx="1" />
+                          <path d="M15 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4" />
+                        </svg>
+                        <span data-copy-label>Copy recommendation</span>
+                      </button>
+                    </div>
+                  </header>
+
+                  <div class="pd-recommendation__report" data-rec-report></div>
+                </article>
+              </div>
+
+              <div class="pd-copy-toast" data-copy-toast>Copied for your agent</div>
+            </section>
+
+            <aside class="pd-finish" data-finish aria-live="polite">
+              <span class="pd-finish__label" data-finish-label>Improvement applied</span>
+              <button class="pd-finish__button" type="button" data-replay>
+                <span data-replay-label>Replay demo</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 11a8 8 0 1 0-2.34 5.66" />
+                  <path d="M20 5v6h-6" />
+                </svg>
+              </button>
+            </aside>
+          </div>
+
+          <div class="pd-shell__progress" aria-hidden="true">
+            <span class="pd-shell__progress-value" data-progress></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!--
+      All visible copy and the complete animation timeline live in this JSON block.
+      To change the story, edit the agent flow steps; the animation engine is generic.
+    -->
+    <script id="penelopa-demo-config" type="application/json">
+      {
+        "version": 1,
+        "settings": {
+          "defaultAgent": "codex",
+          "defaultTheme": "light",
+          "autoplay": true,
+          "intersectionThreshold": 0.35,
+          "speed": 1.2
+        },
+        "section": {
+          "eyebrow": "How it works",
+          "title": "Your agent works.\nPenelopa learns.",
+          "summary": "Penelopa turns real Codex and Claude Code sessions into concrete, reusable improvements—then helps your agent apply them."
+        },
+        "labels": {
+          "phaseFormat": "{index} / {label}",
+          "workspaceConnected": "Workspace connected",
+          "explorer": "Explorer",
+          "repositoryContext": "Repository context enabled",
+          "copy": "Copy recommendation",
+          "copied": "Copied",
+          "copyToast": "Copied for your agent",
+          "complete": "Improvement applied",
+          "replay": "Replay demo",
+          "dashboard": "Dashboard"
+        },
+        "brand": {
+          "name": "Penelopa.ai",
+          "logoUrl": ""
+        },
+        "project": {
+          "name": "transcript-ingestion",
+          "branch": "main",
+          "files": [
+            { "name": "backend", "kind": "folder", "depth": 0 },
+            { "name": "app", "kind": "folder", "depth": 1 },
+            { "name": "services/ingest.py", "kind": "file", "depth": 2, "active": true },
+            { "name": "models.py", "kind": "file", "depth": 2 },
+            { "name": "migrations", "kind": "folder", "depth": 2 },
+            { "name": "tests/test_ingest.py", "kind": "file", "depth": 1 },
+            { "name": "scripts", "kind": "folder", "depth": 0 }
+          ]
+        },
+        "analysis": {
+          "eyebrow": "Penelopa.ai / Auto-improve",
+          "tokens": [
+            "retry path",
+            "pytest -q",
+            "read ingest.py",
+            "payload_hash",
+            "same check again",
+            "inspect migration",
+            "idempotency",
+            "tool sequence",
+            "session #08",
+            "session #11",
+            "recovery pattern",
+            "verification gap"
+          ],
+          "stages": [
+            {
+              "title": "Reading the work behind the answer.",
+              "copy": "Mapping actions, tool calls and recovery patterns across real agent sessions.",
+              "status": "Ingesting transcript",
+              "duration": 1200
+            },
+            {
+              "title": "The same work appears again.",
+              "copy": "Twelve sessions reconstruct the same ingestion checks before making a safe change.",
+              "status": "Detecting repeated patterns",
+              "duration": 1400
+            },
+            {
+              "title": "A reusable improvement emerges.",
+              "copy": "Penelopa converts the pattern into a concrete skill, script and verification contract.",
+              "status": "Drafting recommendation",
+              "duration": 1500
+            }
+          ],
+          "resolveDuration": 900
+        },
+        "recommendation": {
+          "eyebrow": "Recommendation",
+          "title": "Turn repeated ingestion checks into a reusable verification skill",
+          "metadata": [
+            "TRANSCRIPT-INGEST",
+            "12 SESSIONS",
+            "04 SEP 2026",
+            "INTERVENTION / SKILL + SCRIPT"
+          ],
+          "copyExcerpt": "Create a reusable ingestion verification skill. It should check the Alembic head, session uniqueness, payload hashes, raw JSONL preservation and retry idempotency before any ingest change is considered complete.",
+          "report": [
+            {
+              "type": "heading",
+              "level": 2,
+              "text": "Observed pattern"
+            },
+            {
+              "type": "paragraph",
+              "text": "Across 12 coding sessions, the agent repeatedly reconstructed the same verification sequence before changing the transcript ingest path: inspect the migration head, locate the uniqueness boundary, compare payload hashes, confirm raw-byte preservation and run the retry test."
+            },
+            {
+              "type": "quote",
+              "text": "The work is correct, but the verification knowledge disappears when the session ends."
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "text": "Recommended intervention"
+            },
+            {
+              "type": "list",
+              "items": [
+                "Add a project skill at .codex/skills/verify-ingest/SKILL.md with the canonical diagnostic sequence.",
+                "Add scripts/verify_ingest.py to run schema, hash, raw-payload and retry-idempotency checks in one command.",
+                "Make the focused ingest tests part of the skill's completion criteria, not an optional follow-up."
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "text": "Expected result"
+            },
+            {
+              "type": "paragraph",
+              "text": "Future agents start with the proven workflow instead of rediscovering it. Diagnosis becomes faster, changes remain transaction-safe, and each session leaves the project easier to work with than before."
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "text": "Suggested invocation"
+            },
+            {
+              "type": "paragraph",
+              "text": "Run `python scripts/verify_ingest.py --changed-only`, then execute the focused async test suite before presenting the final answer."
+            }
+          ]
+        },
+        "agents": {
+          "codex": {
+            "label": "Codex",
+            "mark": "C",
+            "model": "GPT-5.6 Codex",
+            "composerPlaceholder": "Ask Codex to follow up",
+            "accentLight": "#516a57",
+            "accentDark": "#abc5b1",
+            "flow": [
+              {
+                "type": "phase",
+                "index": "01",
+                "label": "Session",
+                "progress": 0.03,
+                "hold": 250
+              },
+              {
+                "type": "compose",
+                "mode": "type",
+                "text": "The retry path still creates duplicate transcript sessions. Trace it and make the smallest safe fix.",
+                "duration": 1100,
+                "hold": 180
+              },
+              {
+                "type": "send",
+                "label": "You",
+                "hold": 520
+              },
+              {
+                "type": "reasoning",
+                "label": "Reasoning",
+                "text": "I’ll map the ingest transaction and its idempotency boundary first, then patch only the race and prove retry behaviour with the focused tests.",
+                "duration": 1050,
+                "hold": 260
+              },
+              {
+                "type": "tool",
+                "name": "rg",
+                "input": "rg \"transcript_sessions|payload_hash|IntegrityError\" backend/app -n",
+                "result": "backend/app/services/ingest.py:84  existing = await find_by_hash(...)\nbackend/app/services/ingest.py:103 session.add(TranscriptSession(...))\nbackend/app/models.py:71 payload_hash: Mapped[str]",
+                "duration": 950,
+                "hold": 220
+              },
+              {
+                "type": "tool",
+                "name": "read_file",
+                "input": "backend/app/services/ingest.py:64-146",
+                "result": "The check-then-insert sequence is outside a protected uniqueness boundary. Two retries can observe no row and insert concurrently.",
+                "duration": 900,
+                "hold": 260
+              },
+              {
+                "type": "reasoning",
+                "label": "Reasoning",
+                "text": "The application check is useful for the fast path, but the database must own the invariant. I’ll add the composite unique constraint and convert the losing insert into a read of the canonical row.",
+                "duration": 1150,
+                "hold": 240
+              },
+              {
+                "type": "tool",
+                "name": "apply_patch",
+                "input": "backend/app/models.py\nbackend/app/services/ingest.py\nbackend/app/migrations/versions/0002_ingest_idempotency.py",
+                "result": "+ UNIQUE(project_id, payload_hash)\n+ nested transaction around insert\n+ IntegrityError fallback loads the existing session",
+                "duration": 1050,
+                "hold": 260
+              },
+              {
+                "type": "tool",
+                "name": "pytest",
+                "input": "pytest backend/tests/test_ingest.py -q",
+                "result": "18 passed in 1.42s",
+                "duration": 1100,
+                "hold": 300
+              },
+              {
+                "type": "message",
+                "role": "assistant",
+                "label": "Codex",
+                "variant": "final",
+                "text": "Fixed the retry race at the database boundary and kept the existing fast path.",
+                "points": [
+                  "Added a composite uniqueness constraint for project and payload hash.",
+                  "Handled the concurrent insert without rolling back the outer ingest transaction.",
+                  "Added a retry regression test; the focused suite passes."
+                ],
+                "duration": 760,
+                "hold": 1350
+              },
+              {
+                "type": "analysis",
+                "progress": 0.4,
+                "hold": 180
+              },
+              {
+                "type": "phase",
+                "index": "03",
+                "label": "Recommendation",
+                "progress": 0.57,
+                "hold": 200
+              },
+              {
+                "type": "screen",
+                "screen": "penelopa",
+                "hold": 1050
+              },
+              {
+                "type": "scroll",
+                "target": 0.48,
+                "duration": 1900,
+                "hold": 720
+              },
+              {
+                "type": "copy",
+                "duration": 820,
+                "hold": 850
+              },
+              {
+                "type": "screen",
+                "screen": "agent",
+                "hold": 650
+              },
+              {
+                "type": "phase",
+                "index": "04",
+                "label": "Applied",
+                "progress": 0.72,
+                "hold": 160
+              },
+              {
+                "type": "compose",
+                "mode": "paste",
+                "text": "Apply this Penelopa recommendation to the repository:\n\n“Create a reusable ingestion verification skill. Check the Alembic head, session uniqueness, payload hashes, raw JSONL preservation and retry idempotency.”",
+                "duration": 520,
+                "hold": 380
+              },
+              {
+                "type": "send",
+                "label": "You",
+                "hold": 540
+              },
+              {
+                "type": "reasoning",
+                "label": "Reasoning",
+                "text": "I’ll turn the recommendation into repository-owned instructions plus an executable verifier, then make the script itself testable so future agents can trust it.",
+                "duration": 1050,
+                "hold": 250
+              },
+              {
+                "type": "tool",
+                "name": "write_file",
+                "input": ".codex/skills/verify-ingest/SKILL.md\nscripts/verify_ingest.py\nbackend/tests/test_verify_ingest.py",
+                "result": "Created the reusable workflow, deterministic checks and unit coverage for the verifier.",
+                "duration": 1050,
+                "hold": 230
+              },
+              {
+                "type": "tool",
+                "name": "run_verifier",
+                "input": "python scripts/verify_ingest.py --changed-only",
+                "result": "schema       ok\nuniqueness   ok\nraw payload  ok\nretry        ok",
+                "duration": 1050,
+                "hold": 230
+              },
+              {
+                "type": "tool",
+                "name": "pytest",
+                "input": "pytest backend/tests/test_verify_ingest.py backend/tests/test_ingest.py -q",
+                "result": "24 passed in 1.77s",
+                "duration": 950,
+                "hold": 280
+              },
+              {
+                "type": "message",
+                "role": "assistant",
+                "label": "Codex",
+                "variant": "final",
+                "text": "The improvement is now part of the repository, not just this conversation.",
+                "points": [
+                  "Future sessions get the canonical verification sequence from the project skill.",
+                  "One command checks the complete ingestion contract.",
+                  "Tests protect the verifier and the original retry fix."
+                ],
+                "duration": 780,
+                "hold": 800
+              },
+              {
+                "type": "complete",
+                "progress": 1
+              }
+            ]
+          },
+          "claude": {
+            "label": "Claude",
+            "mark": "✦",
+            "model": "Claude Code",
+            "composerPlaceholder": "Ask Claude to follow up",
+            "accentLight": "#9a5c43",
+            "accentDark": "#e0a084",
+            "flow": [
+              {
+                "type": "phase",
+                "index": "01",
+                "label": "Session",
+                "progress": 0.03,
+                "hold": 250
+              },
+              {
+                "type": "compose",
+                "mode": "type",
+                "text": "Retries are occasionally producing duplicate transcript sessions. Please investigate without widening the change.",
+                "duration": 1150,
+                "hold": 180
+              },
+              {
+                "type": "send",
+                "label": "You",
+                "hold": 520
+              },
+              {
+                "type": "reasoning",
+                "label": "Reasoning",
+                "text": "I’ll inspect the session identity contract, reproduce the concurrent retry, and keep the fix at the narrowest reliable boundary.",
+                "duration": 1000,
+                "hold": 250
+              },
+              {
+                "type": "tool",
+                "name": "Grep",
+                "input": "pattern: transcript_sessions|payload_hash\npath: backend/app",
+                "result": "Matched ingest.py and models.py. The hash lookup and insert are separate operations.",
+                "duration": 950,
+                "hold": 220
+              },
+              {
+                "type": "tool",
+                "name": "Read",
+                "input": "backend/app/services/ingest.py lines 64-146",
+                "result": "Concurrent retries can pass the pre-insert lookup before either transaction commits.",
+                "duration": 900,
+                "hold": 250
+              },
+              {
+                "type": "reasoning",
+                "label": "Reasoning",
+                "text": "This is a database invariant. I’ll preserve the early lookup, add a composite unique constraint, and recover the canonical session after the losing insert.",
+                "duration": 1100,
+                "hold": 230
+              },
+              {
+                "type": "tool",
+                "name": "Edit",
+                "input": "models.py + ingest.py + Alembic migration",
+                "result": "Added the uniqueness boundary and savepoint-safe conflict handling.",
+                "duration": 1050,
+                "hold": 250
+              },
+              {
+                "type": "tool",
+                "name": "Bash",
+                "input": "pytest backend/tests/test_ingest.py -q",
+                "result": "18 passed in 1.39s",
+                "duration": 1050,
+                "hold": 300
+              },
+              {
+                "type": "message",
+                "role": "assistant",
+                "label": "Claude",
+                "variant": "final",
+                "text": "Resolved the duplicate-session race with a database-owned idempotency boundary.",
+                "points": [
+                  "The existing lookup remains as the fast path.",
+                  "Concurrent inserts converge on one canonical session.",
+                  "A regression test covers the retry race."
+                ],
+                "duration": 760,
+                "hold": 1350
+              },
+              {
+                "type": "analysis",
+                "progress": 0.4,
+                "hold": 180
+              },
+              {
+                "type": "phase",
+                "index": "03",
+                "label": "Recommendation",
+                "progress": 0.57,
+                "hold": 200
+              },
+              {
+                "type": "screen",
+                "screen": "penelopa",
+                "hold": 1050
+              },
+              {
+                "type": "scroll",
+                "target": 0.48,
+                "duration": 1900,
+                "hold": 720
+              },
+              {
+                "type": "copy",
+                "duration": 820,
+                "hold": 850
+              },
+              {
+                "type": "screen",
+                "screen": "agent",
+                "hold": 650
+              },
+              {
+                "type": "phase",
+                "index": "04",
+                "label": "Applied",
+                "progress": 0.72,
+                "hold": 160
+              },
+              {
+                "type": "compose",
+                "mode": "paste",
+                "text": "Apply this Penelopa recommendation to the repository:\n\n“Create a reusable ingestion verification skill. Check the Alembic head, session uniqueness, payload hashes, raw JSONL preservation and retry idempotency.”",
+                "duration": 520,
+                "hold": 380
+              },
+              {
+                "type": "send",
+                "label": "You",
+                "hold": 540
+              },
+              {
+                "type": "reasoning",
+                "label": "Reasoning",
+                "text": "I’ll encode this as project memory plus an executable verifier, with focused tests so the workflow remains dependable across future sessions.",
+                "duration": 1050,
+                "hold": 250
+              },
+              {
+                "type": "tool",
+                "name": "Write",
+                "input": ".claude/skills/verify-ingest/SKILL.md\nscripts/verify_ingest.py\nbackend/tests/test_verify_ingest.py",
+                "result": "Created the skill, verifier and test coverage.",
+                "duration": 1050,
+                "hold": 230
+              },
+              {
+                "type": "tool",
+                "name": "Bash",
+                "input": "python scripts/verify_ingest.py --changed-only",
+                "result": "schema       ok\nuniqueness   ok\nraw payload  ok\nretry        ok",
+                "duration": 1050,
+                "hold": 230
+              },
+              {
+                "type": "tool",
+                "name": "Bash",
+                "input": "pytest backend/tests/test_verify_ingest.py backend/tests/test_ingest.py -q",
+                "result": "24 passed in 1.72s",
+                "duration": 950,
+                "hold": 280
+              },
+              {
+                "type": "message",
+                "role": "assistant",
+                "label": "Claude",
+                "variant": "final",
+                "text": "Applied. The repeated verification work is now a reusable project capability.",
+                "points": [
+                  "The skill explains when and how to run the canonical checks.",
+                  "The script verifies the ingestion contract in one command.",
+                  "The combined focused suite passes."
+                ],
+                "duration": 780,
+                "hold": 800
+              },
+              {
+                "type": "complete",
+                "progress": 1
+              }
+            ]
+          }
+        }
+      }
+    </script>
+
+    <script>
+      (() => {
+        "use strict";
+
+        const root = document.querySelector("[data-pd-demo]");
+        const configNode = document.getElementById("penelopa-demo-config");
+
+        if (!root || !configNode) {
+          return;
+        }
+
+        let config;
+        try {
+          config = JSON.parse(configNode.textContent);
+        } catch (error) {
+          console.error("Invalid Penelopa demo configuration", error);
+          return;
+        }
+
+        const elements = {
+          sectionEyebrow: root.querySelector("[data-section-eyebrow]"),
+          sectionTitle: root.querySelector("[data-section-title]"),
+          sectionSummary: root.querySelector("[data-section-summary]"),
+          phase: root.querySelector("[data-phase]"),
+          progress: root.querySelector("[data-progress]"),
+          themeToggle: root.querySelector("[data-theme-toggle]"),
+          agentTabs: Array.from(root.querySelectorAll("[data-agent-tab]")),
+          screens: new Map(
+            Array.from(root.querySelectorAll("[data-screen]")).map((screen) => [
+              screen.dataset.screen,
+              screen
+            ])
+          ),
+          agentMark: root.querySelector("[data-agent-mark]"),
+          agentName: root.querySelector("[data-agent-name]"),
+          agentMeta: root.querySelector("[data-agent-meta]"),
+          agentStatus: root.querySelector("[data-agent-status]"),
+          projectLabel: root.querySelector("[data-project-label]"),
+          projectTree: root.querySelector("[data-project-tree]"),
+          conversation: root.querySelector("[data-conversation]"),
+          conversationInner: root.querySelector("[data-conversation-inner]"),
+          composer: root.querySelector("[data-composer]"),
+          composerText: root.querySelector("[data-composer-text]"),
+          composerSend: root.querySelector("[data-composer-send]"),
+          composerModel: root.querySelector("[data-composer-model]"),
+          repositoryContext: root.querySelector("[data-repository-context]"),
+          analysisScreen: root.querySelector('[data-screen="analysis"]'),
+          analysisStream: root.querySelector("[data-analysis-stream]"),
+          analysisEyebrow: root.querySelector("[data-analysis-eyebrow]"),
+          analysisTitle: root.querySelector("[data-analysis-title]"),
+          analysisCopy: root.querySelector("[data-analysis-copy]"),
+          analysisStatus: root.querySelector("[data-analysis-status]"),
+          brandLogo: root.querySelector("[data-brand-logo]"),
+          brandName: root.querySelector("[data-brand-name]"),
+          dashboardLabel: root.querySelector("[data-dashboard-label]"),
+          recEyebrow: root.querySelector("[data-rec-eyebrow]"),
+          recTitle: root.querySelector("[data-rec-title]"),
+          recMetaRow: root.querySelector("[data-rec-meta-row]"),
+          recReport: root.querySelector("[data-rec-report]"),
+          recScroller: root.querySelector("[data-recommendation-scroller]"),
+          copyButton: root.querySelector("[data-copy-button]"),
+          copyLabel: root.querySelector("[data-copy-label]"),
+          copyToast: root.querySelector("[data-copy-toast]"),
+          finish: root.querySelector("[data-finish]"),
+          finishLabel: root.querySelector("[data-finish-label]"),
+          replay: root.querySelector("[data-replay]"),
+          replayLabel: root.querySelector("[data-replay-label]")
+        };
+
+        const reducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)"
+        ).matches;
+
+        let activeAgentKey = config.settings.defaultAgent;
+        let activeController = null;
+        let pendingComposer = null;
+        let hasAutoplayed = false;
+        let currentTheme = config.settings.defaultTheme;
+
+        const copyIcon = `
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="9" y="9" width="11" height="11" rx="1"></rect>
+            <path d="M15 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4"></path>
+          </svg>
+        `;
+
+        const checkIcon = `
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m5 12 4 4L19 6"></path>
+          </svg>
+        `;
+
+        function speedAdjusted(milliseconds) {
+          const configuredSpeed = Number(config.settings.speed) || 1;
+          const motionFactor = reducedMotion ? 0.08 : 1;
+          return Math.max(1, (milliseconds * motionFactor) / configuredSpeed);
+        }
+
+        function delay(milliseconds, signal) {
+          return new Promise((resolve, reject) => {
+            if (signal.aborted) {
+              reject(new DOMException("Demo restarted", "AbortError"));
+              return;
+            }
+
+            const timeoutId = window.setTimeout(resolve, speedAdjusted(milliseconds));
+            signal.addEventListener(
+              "abort",
+              () => {
+                window.clearTimeout(timeoutId);
+                reject(new DOMException("Demo restarted", "AbortError"));
+              },
+              { once: true }
+            );
+          });
+        }
+
+        function assertActive(signal) {
+          if (signal.aborted) {
+            throw new DOMException("Demo restarted", "AbortError");
+          }
+        }
+
+        function makeElement(tagName, className, text) {
+          const element = document.createElement(tagName);
+          if (className) {
+            element.className = className;
+          }
+          if (typeof text === "string") {
+            element.textContent = text;
+          }
+          return element;
+        }
+
+        function formatTitle(text) {
+          const fragment = document.createDocumentFragment();
+          String(text)
+            .split("\n")
+            .forEach((line, index, lines) => {
+              fragment.append(document.createTextNode(line));
+              if (index < lines.length - 1) {
+                fragment.append(document.createElement("br"));
+              }
+            });
+          return fragment;
+        }
+
+        function renderStaticCopy() {
+          elements.sectionEyebrow.textContent = config.section.eyebrow;
+          elements.sectionTitle.replaceChildren(formatTitle(config.section.title));
+          elements.sectionSummary.textContent = config.section.summary;
+          elements.agentStatus.textContent = config.labels.workspaceConnected;
+          elements.repositoryContext.textContent = config.labels.repositoryContext;
+          elements.projectLabel.textContent = config.labels.explorer;
+          elements.brandName.textContent = config.brand.name;
+          elements.dashboardLabel.textContent = config.labels.dashboard;
+          elements.finishLabel.textContent = config.labels.complete;
+          elements.replayLabel.textContent = config.labels.replay;
+          elements.copyToast.textContent = config.labels.copyToast;
+          elements.analysisEyebrow.textContent = config.analysis.eyebrow;
+
+          if (config.brand.logoUrl) {
+            const image = document.createElement("img");
+            image.src = config.brand.logoUrl;
+            image.alt = "";
+            elements.brandLogo.replaceChildren(image);
+          } else {
+            elements.brandLogo.textContent = "P";
+          }
+        }
+
+        function renderProjectTree() {
+          const fragment = document.createDocumentFragment();
+          for (const item of config.project.files) {
+            const file = makeElement("div", "pd-agent__file", item.name);
+            file.dataset.kind = item.kind;
+            file.dataset.depth = String(item.depth || 0);
+            file.dataset.active = item.active ? "true" : "false";
+            fragment.append(file);
+          }
+          elements.projectTree.replaceChildren(fragment);
+        }
+
+        function appendInlineCode(parent, text) {
+          const parts = String(text).split(/(`[^`]+`)/g);
+          for (const part of parts) {
+            if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+              parent.append(makeElement("code", "", part.slice(1, -1)));
+            } else {
+              parent.append(document.createTextNode(part));
+            }
+          }
+        }
+
+        function renderRecommendation() {
+          const recommendation = config.recommendation;
+          elements.recEyebrow.textContent = recommendation.eyebrow;
+          elements.recTitle.textContent = recommendation.title;
+
+          const metaFragment = document.createDocumentFragment();
+          for (const item of recommendation.metadata) {
+            metaFragment.append(
+              makeElement("span", "pd-recommendation__meta", item)
+            );
+          }
+          metaFragment.append(elements.copyButton);
+          elements.recMetaRow.replaceChildren(metaFragment);
+
+          const reportFragment = document.createDocumentFragment();
+          for (const block of recommendation.report) {
+            if (block.type === "heading") {
+              const level = block.level === 3 ? "h3" : "h2";
+              reportFragment.append(makeElement(level, "", block.text));
+              continue;
+            }
+
+            if (block.type === "paragraph") {
+              const paragraph = makeElement("p", "");
+              appendInlineCode(paragraph, block.text);
+              reportFragment.append(paragraph);
+              continue;
+            }
+
+            if (block.type === "quote") {
+              const quote = makeElement("blockquote", "");
+              quote.append(makeElement("p", "", block.text));
+              reportFragment.append(quote);
+              continue;
+            }
+
+            if (block.type === "list") {
+              const list = makeElement("ul", "");
+              for (const item of block.items) {
+                const listItem = makeElement("li", "");
+                appendInlineCode(listItem, item);
+                list.append(listItem);
+              }
+              reportFragment.append(list);
+            }
+          }
+          elements.recReport.replaceChildren(reportFragment);
+        }
+
+        function renderAnalysisTokens() {
+          const positions = [
+            ["6%", "14%", "-90px", "38px", "470px", "210px", "4.8s", "-0.2s"],
+            ["72%", "11%", "110px", "20px", "-340px", "245px", "5.4s", "-1.7s"],
+            ["3%", "44%", "-120px", "0px", "500px", "20px", "5.7s", "-2.4s"],
+            ["78%", "48%", "130px", "-10px", "-400px", "0px", "4.6s", "-0.9s"],
+            ["11%", "78%", "-70px", "90px", "430px", "-260px", "6.1s", "-3.4s"],
+            ["69%", "79%", "90px", "100px", "-300px", "-270px", "5.1s", "-2.1s"],
+            ["25%", "5%", "0px", "-80px", "180px", "280px", "4.9s", "-3.7s"],
+            ["58%", "3%", "0px", "-90px", "-80px", "310px", "5.6s", "-1.2s"],
+            ["19%", "57%", "-120px", "20px", "260px", "-40px", "4.3s", "-2.8s"],
+            ["62%", "63%", "120px", "30px", "-180px", "-70px", "5.8s", "-4.2s"],
+            ["38%", "91%", "-20px", "100px", "70px", "-320px", "5.2s", "-1.9s"],
+            ["47%", "10%", "10px", "-100px", "0px", "250px", "4.7s", "-3.1s"]
+          ];
+
+          const fragment = document.createDocumentFragment();
+          config.analysis.tokens.forEach((text, index) => {
+            const token = makeElement("span", "pd-analysis__token", text);
+            const position = positions[index % positions.length];
+            token.style.setProperty("--x", position[0]);
+            token.style.setProperty("--y", position[1]);
+            token.style.setProperty("--from-x", position[2]);
+            token.style.setProperty("--from-y", position[3]);
+            token.style.setProperty("--to-x", position[4]);
+            token.style.setProperty("--to-y", position[5]);
+            token.style.setProperty("--duration", position[6]);
+            token.style.setProperty("--delay", position[7]);
+            fragment.append(token);
+          });
+          elements.analysisStream.replaceChildren(fragment);
+        }
+
+        function setTheme(theme) {
+          currentTheme = theme === "dark" ? "dark" : "light";
+          root.dataset.theme = currentTheme;
+          const nextTheme = currentTheme === "dark" ? "light" : "dark";
+          elements.themeToggle.setAttribute(
+            "aria-label",
+            `Switch to ${nextTheme} theme`
+          );
+          updateAgentAccent();
+        }
+
+        function updateAgentAccent() {
+          const agent = config.agents[activeAgentKey];
+          const accent =
+            currentTheme === "dark" ? agent.accentDark : agent.accentLight;
+          root.style.setProperty("--pd-agent-accent", accent);
+        }
+
+        function setAgentChrome(agentKey) {
+          const agent = config.agents[agentKey];
+          activeAgentKey = agentKey;
+          updateAgentAccent();
+
+          elements.agentMark.textContent = agent.mark;
+          elements.agentName.textContent = `${agent.label} · ${config.project.name}`;
+          elements.agentMeta.textContent = `${agent.model} · ${config.project.branch}`;
+          elements.composerModel.textContent = agent.model;
+
+          for (const tab of elements.agentTabs) {
+            const selected = tab.dataset.agentTab === agentKey;
+            tab.setAttribute("aria-selected", selected ? "true" : "false");
+          }
+        }
+
+        function setScreen(screenName) {
+          for (const [name, screen] of elements.screens.entries()) {
+            screen.classList.toggle("is-active", name === screenName);
+          }
+        }
+
+        function setPhase(index, label) {
+          const template = config.labels.phaseFormat || "{index} / {label}";
+          elements.phase.textContent = template
+            .replace("{index}", index)
+            .replace("{label}", label);
+        }
+
+        function setProgress(progress) {
+          const safeValue = Math.min(1, Math.max(0, Number(progress) || 0));
+          elements.progress.style.width = `${safeValue * 100}%`;
+        }
+
+        function scrollConversationToBottom() {
+          elements.conversation.scrollTop = elements.conversation.scrollHeight;
+        }
+
+        async function typeText(target, text, duration, signal) {
+          assertActive(signal);
+          const value = String(text);
+          target.textContent = "";
+          target.classList.add("is-streaming");
+          target.dataset.empty = "false";
+
+          if (reducedMotion || duration <= 50) {
+            target.textContent = value;
+            target.classList.remove("is-streaming");
+            return;
+          }
+
+          const segments = value.match(/\S+\s*|\s+/g) || [value];
+          const interval = Math.max(14, duration / Math.max(segments.length, 1));
+
+          for (const segment of segments) {
+            assertActive(signal);
+            target.textContent += segment;
+            scrollConversationToBottom();
+            await delay(interval, signal);
+          }
+
+          target.classList.remove("is-streaming");
+        }
+
+        function resetCopyState() {
+          elements.copyButton.classList.remove("is-pressed", "is-copied");
+          elements.copyButton.replaceChildren();
+          elements.copyButton.insertAdjacentHTML("afterbegin", copyIcon);
+          elements.copyButton.append(
+            makeElement("span", "", config.labels.copy)
+          );
+          elements.copyButton.querySelector("span").dataset.copyLabel = "";
+          elements.copyLabel = elements.copyButton.querySelector("[data-copy-label]");
+          elements.copyToast.classList.remove("is-visible");
+        }
+
+        function resetComposer() {
+          const agent = config.agents[activeAgentKey];
+          pendingComposer = null;
+          elements.composer.dataset.ready = "false";
+          elements.composer.classList.remove("is-pasting");
+          elements.composerText.classList.remove("is-streaming");
+          elements.composerText.dataset.empty = "true";
+          elements.composerText.textContent = agent.composerPlaceholder;
+          elements.composerSend.classList.remove("is-sending");
+        }
+
+        function resetDemo() {
+          setAgentChrome(activeAgentKey);
+          setScreen("agent");
+          setPhase("01", "Session");
+          setProgress(0);
+          elements.conversationInner.replaceChildren();
+          elements.conversation.scrollTop = 0;
+          elements.recScroller.scrollTop = 0;
+          elements.finish.classList.remove("is-visible");
+          elements.analysisScreen.classList.remove("is-resolving");
+          renderAnalysisTokens();
+          resetComposer();
+          resetCopyState();
+        }
+
+        async function renderMessage(step, signal, immediate = false) {
+          const message = makeElement("article", "pd-message");
+          message.dataset.role = step.role;
+          if (step.variant) {
+            message.dataset.variant = step.variant;
+          }
+
+          const label = makeElement("div", "pd-message__label", step.label);
+          const body = makeElement("div", "pd-message__body");
+          message.append(label, body);
+          elements.conversationInner.append(message);
+          scrollConversationToBottom();
+
+          if (immediate) {
+            body.textContent = step.text;
+          } else {
+            await typeText(body, step.text, step.duration || 650, signal);
+          }
+
+          if (Array.isArray(step.points) && step.points.length > 0) {
+            const list = makeElement("ul", "pd-message__points");
+            for (const point of step.points) {
+              list.append(makeElement("li", "", point));
+            }
+            message.append(list);
+          }
+
+          scrollConversationToBottom();
+        }
+
+        async function renderReasoning(step, signal) {
+          const working = makeElement("section", "pd-working");
+          const head = makeElement("div", "pd-working__head");
+          const pulse = makeElement("span", "pd-working__pulse");
+          const label = makeElement("span", "pd-working__label", step.label);
+          const state = makeElement("span", "pd-working__state", "Working");
+          const body = makeElement("div", "pd-working__body");
+
+          head.append(pulse, label, state);
+          working.append(head, body);
+          elements.conversationInner.append(working);
+          scrollConversationToBottom();
+
+          await typeText(body, step.text, step.duration || 950, signal);
+          working.classList.add("is-complete");
+          state.textContent = "Ready";
+        }
+
+        async function renderTool(step, signal) {
+          const tool = makeElement("section", "pd-tool");
+          tool.dataset.state = "running";
+
+          const head = makeElement("div", "pd-tool__head");
+          const identity = makeElement("div", "pd-tool__identity");
+          const icon = makeElement("span", "pd-tool__icon", ">_");
+          const name = makeElement("span", "pd-tool__name", step.name);
+          const status = makeElement("span", "pd-tool__status", "Running");
+          const command = makeElement("pre", "pd-tool__command", step.input);
+          const result = makeElement("pre", "pd-tool__result", step.result);
+
+          identity.append(icon, name);
+          head.append(identity, status);
+          tool.append(head, command, result);
+          elements.conversationInner.append(tool);
+          scrollConversationToBottom();
+
+          const duration = step.duration || 900;
+          await delay(duration * 0.55, signal);
+          tool.classList.add("has-result");
+          scrollConversationToBottom();
+          await delay(duration * 0.45, signal);
+          tool.dataset.state = "complete";
+          status.textContent = "Complete";
+        }
+
+        async function compose(step, signal) {
+          pendingComposer = {
+            role: "user",
+            label: step.label || "You",
+            text: step.text
+          };
+          elements.composer.dataset.ready = "true";
+          elements.composerText.dataset.empty = "false";
+
+          if (step.mode === "paste") {
+            elements.composer.classList.add("is-pasting");
+            elements.composerText.textContent = step.text;
+            await delay(step.duration || 420, signal);
+            elements.composer.classList.remove("is-pasting");
+            return;
+          }
+
+          await typeText(
+            elements.composerText,
+            step.text,
+            step.duration || 900,
+            signal
+          );
+        }
+
+        async function sendComposer(step, signal) {
+          if (!pendingComposer) {
+            return;
+          }
+
+          pendingComposer.label = step.label || pendingComposer.label;
+          elements.composerSend.classList.add("is-sending");
+          await delay(170, signal);
+          elements.composerSend.classList.remove("is-sending");
+
+          const message = { ...pendingComposer };
+          resetComposer();
+          await renderMessage(message, signal, true);
+        }
+
+        async function runAnalysis(signal) {
+          setPhase("02", "Analysis");
+          setScreen("analysis");
+          elements.analysisScreen.classList.remove("is-resolving");
+          renderAnalysisTokens();
+
+          for (const stage of config.analysis.stages) {
+            assertActive(signal);
+            elements.analysisTitle.textContent = stage.title;
+            elements.analysisCopy.textContent = stage.copy;
+            elements.analysisStatus.textContent = stage.status;
+            await delay(stage.duration, signal);
+          }
+
+          elements.analysisScreen.classList.add("is-resolving");
+          await delay(config.analysis.resolveDuration || 900, signal);
+        }
+
+        function easeInOutCubic(value) {
+          return value < 0.5
+            ? 4 * value * value * value
+            : 1 - Math.pow(-2 * value + 2, 3) / 2;
+        }
+
+        async function animateScroll(targetFraction, duration, signal) {
+          assertActive(signal);
+          const scroller = elements.recScroller;
+          const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+          const destination = maxScroll * Math.min(1, Math.max(0, targetFraction));
+          const start = scroller.scrollTop;
+          const startedAt = performance.now();
+          const adjustedDuration = speedAdjusted(duration || 1600);
+
+          await new Promise((resolve, reject) => {
+            let frameId = 0;
+
+            const abort = () => {
+              cancelAnimationFrame(frameId);
+              reject(new DOMException("Demo restarted", "AbortError"));
+            };
+
+            const frame = (now) => {
+              if (signal.aborted) {
+                abort();
+                return;
+              }
+
+              const elapsed = now - startedAt;
+              const progress = Math.min(1, elapsed / adjustedDuration);
+              scroller.scrollTop =
+                start + (destination - start) * easeInOutCubic(progress);
+
+              if (progress < 1) {
+                frameId = requestAnimationFrame(frame);
+              } else {
+                signal.removeEventListener("abort", abort);
+                resolve();
+              }
+            };
+
+            signal.addEventListener("abort", abort, { once: true });
+            frameId = requestAnimationFrame(frame);
+          });
+        }
+
+        async function simulateCopy(duration, signal) {
+          elements.copyButton.classList.add("is-pressed");
+          await delay(150, signal);
+          elements.copyButton.classList.remove("is-pressed");
+          elements.copyButton.classList.add("is-copied");
+          elements.copyButton.replaceChildren();
+          elements.copyButton.insertAdjacentHTML("afterbegin", checkIcon);
+          elements.copyButton.append(makeElement("span", "", config.labels.copied));
+          elements.copyToast.classList.add("is-visible");
+          await delay(Math.max(300, (duration || 800) - 150), signal);
+        }
+
+        async function performStep(step, signal) {
+          switch (step.type) {
+            case "phase":
+              setPhase(step.index, step.label);
+              if (typeof step.progress === "number") {
+                setProgress(step.progress);
+              }
+              break;
+
+            case "compose":
+              await compose(step, signal);
+              break;
+
+            case "send":
+              await sendComposer(step, signal);
+              break;
+
+            case "message":
+              await renderMessage(step, signal);
+              break;
+
+            case "reasoning":
+              await renderReasoning(step, signal);
+              break;
+
+            case "tool":
+              await renderTool(step, signal);
+              break;
+
+            case "analysis":
+              if (typeof step.progress === "number") {
+                setProgress(step.progress);
+              }
+              await runAnalysis(signal);
+              break;
+
+            case "screen":
+              setScreen(step.screen);
+              break;
+
+            case "scroll":
+              await animateScroll(step.target, step.duration, signal);
+              break;
+
+            case "copy":
+              await simulateCopy(step.duration, signal);
+              break;
+
+            case "complete":
+              setProgress(typeof step.progress === "number" ? step.progress : 1);
+              elements.finish.classList.add("is-visible");
+              break;
+
+            default:
+              console.warn(`Unknown Penelopa demo step: ${step.type}`);
+          }
+        }
+
+        async function runDemo(agentKey = activeAgentKey) {
+          if (!config.agents[agentKey]) {
+            console.error(`Unknown Penelopa demo agent: ${agentKey}`);
+            return;
+          }
+
+          activeController?.abort();
+          activeController = new AbortController();
+          const { signal } = activeController;
+
+          setAgentChrome(agentKey);
+          resetDemo();
+
+          try {
+            const flow = config.agents[agentKey].flow;
+            for (let index = 0; index < flow.length; index += 1) {
+              const step = flow[index];
+              assertActive(signal);
+              await performStep(step, signal);
+
+              if (typeof step.progress === "number" && step.type !== "phase") {
+                setProgress(step.progress);
+              } else if (
+                step.type !== "phase" &&
+                step.type !== "complete" &&
+                typeof step.progress !== "number"
+              ) {
+                const derived = Math.max(
+                  Number.parseFloat(elements.progress.style.width) / 100 || 0,
+                  ((index + 1) / flow.length) * 0.96
+                );
+                setProgress(derived);
+              }
+
+              if (step.hold) {
+                await delay(step.hold, signal);
+              }
+            }
+          } catch (error) {
+            if (error?.name !== "AbortError") {
+              console.error("Penelopa demo failed", error);
+            }
+          }
+        }
+
+        async function copyRecommendationToClipboard() {
+          try {
+            await navigator.clipboard.writeText(config.recommendation.copyExcerpt);
+          } catch {
+            // Clipboard can be unavailable in an iframe or on an insecure origin.
+          }
+
+          elements.copyButton.classList.add("is-copied");
+          elements.copyButton.replaceChildren();
+          elements.copyButton.insertAdjacentHTML("afterbegin", checkIcon);
+          elements.copyButton.append(makeElement("span", "", config.labels.copied));
+          elements.copyToast.classList.add("is-visible");
+        }
+
+        renderStaticCopy();
+        renderProjectTree();
+        renderRecommendation();
+        setTheme(currentTheme);
+        setAgentChrome(activeAgentKey);
+        resetDemo();
+
+        for (const tab of elements.agentTabs) {
+          tab.addEventListener("click", () => {
+            const agentKey = tab.dataset.agentTab;
+            if (agentKey) {
+              runDemo(agentKey);
+            }
+          });
+        }
+
+        elements.themeToggle.addEventListener("click", () => {
+          setTheme(currentTheme === "dark" ? "light" : "dark");
+        });
+
+        elements.replay.addEventListener("click", () => {
+          runDemo(activeAgentKey);
+        });
+
+        elements.copyButton.addEventListener("click", copyRecommendationToClipboard);
+
+        if (config.settings.autoplay) {
+          if ("IntersectionObserver" in window) {
+            const observer = new IntersectionObserver(
+              (entries) => {
+                const entry = entries[0];
+                if (entry?.isIntersecting && !hasAutoplayed) {
+                  hasAutoplayed = true;
+                  observer.disconnect();
+                  runDemo(activeAgentKey);
+                }
+              },
+              {
+                threshold: Number(config.settings.intersectionThreshold) || 0.35
+              }
+            );
+            observer.observe(root);
+          } else {
+            hasAutoplayed = true;
+            runDemo(activeAgentKey);
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>

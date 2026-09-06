@@ -56,9 +56,15 @@ The browser harness uses synthetic API responses, UTC time, a controlled clock, 
 
 Current-source native packaging passed on macOS arm64 with Node 24.20.0 / Electron 44.2.0: source/archive verification, minimal-PATH packaging, strict ad-hoc signature verification, launch, preload isolation and rendered Connection UI. Retained evidence lives under `/private/tmp/penelopa-build-ehdWIH/`; detailed filenames/hash are in [desktop delivery](desktop-delivery.md). This is local evidence, not evidence of a native Windows or Intel Mac run.
 
-The existing Linux, macOS arm64/Intel and Windows CI matrix now also checks web contracts and rejects tracked-file writes after validation. LF checkout attributes keep byte-sensitive bootstrap/CSS checks stable with Windows `core.autocrlf`. Native Windows, Intel macOS, Linux and the documented clean-consumer-OS checks still need their CI/manual runs before release. No remote CI, release publication or deployment is claimed by this local implementation.
+The existing Linux, macOS arm64/Intel and Windows CI matrix now also checks web contracts and rejects tracked-file writes after validation. LF checkout attributes keep byte-sensitive bootstrap/CSS checks stable with Windows `core.autocrlf`. All four CI jobs passed after the fixture correction described below, including native package/launch verification on Windows and both Macs. The documented clean-consumer-OS checks remain manual release gates. No release was published or deployed.
 
 No existing locked dependency version changed. Only Playwright development tooling was installed; PostCSS, already present at the same locked version, is now declared for the CSS contract test. Generated public release artifacts remain intact and pass their read-only integrity check. A later desktop publication must use a new synchronized version and preserve the previous versioned URLs.
+
+## Windows CI fixture follow-up
+
+The [first CI run](https://github.com/chigwell/Penelopa.ai/actions/runs/34051197239) passed Linux and both macOS jobs but exposed two Windows failures in the new uploader contract fixtures. Those fixtures sent raw Unicode JSON through PowerShell `-File`; the existing managed worker already escapes Unicode as JSON `\uXXXX` sequences because Windows PowerShell may decode stdin before the script selects UTF-8. A controlled ASCII-reader wrapper reproduced both empty-outbox failures locally, including the missing/unreadable transcript diagnostic.
+
+Commit `2252e33` corrects only the fixture's PowerShell wire format, retains actual Unicode paths/content/session identifiers, and runs both delivery scenarios through the buffered-reader wrapper as regression checks. POSIX payloads and all production code remain unchanged. All ten focused delivery tests, typechecking and published-asset integrity checks pass locally. The [verification run for the correction](https://github.com/chigwell/Penelopa.ai/actions/runs/34051596257) passed all four jobs: Linux, macOS arm64, macOS Intel and Windows. Windows passed 38 tests with the two POSIX-only cases intentionally skipped, then passed native packaging/launch and the clean tracked-file check.
 
 ## Baseline and deferred migrations
 

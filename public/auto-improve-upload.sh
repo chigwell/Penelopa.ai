@@ -764,6 +764,13 @@ drain_outbox() {
   return "$drain_result"
 }
 
+# Both the worker Drain event and a freshly captured snapshot reach this after
+# acquiring the drain lock. Keep their eligibility checks and logging at callers.
+drain_locked_outbox() {
+  drain_outbox || true
+  release_drain_lock
+}
+
 pending_cursor() {
   key="$1"
   epoch_value="$2"
@@ -944,8 +951,7 @@ fi
 
 if [ "$hook_event_name" = "Drain" ]; then
   if [ -n "$token" ] && acquire_drain_lock; then
-    drain_outbox || true
-    release_drain_lock
+    drain_locked_outbox
   fi
   finish 0
 fi
@@ -1155,8 +1161,7 @@ elif [ -z "${AUTO_IMPROVE_TRANSPORT:-}" ] && ! command -v curl >/dev/null 2>&1; 
 elif ! acquire_drain_lock; then
   log "another outbox drain is active; the durable snapshot will be retried by a later hook"
 else
-  drain_outbox || true
-  release_drain_lock
+  drain_locked_outbox
 fi
 
 finish 0

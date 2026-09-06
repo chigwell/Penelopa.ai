@@ -286,7 +286,7 @@ var require_archive = __commonJS({
 var require_release_config = __commonJS({
   "desktop/release-config.json"(exports2, module2) {
     module2.exports = {
-      version: "1.0.2",
+      version: "1.0.3",
       schemaVersion: 1,
       bridgeVersion: 1,
       nodeVersion: "24.20.0",

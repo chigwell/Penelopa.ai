@@ -11,6 +11,7 @@ const { capture } = require('../runtime/hook.cjs');
 const { readJson, writeJson, atomicWrite } = require('../runtime/files.cjs');
 const { download } = require('../runtime/network.cjs');
 const { alive, waitForExit } = require('../runtime/lifecycle.cjs');
+const { hookCommand } = require('../runtime/launchers.cjs');
 async function stopWorker(root) {
   const owner = readJson(path.join(root, 'locks', 'worker.lock', 'owner.json'), null);
   if (!owner || !alive(owner.pid)) return;
@@ -31,8 +32,8 @@ function child(file, env) {
     process_.on('error', reject); process_.on('close', code => resolve({ code, output }));
   });
 }
-async function setup(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-delivery-'));
+async function setup(t, prefix = 'penelopa-delivery-') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   t.after(async () => {
     atomicWrite(path.join(root, 'collection-disabled'), 'fixture cleanup\n');
     await stopWorker(root);
@@ -119,7 +120,7 @@ test('installed SessionEnd returns within three seconds while delivery is stalle
   const elapsed = performance.now() - start;
   const launchStatus = JSON.stringify({ elapsedMs: Math.round(elapsed), status: result.status, signal: result.signal, error: result.error?.code, stderr: result.stderr });
   t.diagnostic(`SessionEnd launch: ${launchStatus}`);
-  assert.equal(result.status, 0, launchStatus); assert.equal(result.stdout.trim(), '{}', launchStatus); assert.ok(elapsed < 3000, launchStatus);
+  assert.equal(result.error, undefined, launchStatus); assert.equal(result.status, 0, launchStatus); assert.equal(result.stdout.trim(), '{}', launchStatus); assert.ok(elapsed < 3000, launchStatus);
   assert.ok(readJson(path.join(f.root, 'health/codex-openai.json'), null)?.lastEventAt, `SessionEnd did not capture the event: ${deliveryStatus(f.root)}`);
   let timer;
   try {
@@ -130,4 +131,40 @@ test('installed SessionEnd returns within three seconds while delivery is stalle
   for (let i = 0; i < 12; i++) capture('codex-openai', { hook_event_name: 'Stop', transcript_path: transcript, session_id: `parallel-${i}` }, f.root);
   assert.equal(fs.readdirSync(path.join(f.root, 'events')).filter(name => name.endsWith('.json')).length, 12);
   assert.ok(fs.readdirSync(path.join(f.root, 'outbox')).some(name => name.startsWith('pending-')));
+});
+test('direct Node capture closes its pipes while a detached worker stays alive and writes to its own log', { timeout: 60_000 }, async t => {
+  const f = await setup(t, "penelopa capture ' ü 日本語 &-"), state = readJson(path.join(f.root, 'install.json'));
+  // No HTTP is involved: keep a real detached Node worker alive well past the
+  // hook deadline. Any inherited capture pipe will make spawnSync time out,
+  // even if the launcher itself has already returned status 0 and printed {}.
+  atomicWrite(path.join(f.source, 'runtime/worker.cjs'), `const path = require('node:path');
+const { home, lock } = require('./files.cjs');
+const release = lock(path.join(home(), 'locks', 'worker.lock'));
+if (release) {
+  process.stdout.write('fixture worker stdout\\n');
+  process.stderr.write('fixture worker stderr\\n');
+  setTimeout(release, 30000);
+}
+`);
+  const transcript = path.join(f.root, 'session ü 日本語.jsonl'); atomicWrite(transcript, '{"message":"synthetic fixture"}\n');
+  for (const agent of state.agents) {
+    // Exercise the Windows command on every OS; on Windows also verify that
+    // this is exactly the command registered by the installer.
+    const command = hookCommand(f.root, agent.source, 'win32', state.nodePath);
+    if (process.platform === 'win32') assert.equal(agent.command, command);
+    const start = performance.now();
+    const result = spawnSync(command, { shell: true, env: { ...f.env, PATH: process.platform === 'win32' ? `${process.env.SystemRoot}\\System32` : '/usr/bin:/bin' },
+      input: JSON.stringify({ hook_event_name: 'SessionEnd', transcript_path: transcript }), encoding: 'utf8', timeout: 3000 });
+    const elapsed = performance.now() - start;
+    const detail = JSON.stringify({ source: agent.source, elapsedMs: Math.round(elapsed), error: result.error?.code, status: result.status, stderr: result.stderr });
+    t.diagnostic(detail);
+    assert.equal(result.error, undefined, detail); assert.equal(result.status, 0, detail); assert.ok(elapsed < 3000, detail);
+    assert.equal(result.stdout.trim(), agent.source === 'codex-openai' ? '{}' : '', detail); assert.equal(result.stderr, '', detail);
+  }
+  const marker = path.join(f.root, 'locks/worker.lock/owner.json'), log = path.join(f.root, 'logs/worker.log');
+  const deadline = Date.now() + 5000;
+  while ((!readJson(marker, null) || !fs.readFileSync(log, 'utf8').includes('fixture worker stderr')) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25));
+  assert.ok(alive(readJson(marker, null)?.pid), 'The detached worker must still be running after both capture pipes close.');
+  assert.match(fs.readFileSync(log, 'utf8'), /fixture worker stdout/); assert.match(fs.readFileSync(log, 'utf8'), /fixture worker stderr/);
+  assert.equal(fs.readdirSync(path.join(f.root, 'events')).filter(name => name.endsWith('.json')).length, 2);
 });

@@ -13,6 +13,7 @@ const { trustedFrame } = require('../runtime/api.cjs');
 const { waitForExit } = require('../runtime/lifecycle.cjs');
 const { sourceIntact, inventory } = require('../runtime/releases.cjs');
 const { atomicWrite, writeJson, readJson } = require('../runtime/files.cjs');
+const { apply } = require('../runtime/update.cjs');
 function temp(t) { const root = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-recovery-')); t.after(() => fs.rmSync(root, { recursive: true, force: true })); return root; }
 test('application replacement rolls back failed validation and retains the last working version', async t => {
   const root = temp(t), bundle = path.join(root, 'build'), target = path.join(root, 'installed');
@@ -28,6 +29,40 @@ test('failed configuration commit restores credentials, hook definitions and run
   writeJson(hook, { user: true }); atomicWrite(pointer, '/old/node'); atomicWrite(token, 'old-secret');
   assert.throws(() => transaction([{ file: hook, data: { replaced: true } }, { file: pointer, bytes: '/new/node' }, { file: token, bytes: 'new-secret', sensitive: true }], () => { throw Error('Commit verification failed'); }), /Commit verification/);
   assert.deepEqual(readJson(hook), { user: true }); assert.equal(fs.readFileSync(pointer, 'utf8'), '/old/node'); assert.equal(fs.readFileSync(token, 'utf8'), 'old-secret');
+});
+test('desktop update migrates Windows capture commands and rolls hooks and launchers back when activation fails', async t => {
+  const root = temp(t), configPath = path.join(root, 'codex/hooks.json'), bundle = path.join(root, 'bundle'), target = path.join(root, 'app');
+  const command = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${path.join(root, 'bin/capture.ps1')}" codex-openai`;
+  const old = { version: '1.0.2', platform: 'win32', nodePath: 'C:\\old runtime\\node.exe', releaseDir: 'old-release', desktop: { path: target },
+    agents: [{ name: 'Codex', source: 'codex-openai', configPath, command, ownedCommands: [command] }] };
+  const config = { other: 'preserved', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo unrelated' }, { type: 'command', command }] }] } };
+  writeJson(path.join(root, 'install.json'), old); writeJson(configPath, config);
+  atomicWrite(path.join(root, 'node-path'), old.nodePath + '\n'); atomicWrite(path.join(root, 'bin/hook.cjs'), 'old launcher');
+  atomicWrite(path.join(target, 'version'), 'old'); atomicWrite(path.join(bundle, 'version'), 'new');
+  const pack = require('../runtime/package.cjs'); let failLaunch = true;
+  t.mock.method(pack, 'build', async () => {
+    if (!failLaunch) {
+      const edited = readJson(configPath); edited.hooks.Stop[0].hooks.push({ type: 'command', command: 'echo added during build' }); writeJson(configPath, edited);
+    }
+    return bundle;
+  });
+  t.mock.method(pack, 'smoke', async () => {});
+  t.mock.method(pack, 'activate', async () => ({ path: target, previousPath: await replace(bundle, target, async () => {}) }));
+  t.mock.method(pack, 'launch', state => { if (state.version !== old.version && failLaunch) throw Error('Synthetic activation failure'); });
+  await assert.rejects(apply(0, root), /Synthetic activation failure/);
+  assert.deepEqual(readJson(configPath), config); assert.deepEqual(readJson(path.join(root, 'install.json')), old);
+  assert.equal(fs.readFileSync(path.join(root, 'node-path'), 'utf8'), old.nodePath + '\n');
+  assert.equal(fs.readFileSync(path.join(root, 'bin/hook.cjs'), 'utf8'), 'old launcher');
+  assert.equal(fs.readFileSync(path.join(target, 'version'), 'utf8'), 'old');
+  failLaunch = false; await apply(0, root);
+  const state = readJson(path.join(root, 'install.json')), migrated = readJson(configPath);
+  assert.ok(state.agents[0].command.startsWith(`"${process.execPath}" `)); assert.ok(state.agents[0].ownedCommands.includes(command));
+  assert.equal(migrated.other, 'preserved');
+  assert.deepEqual(migrated.hooks.Stop.flatMap(entry => entry.hooks.map(hook => hook.command)), ['echo unrelated', 'echo added during build', state.agents[0].command]);
+  assert.equal(migrated.hooks.SessionEnd[0].hooks[0].command, state.agents[0].command);
+  assert.equal(migrated.hooks.SessionEnd[0].hooks[0].timeout, 3);
+  assert.equal(fs.readFileSync(path.join(root, 'node-path'), 'utf8'), process.execPath + '\n');
+  assert.equal(fs.readFileSync(path.join(target, 'version'), 'utf8'), 'new');
 });
 test('IPC rejects subframes, external origins and destroyed frames', () => {
   const frame = { url: 'https://penelopa.ai/dashboard', isDestroyed: () => false }, contents = { mainFrame: frame };

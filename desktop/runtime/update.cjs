@@ -5,6 +5,8 @@ const { home, readJson, writeJson, atomicWrite, installState, lock } = require('
 const { getManifest, prepareSource, ensureRuntime } = require('./releases.cjs');
 const { spawn } = require('node:child_process');
 const { alive, waitForExit } = require('./lifecycle.cjs');
+const { refreshAgents, launcherChanges } = require('./launchers.cjs');
+const { prepare: prepareHooks, transaction } = require('./hooks-config.cjs');
 function newer(a, b) { const x = a.split('.').map(Number), y = b.split('.').map(Number); return x.some((n, i) => n > y[i] && x.slice(0, i).every((m, j) => m === y[j])); }
 async function check(root = home()) {
   const state = installState(root); const manifest = await getManifest();
@@ -27,16 +29,22 @@ async function apply(parentPid, root = home()) {
   const state = { ...old, version: require('../package.json').version, releaseDir: path.resolve(__dirname, '..'), nodePath: process.execPath };
   let activated = false;
   try {
+    state.agents = refreshAgents(root, state);
+    prepareHooks(state.agents); // Validate before spending time on the build.
     writeJson(path.join(root, 'update.json'), { phase: 'building', version: state.version, pid: process.pid });
     const pack = require('./package.cjs'); const bundle = await pack.build(state); await pack.smoke(bundle);
     writeJson(path.join(root, 'update.json'), { phase: 'ready-to-restart', version: state.version, pid: process.pid });
     await waitForExit(parentPid);
     state.desktop = await pack.activate(bundle, state);
     activated = true;
-    writeJson(path.join(root, 'install.json'), state);
-    atomicWrite(path.join(root, 'node-path'), state.nodePath + '\n');
-    writeJson(path.join(root, 'update.json'), { phase: 'complete', version: state.version, checkedAt: new Date().toISOString() });
-    pack.launch(state);
+    // Migrate old capture commands together with the runtime pointer. If the
+    // activation fails, restore the previous launchers and agent definitions.
+    // Read agent settings again after the build so edits made while it was
+    // running are preserved in the configuration transaction.
+    transaction([...launcherChanges(root, state.nodePath), ...prepareHooks(state.agents), { file: path.join(root, 'install.json'), data: state }], () => {
+      writeJson(path.join(root, 'update.json'), { phase: 'complete', version: state.version, checkedAt: new Date().toISOString() });
+      pack.launch(state);
+    });
   } catch (error) {
     if (activated) require('./replace.cjs').rollback(state.desktop.path, state.desktop.previousPath);
     writeJson(path.join(root, 'install.json'), old);
@@ -57,4 +65,4 @@ async function main() {
   } catch { writeJson(path.join(home(), 'update.json'), { phase: 'error', error: 'The operation did not complete. The existing version and queued data are preserved; retry from App settings.' }); process.exitCode = 1; }
 }
 if (require.main === module) main();
-module.exports = { check, prepare, newer };
+module.exports = { check, prepare, apply, newer };

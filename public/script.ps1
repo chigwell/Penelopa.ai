@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $nodeVersion = '24.20.0'
 $nodeSha = '6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba'
-$bootstrapSha = '4e653123b90f57baed1e9a593902a271cef94ba86db3e5cb69d06de21e42cc6d'
+$bootstrapSha = '5074c141648cd124dd47d932402d279793015f8ecdf49753de0d8f0c74fcfcfc'
 $releaseBase = if ($env:AUTO_IMPROVE_RELEASE_BASE_URL) { $env:AUTO_IMPROVE_RELEASE_BASE_URL } else { 'https://penelopa.ai/desktop' }
 $root = if ($env:AUTO_IMPROVE_HOME) { $env:AUTO_IMPROVE_HOME } else { Join-Path $HOME '.auto-improve' }
 function Write-Stage([string]$Message) { [Console]::Error.WriteLine("Penelopa: $Message") }

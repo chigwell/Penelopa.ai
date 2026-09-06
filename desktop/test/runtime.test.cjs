@@ -88,9 +88,36 @@ test('fresh installation, repair and uninstall preserve account and unrelated ho
   assert.equal(result.stderr.includes('fixture-private-token'), false);
   const before = fs.readFileSync(f.configFile, 'utf8');
   assert.equal(readJson(path.join(f.root, 'install.json')).selfTest.passed, true);
+  const restoreLegacyCommands = () => {
+    const state = readJson(path.join(f.root, 'install.json'));
+    for (const agent of state.agents) {
+      const legacy = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${path.join(f.root, 'bin/capture.ps1')}" ${agent.source}`;
+      writeJson(agent.configPath, editHooks(readJson(agent.configPath), legacy, agent.ownedCommands, agent.name === 'Claude Code'));
+      agent.command = legacy; agent.ownedCommands = [legacy];
+    }
+    writeJson(path.join(f.root, 'install.json'), state);
+  };
+  const verifyMigration = () => {
+    const state = readJson(path.join(f.root, 'install.json'));
+    for (const agent of state.agents) {
+      assert.equal(agent.command.includes('capture.ps1'), false);
+      if (process.platform === 'win32') assert.ok(agent.command.startsWith(`"${state.nodePath}" `), agent.command);
+      const hooks = readJson(agent.configPath).hooks;
+      for (const event of ['Stop', 'SessionEnd']) {
+        const commands = hooks[event].flatMap(entry => entry.hooks.map(hook => hook.command));
+        assert.equal(commands.filter(command => command === agent.command).length, 1);
+        assert.equal(commands.some(command => command.includes('capture.ps1')), false);
+      }
+    }
+    assert.equal(fs.readFileSync(f.configFile, 'utf8'), before);
+  };
+  restoreLegacyCommands();
   result = f.run('--no-desktop'); assert.equal(result.status, 0, result.stderr);
+  verifyMigration();
   assert.equal(fs.readFileSync(f.configFile, 'utf8'), before); assert.equal(readJson(codex).hooks.Stop.length, 2);
+  restoreLegacyCommands();
   result = f.run('--repair'); assert.equal(result.status, 0, result.stderr);
+  verifyMigration();
   result = f.run('--diagnose'); assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout.includes('fixture-private-token'), false);
   result = f.run('--uninstall'); assert.equal(result.status, 0, result.stderr);
   assert.equal(readJson(codex).hooks.Stop.length, 1); assert.equal(readJson(codex).other, 'preserve-me'); assert.equal(fs.existsSync(f.configFile), true);

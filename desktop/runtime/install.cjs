@@ -5,6 +5,7 @@ const os = require('node:os');
 const { spawn, execFileSync } = require('node:child_process');
 const { home, mkdir, readJson, writeJson, atomicWrite, protect, protectFile, credential, envFile, installState, lock } = require('./files.cjs');
 const { prepare, transaction, shellQuote } = require('./hooks-config.cjs');
+const { hookCommand, refreshAgents, launcherChanges } = require('./launchers.cjs');
 const { jsonRequest, allowedUrl, download } = require('./network.cjs');
 const release = require('../release-config.json');
 const pkg = require('../package.json');
@@ -60,27 +61,13 @@ function agentsFor(root, options, previous) {
     ['claude', 'Claude Code', 'claude-anthropic', path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'settings.json')],
   ]) {
     if (options.agent !== 'both' && options.agent !== id) continue;
-    const command = windows ? `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${path.join(root, 'bin', 'capture.ps1')}" ${source}` : `${shellQuote("/bin/sh")} ${shellQuote(path.join(root, 'bin', 'capture.sh'))} ${source}`;
+    const command = hookCommand(root, source);
+    const legacyCapture = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${path.join(root, 'bin', 'capture.ps1')}" ${source}`;
     const legacy = windows ? `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${path.join(oldDir, 'auto-improve-upload.ps1')}" ${source}` : `${shellQuote(path.join(oldDir, 'auto-improve-upload.sh'))} ${source}`;
     const saved = previous?.agents?.find(agent => agent.source === source);
-    agents.push({ id, name, source, configPath, command, detectedAtInstall: fs.existsSync(path.dirname(configPath)), ownedCommands: [...new Set([command, legacy, ...(saved?.ownedCommands || [])])] });
+    agents.push({ id, name, source, configPath, command, detectedAtInstall: fs.existsSync(path.dirname(configPath)), ownedCommands: [...new Set([command, legacy, ...(windows ? [legacyCapture] : []), ...(saved ? [saved.command] : []), ...(saved?.ownedCommands || [])])] });
   }
   return agents;
-}
-function launcherChanges(root) {
-  const changes = [];
-  const atomicWrite = (file, bytes, mode) => changes.push({ file, bytes, mode });
-  const loader = target => `'use strict';\nconst fs=require('node:fs'),path=require('node:path');\nconst root=path.dirname(__dirname);process.env.AUTO_IMPROVE_HOME=root;\nconst state=JSON.parse(fs.readFileSync(path.join(root,'install.json'),'utf8'));\nrequire(path.join(state.releaseDir,'runtime','${target}')).main?.();\n`;
-  atomicWrite(path.join(root, 'bin', 'penelopa.cjs'), loader('install.cjs'));
-  atomicWrite(path.join(root, 'bin', 'hook.cjs'), `'use strict';\nconst fs=require('node:fs'),path=require('node:path');\nconst root=path.dirname(__dirname);process.env.AUTO_IMPROVE_HOME=root;\ntry { const state=JSON.parse(fs.readFileSync(path.join(root,'install.json'),'utf8')); const hook=require(path.join(state.releaseDir,'runtime','hook.cjs')); const input=fs.readFileSync(0,'utf8'); if(Buffer.byteLength(input)>1048576)throw Error('Input too large'); const event=hook.capture(process.argv[2],JSON.parse(input),root,process.env.PENELOPA_SELF_TEST==='1'); if(event&&process.env.PENELOPA_SELF_TEST!=='1')hook.wake(root); } catch { try {fs.mkdirSync(path.join(root,'health'),{recursive:true,mode:448});fs.writeFileSync(path.join(root,'health','capture-error.json'),JSON.stringify({at:new Date().toISOString(),error:'An event could not be saved. Check transcript access and disk space.'}),{mode:384});}catch{} process.stderr.write('Penelopa: open Connection to check event capture.\\n'); } finally { if(process.argv[2]==='codex-openai')process.stdout.write('{}\\n'); }\n`);
-  atomicWrite(path.join(root, 'bin', 'capture.sh'), `#!/bin/sh
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd) || exit 0
-node_path=$(cat "$root/node-path") || exit 0
-exec "$node_path" "$root/bin/hook.cjs" "$1"
-`, 0o700);
-  atomicWrite(path.join(root, 'bin', 'capture.ps1'), '\uFEFF' + fs.readFileSync(path.join(__dirname, 'capture.ps1'), 'utf8'));
-  atomicWrite(path.join(root, 'node-path'), process.execPath + '\n');
-  return changes;
 }
 async function selfTest(root, state) {
   const { capture } = require('./hook.cjs');
@@ -106,9 +93,10 @@ async function selfTest(root, state) {
 async function repair(root = home()) {
   const state = installState(root);
   if (!state || !credential(state)) throw new Error('No installed account was found. Run the installer again.');
+  state.agents = refreshAgents(root, state);
   const changes = prepare(state.agents);
   state.selfTest = await selfTest(root, state);
-  transaction([...launcherChanges(root), ...changes, { file: path.join(root, 'install.json'), data: state }]);
+  transaction([...launcherChanges(root, state.nodePath), ...changes, { file: path.join(root, 'install.json'), data: state }]);
   return state.selfTest;
 }
 async function uninstall(root, purge = false) {

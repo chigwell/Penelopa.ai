@@ -26,7 +26,11 @@ function executeUploader(state, event, receipt) {
     let errorOutput = '';
     child.stderr.on('data', data => { errorOutput = (errorOutput + data.toString()).slice(-2000); });
     child.stdin.on('error', () => {});
-    child.stdin.end(JSON.stringify(event.payload));
+    // Windows PowerShell can buffer stdin using the host code page before the
+    // script sets UTF-8. JSON escapes survive both that reader and the raw pipe;
+    // ConvertFrom-Json restores the original Unicode paths and identifiers.
+    const payload = JSON.stringify(event.payload);
+    child.stdin.end(windows ? payload.replace(/[\u007f-\uffff]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`) : payload);
     const timeout = setTimeout(() => child.kill(), 120_000);
     child.on('error', error => { clearTimeout(timeout); reject(error); });
     child.on('close', code => { clearTimeout(timeout); resolve({ code, errorOutput }); });

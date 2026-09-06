@@ -24,6 +24,12 @@ async function setup(t) {
   const result = spawnSync(process.execPath, [path.join(source, 'runtime/install.cjs'), '--no-desktop', '--drain-max-seconds', '2'], { env, encoding: 'utf8', timeout: 60_000 });
   assert.equal(result.status, 0, result.stderr); return { root, source, env };
 }
+function deliveryStatus(root) {
+  const health = Object.fromEntries(['capture-error', 'worker-error', 'delivery-error', 'upload'].map(name => [name, readJson(path.join(root, 'health', `${name}.json`), null)]));
+  const events = fs.existsSync(path.join(root, 'events')) ? fs.readdirSync(path.join(root, 'events')) : [];
+  return JSON.stringify({ health, queuedEvents: events.filter(name => name.endsWith('.json')).length,
+    processingErrors: events.filter(name => name.endsWith('.error')).map(name => readJson(path.join(root, 'events', name))) });
+}
 test('offline delivery retains segments, honors the captured byte boundary, validates ACKs and retries idempotently', { timeout: 120_000 }, async t => {
   const f = await setup(t); const requests = []; let mode = 'offline';
   const server = http.createServer(async (request, response) => {
@@ -55,7 +61,7 @@ test('offline delivery retains segments, honors the captured byte boundary, vali
   const segment = fs.readFileSync(path.join(f.root, 'outbox', pending()[0], 'segment.jsonl'), 'utf8');
   assert.equal(segment, '{"message":"captured"}\n'); assert.equal(fs.readdirSync(path.join(f.root, 'events')).filter(name => name.endsWith('.json')).length, 0);
   mode = 'invalid'; clearBackoff(); await worker(); assert.equal(pending().length, 1);
-  mode = 'valid'; clearBackoff(); await worker(); assert.equal(pending().length, 0);
+  mode = 'valid'; clearBackoff(); await worker(); assert.equal(pending().length, 0, `Requests: ${requests.length}; ${deliveryStatus(f.root)}`);
   assert.ok(readJson(path.join(f.root, 'health/upload.json')).lastUploadAt > 0);
   assert.equal(new Set(requests.map(request => request.key)).size, 1); assert.ok(requests.length >= 3);
   const count = requests.length; await worker(); assert.equal(requests.length, count);
@@ -92,7 +98,11 @@ test('installed SessionEnd returns within three seconds while delivery is stalle
   const start = performance.now();
   const result = spawnSync(hook.command, { shell: true, env: { ...f.env, PATH: process.platform === 'win32' ? `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0` : '/usr/bin:/bin' }, input: JSON.stringify({ hook_event_name: 'SessionEnd', transcript_path: transcript }), encoding: 'utf8', timeout: 3000 });
   assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout.trim(), '{}'); assert.ok(performance.now() - start < 3000);
-  await Promise.race([receiving, new Promise((_, reject) => { const timer = setTimeout(() => reject(Error('Worker did not reach the fixture server')), 20_000); timer.unref(); })]);
+  assert.ok(readJson(path.join(f.root, 'health/codex-openai.json'), null)?.lastEventAt, `SessionEnd did not capture the event: ${deliveryStatus(f.root)}`);
+  let timer;
+  try {
+    await Promise.race([receiving, new Promise((_, reject) => { timer = setTimeout(() => reject(Error(`Worker did not reach the fixture server: ${deliveryStatus(f.root)}`)), 20_000); timer.unref(); })]);
+  } finally { clearTimeout(timer); }
   // A worker may be killed after publishing its local segment and before ACK.
   const marker = path.join(f.root, 'locks', 'worker.lock', 'owner.json');
   const worker = readJson(marker, null); if (worker) { try { process.kill(worker.pid); } catch {} }

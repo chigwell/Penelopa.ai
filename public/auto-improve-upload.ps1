@@ -229,7 +229,10 @@ function Move-AtomicDurable {
     $sourceParent = [System.IO.Path]::GetDirectoryName($SourcePath)
     $destinationParent = [System.IO.Path]::GetDirectoryName($DestinationPath)
     if (-not $Directory -and [System.IO.File]::Exists($DestinationPath)) {
-        [System.IO.File]::Replace($SourcePath, $DestinationPath, $null)
+        # PowerShell coerces $null to an empty string for a .NET string argument.
+        # .NET Framework rejects that as the backup path on Windows; pass a real
+        # null so ACK state, retry schedules and the drain cursor can be replaced.
+        [System.IO.File]::Replace($SourcePath, $DestinationPath, [System.Management.Automation.Language.NullString]::Value)
     } else { Move-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force }
     if (-not [string]::Equals($sourceParent, $destinationParent, [System.StringComparison]::OrdinalIgnoreCase)) {
         Sync-DirectoryToDisk $sourceParent

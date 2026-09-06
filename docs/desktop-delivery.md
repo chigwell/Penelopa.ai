@@ -36,6 +36,8 @@ There is no automatic production deployment in the verification workflow. Instal
 
 ## Verification
 
+Run delivery tests with the Node version pinned in `desktop/release-config.json` and CI (currently 24.20.0). The Node 22.22.1 `Response.formData()` parser rejects the .NET multipart fixture's unquoted disposition parameters; the same synthetic body and all managed PowerShell acknowledgement tests pass on the pinned runtime. This parser difference requires no uploader behavior change.
+
 - `npm run build` builds only the website from the checked-in static assets.
 - `npm run test:desktop` generates current desktop source and bootstrap assets in a temporary directory, runs isolated fixtures against that source, and removes the generated assets afterward. Direct `node --test desktop/test/*.test.cjs` invocations also generate temporary current-source bundles when needed.
 - `npm run verify:desktop-assets` checks every checked-in versioned source archive, current/versioned manifest parity, and the current bootstrap/installer hashes without writing files. It verifies published integrity, not parity with unpublished working source.
@@ -44,13 +46,17 @@ There is no automatic production deployment in the verification workflow. Instal
 
 The generator accepts an explicit source root and output directory, uses deterministic ZIP/STORE entries, and preserves the public asset layout. Tests compare independent generations, current-source contents, immutable-release rejection, and source-tree non-mutation. CI separately checks published integrity and rejects tracked changes after validation.
 
+Tracked text uses LF checkout endings through `.gitattributes`, including on Windows. This keeps checksummed bootstrap files and deterministic source bundles independent of `core.autocrlf`; binary archives and images remain untouched.
+
+Shared POSIX/PowerShell characterization scenarios verify partial JSONL and EOF finalization, retained bytes across replacement/truncation epochs, captured boundaries and quarantine without acknowledgement advancement. Existing managed-delivery tests retain offline, invalid-ACK, idempotency and worker-interruption coverage. Windows SID/ACL characterization runs with an injected Windows host on every platform; real ACL and native launch checks still require the OS matrix.
+
 `npm run test:desktop` runs isolated fixtures. The tests never use personal agent directories or production credentials. Network tests use loopback HTTP and synthetic transcripts; environments that forbid local listening need permission to run those tests outside the sandbox.
 
 The native build verifier (`node scripts/verify-desktop-build.cjs`) downloads the pinned private Node into a temporary directory, extracts a verified temporary archive generated from current source, packages for the host CPU, ad-hoc signs on macOS, and starts the resulting executable. Its launch check renders the local UI, verifies the isolated preload bridge, and saves a screenshot beside the marker under the temporary build directory. It does not install into Applications, register autostart, access Keychain or modify the user's hooks.
 
 The GitHub workflow covers Linux hooks, macOS arm64/x64 and Windows x64. Hosted runners have developer tools installed; the isolated installer test and minimal PATH checks reduce accidental dependency on them, but do not replace testing clean consumer OS images.
 
-Local verification on 6 September 2026: the 20 automated tests, TypeScript check and website build passed on macOS arm64. A package built with private Node 24.20.0 and Electron 44.2.0 passed ad-hoc signature verification, native startup, isolated preload checks and a rendered Connection-screen screenshot. Windows PowerShell syntax was parsed locally; execution on Windows and Intel macOS still requires the CI/native matrix. The production OpenAPI URL returned 404, so this work does not claim a live authenticated API contract check or a production deployment.
+Local refactor verification on 6 September 2026: all 38 desktop tests passed without skips on macOS arm64 with Node 24.20.0, including execution of the managed PowerShell tests. Current-source packaging with private Node 24.20.0 and Electron 44.2.0 passed ad-hoc signature verification, native startup, isolated preload checks and a rendered Connection-screen screenshot. Source SHA-256 was `8073b0af7ba41b12817487b2cf1f83c43ca9ebf1ff22e94cc2acdb7ff2e00a0a`. Evidence is retained locally under `/private/tmp/penelopa-build-ehdWIH/` (`verification.json`, `signature-verification.json`, `retained-smoke.json`, screenshot and `source-verification.json`). Linux, native Windows, Intel macOS and clean-machine checks remain CI/manual gates. Published assets passed their separate integrity check; no release was generated into the public directory or deployed. See the refactor ledger for web validation.
 
 Windows managed delivery flushes individual files before atomic publication and retains unacknowledged events across process termination. It does not use private PowerShell reflection types to flush directory handles or request privileged volume flushes. Power-loss durability still depends on the filesystem and storage device; clean-machine and interruption checks remain release gates.
 

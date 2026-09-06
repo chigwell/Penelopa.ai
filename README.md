@@ -84,16 +84,26 @@ Existing endpoint, token, environment-file, source-schema and upload-limit optio
 
 ## Development and release
 
+Use the Node version pinned in `desktop/release-config.json` and CI (currently 24.20.0):
+
 ```sh
 npm ci
 npm run typecheck
+npm run test:web:unit
+npx playwright install chromium
+npm run test:web
+npm run verify:desktop-assets
 npm run test:desktop
 npm run build
 ```
 
-`npm run release:desktop` creates deterministic source ZIPs, checksummed manifests and the public shell/PowerShell bootstraps. Source bundles contain an isolated desktop lockfile and the existing durable uploaders. Installation uses `npm ci --ignore-scripts` and an explicitly verified Electron archive; it does not run arbitrary npm lifecycle scripts or compile Chromium.
+`build` builds the website. `test:desktop` generates temporary bundles from current source, while `verify:desktop-assets` checks the published asset hashes without rewriting them. On macOS or Windows, `npm run verify:desktop-build` packages and launches current source in a temporary directory.
 
-See [desktop delivery notes](docs/desktop-delivery.md) for the architecture, CI matrix, launch verification and release sequence. Versions and official runtime hashes are pinned in `desktop/release-config.json`; desktop package versions must match. Release assets are generated during the website build.
+Run `npm run release:desktop` explicitly to prepare deterministic source ZIPs, checksummed manifests and public shell/PowerShell bootstraps. It refuses different content at an existing versioned release path. Before preparing a changed release, bump the versions together in `desktop/package.json`, `desktop/package-lock.json` and `desktop/release-config.json`, and retain previous releases.
+
+Source bundles contain an isolated desktop lockfile and the durable uploaders. Installation uses `npm ci --ignore-scripts` and an explicitly verified Electron archive; it does not run arbitrary npm lifecycle scripts or compile Chromium. See [desktop delivery notes](docs/desktop-delivery.md) for the architecture, CI matrix, launch verification and release sequence.
+
+`npm run test:web:visual` compares the reviewed macOS Chromium screenshots. Browser tests mock API responses and control time; they do not need an account. The [behavior contracts](docs/behavior-contracts.md) and [refactor ledger](docs/refactor-ledger.md) describe preserved differences, validation evidence and separate migration work. The standalone `penelopa-how-it-works-demo.html` is an archived reference; maintain the React demo in `app/components/`.
 
 The desktop checks for updates at startup and daily. **Update & restart** prepares the next version outside the running app, checks its signature/launch, and then replaces it. Failure keeps the previous working bundle and the existing account, settings and queue.
 

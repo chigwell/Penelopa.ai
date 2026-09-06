@@ -895,6 +895,24 @@ function Drain-Outbox {
     $stopwatch.Stop()
 }
 
+function Invoke-LockedOutboxDrain {
+    param(
+        [string]$OutboxDirectory,
+        [string]$Token,
+        [int]$TimeoutSeconds,
+        [string]$StateDirectory,
+        [string]$LocksDirectory,
+        [int]$MaxAttempts,
+        [int]$MaxSeconds
+    )
+    # Callers retain their token, lock-acquisition and logging decisions.
+    try {
+        Drain-Outbox $OutboxDirectory $Token $TimeoutSeconds $StateDirectory $LocksDirectory $MaxAttempts $MaxSeconds
+    } finally {
+        Release-DrainLock
+    }
+}
+
 try {
     Add-Type -AssemblyName System.Net.Http
     # Windows PowerShell may replace Console.In with a host reader whose code
@@ -1005,8 +1023,7 @@ try {
 
     if ($event.hook_event_name -eq "Drain") {
         if ($token -and (Acquire-DrainLock (Join-Path $locksDirectory "drain.lock"))) {
-            try { Drain-Outbox $outboxDirectory $token $timeoutSeconds $stateDirectory $locksDirectory $drainMaxAttempts $drainMaxSeconds }
-            finally { Release-DrainLock }
+            Invoke-LockedOutboxDrain $outboxDirectory $token $timeoutSeconds $stateDirectory $locksDirectory $drainMaxAttempts $drainMaxSeconds
         }
         Finish-Hook 0
     }
@@ -1159,11 +1176,7 @@ try {
     } elseif (-not (Acquire-DrainLock (Join-Path $locksDirectory "drain.lock"))) {
         Write-HookLog "another outbox drain is active; the durable snapshot will be retried by a later hook"
     } else {
-        try {
-            Drain-Outbox $outboxDirectory $token $timeoutSeconds $stateDirectory $locksDirectory $drainMaxAttempts $drainMaxSeconds
-        } finally {
-            Release-DrainLock
-        }
+        Invoke-LockedOutboxDrain $outboxDirectory $token $timeoutSeconds $stateDirectory $locksDirectory $drainMaxAttempts $drainMaxSeconds
     }
 } catch {
     Write-HookLog "$($_.Exception.GetType().Name): $($_.Exception.Message)"

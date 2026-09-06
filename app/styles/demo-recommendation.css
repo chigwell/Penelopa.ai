@@ -1,0 +1,329 @@
+.pd-recommendation {
+  background: var(--pd-canvas);
+  color: var(--pd-text);
+  display: grid;
+  grid-template-rows: 66px minmax(0, 1fr);
+}
+
+.pd-recommendation__nav {
+  align-items: center;
+  border-bottom: 1px solid var(--pd-border);
+  display: flex;
+  min-width: 0;
+  padding: 0 22px;
+}
+
+.pd-recommendation__brand {
+  align-items: center;
+  color: var(--pd-ink);
+  display: inline-flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pd-recommendation__logo {
+  background: #fffdf8;
+  border: 1px solid var(--pd-border);
+  border-radius: 8px;
+  color: #171614;
+  display: grid;
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 22px;
+  height: 38px;
+  overflow: hidden;
+  place-items: center;
+  width: 38px;
+}
+
+.pd-recommendation__logo img {
+  display: block;
+  height: 30px;
+  object-fit: contain;
+  width: 30px;
+}
+
+.pd-recommendation__brand-text {
+  font-family: var(--font-display);
+  font-size: 21px;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pd-recommendation__actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 9px;
+  margin-left: auto;
+}
+
+.pd-recommendation__back {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--pd-muted);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 7px;
+}
+
+.pd-recommendation__back svg,
+.pd-copy-button svg {
+  fill: none;
+  height: 15px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 15px;
+}
+
+.pd-recommendation__scroller {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.pd-recommendation__article {
+  margin: 0 auto;
+  padding: 58px 0 82px;
+  width: min(calc(100% - 64px), 1040px);
+}
+
+.pd-recommendation__header {
+  border-bottom: 1px solid var(--pd-border);
+  padding-bottom: 30px;
+}
+
+.pd-recommendation__eyebrow {
+  color: var(--pd-muted);
+  font-size: 10px;
+  margin: 0 0 19px;
+  text-transform: uppercase;
+}
+
+.pd-recommendation__title {
+  color: var(--pd-ink);
+  font-family: var(--font-display);
+  font-size: clamp(43px, 6.2vw, 76px);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+  max-width: 900px;
+}
+
+.pd-recommendation__meta-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  margin-top: 25px;
+}
+
+.pd-recommendation__meta {
+  color: var(--pd-muted);
+  font-size: 9px;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.pd-copy-button {
+  align-items: center;
+  background: var(--pd-inverse-bg);
+  border: 0;
+  border-radius: 0;
+  color: var(--pd-inverse-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: center;
+  margin-left: auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.pd-copy-button:hover {
+  opacity: 0.86;
+  transform: translateY(-1px);
+}
+
+.pd-copy-button.is-pressed {
+  transform: translateY(1px) scale(0.97);
+}
+
+.pd-copy-button.is-copied {
+  background: var(--pd-success);
+  color: #fffdf8;
+}
+
+.pd-recommendation__report {
+  border-bottom: 1px solid var(--pd-border);
+  max-width: 810px;
+  padding: 38px 0 48px;
+}
+
+.pd-recommendation__report h2 {
+  color: var(--pd-ink);
+  font-family: var(--font-display);
+  font-size: 31px;
+  font-weight: 400;
+  line-height: 1.08;
+  margin: 36px 0 13px;
+}
+
+.pd-recommendation__report h2:first-child {
+  margin-top: 0;
+}
+
+.pd-recommendation__report h3 {
+  color: var(--pd-ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 27px 0 10px;
+}
+
+.pd-recommendation__report p,
+.pd-recommendation__report li {
+  color: var(--pd-text);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.pd-recommendation__report p {
+  margin: 0 0 16px;
+}
+
+.pd-recommendation__report ul {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 19px;
+  padding-left: 20px;
+}
+
+.pd-recommendation__report code {
+  background: color-mix(in srgb, var(--pd-ink) 8%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.12em 0.34em;
+}
+
+.pd-recommendation__report blockquote {
+  border-left: 2px solid var(--pd-strong-border);
+  color: var(--pd-muted);
+  margin: 23px 0;
+  padding: 2px 0 2px 17px;
+}
+
+.pd-recommendation__report blockquote p {
+  color: inherit;
+}
+
+.pd-copy-toast {
+  align-items: center;
+  background: var(--pd-raised);
+  border: 1px solid var(--pd-strong-border);
+  bottom: 22px;
+  color: var(--pd-text);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  gap: 8px;
+  opacity: 0;
+  padding: 10px 12px;
+  pointer-events: none;
+  position: absolute;
+  right: 22px;
+  text-transform: uppercase;
+  transform: translateY(10px);
+  z-index: 30;
+}
+
+.pd-copy-toast.is-visible {
+  opacity: 1;
+  transform: none;
+  transition: opacity 320ms ease, transform 420ms var(--pd-ease);
+}
+
+.pd-copy-toast::before {
+  background: var(--pd-success);
+  border-radius: 999px;
+  content: "";
+  height: 6px;
+  width: 6px;
+}
+
+.pd-finish {
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--pd-raised) 94%, transparent);
+  border: 1px solid var(--pd-strong-border);
+  bottom: 24px;
+  box-shadow: 0 16px 48px var(--pd-shadow);
+  color: var(--pd-text);
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  opacity: 0;
+  padding: 13px;
+  position: absolute;
+  right: 24px;
+  transform: translateY(16px) scale(0.98);
+  transition:
+    opacity 320ms ease,
+    transform 480ms var(--pd-ease),
+    visibility 0s linear 480ms;
+  visibility: hidden;
+  z-index: 40;
+}
+
+.pd-finish.is-visible {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0s;
+  visibility: visible;
+}
+
+.pd-finish__label {
+  color: var(--pd-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.pd-finish__button {
+  align-items: center;
+  background: var(--pd-inverse-bg);
+  border: 0;
+  border-radius: 0;
+  color: var(--pd-inverse-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 18px;
+  justify-content: space-between;
+  min-height: 39px;
+  padding: 8px 10px 8px 12px;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.pd-finish__button:hover {
+  opacity: 0.86;
+  transform: translateY(-1px);
+}
+
+.pd-finish__button svg {
+  fill: none;
+  height: 15px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 15px;
+}
+

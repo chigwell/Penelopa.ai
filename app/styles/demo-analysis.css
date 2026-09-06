@@ -1,0 +1,202 @@
+.pd-analysis {
+  background:
+    linear-gradient(var(--pd-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pd-grid) 1px, transparent 1px),
+    var(--pd-canvas);
+  background-size: 42px 42px;
+  display: grid;
+  place-items: center;
+}
+
+.pd-analysis::before {
+  background: radial-gradient(
+    circle at 50% 48%,
+    color-mix(in srgb, var(--pd-agent-accent) 10%, transparent),
+    transparent 44%
+  );
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.pd-analysis__stream {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+}
+
+.pd-analysis__token {
+  animation: pd-token-flow var(--duration) var(--delay) var(--pd-ease) infinite;
+  background: color-mix(in srgb, var(--pd-raised) 84%, transparent);
+  border: 1px solid var(--pd-border);
+  color: var(--pd-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  left: var(--x);
+  line-height: 1.3;
+  max-width: 160px;
+  opacity: 0;
+  padding: 5px 7px;
+  position: absolute;
+  top: var(--y);
+  transform: translate3d(var(--from-x), var(--from-y), 0) scale(0.92);
+  white-space: nowrap;
+}
+
+.pd-analysis__core {
+  display: grid;
+  justify-items: center;
+  position: relative;
+  text-align: center;
+  width: min(calc(100% - 48px), 560px);
+  z-index: 2;
+}
+
+.pd-analysis__eyebrow {
+  color: var(--pd-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  margin: 0 0 20px;
+  text-transform: uppercase;
+}
+
+.pd-analysis__orb {
+  display: grid;
+  height: 150px;
+  margin-bottom: 27px;
+  place-items: center;
+  position: relative;
+  width: 150px;
+}
+
+.pd-analysis__ring {
+  animation: pd-ring var(--ring-speed) linear infinite;
+  border: 1px solid color-mix(in srgb, var(--pd-strong-border) 76%, transparent);
+  border-radius: 999px;
+  inset: var(--inset);
+  position: absolute;
+}
+
+.pd-analysis__ring--outer {
+  --inset: 0;
+  --ring-speed: 12s;
+}
+
+.pd-analysis__ring--middle {
+  --inset: 20px;
+  --ring-speed: 8s;
+  animation-direction: reverse;
+}
+
+.pd-analysis__ring--inner {
+  --inset: 39px;
+  --ring-speed: 5s;
+}
+
+.pd-analysis__ring::before,
+.pd-analysis__ring::after {
+  background: var(--pd-agent-accent);
+  border-radius: 999px;
+  content: "";
+  height: 5px;
+  position: absolute;
+  width: 5px;
+}
+
+.pd-analysis__ring::before {
+  left: 12%;
+  top: 12%;
+}
+
+.pd-analysis__ring::after {
+  bottom: 25%;
+  right: 5%;
+}
+
+.pd-analysis__brand-mark {
+  background: #fffdf8;
+  border: 1px solid var(--pd-strong-border);
+  border-radius: 8px;
+  box-shadow: 0 0 0 10px color-mix(in srgb, #fffdf8 72%, transparent);
+  color: #171614;
+  display: grid;
+  font-family: var(--font-display);
+  font-size: 29px;
+  height: 54px;
+  place-items: center;
+  width: 54px;
+}
+
+.pd-analysis__brand-mark img {
+  display: block;
+  height: 40px;
+  object-fit: contain;
+  width: 40px;
+}
+
+.pd-analysis__title {
+  color: var(--pd-ink);
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4vw, 50px);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.02;
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.pd-analysis__copy {
+  color: var(--pd-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 13px 0 20px;
+  max-width: 470px;
+  min-height: 3.2em;
+}
+
+.pd-analysis__status {
+  align-items: center;
+  color: var(--pd-muted);
+  display: inline-flex;
+  font-size: 9px;
+  gap: 8px;
+  text-transform: uppercase;
+}
+
+.pd-analysis__status::before {
+  animation: pd-opacity 800ms ease-in-out infinite alternate;
+  background: var(--pd-agent-accent);
+  border-radius: 999px;
+  content: "";
+  height: 5px;
+  width: 5px;
+}
+
+.pd-analysis__document {
+  background: var(--pd-raised);
+  border: 1px solid var(--pd-strong-border);
+  height: 210px;
+  left: 50%;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -47%) scale(0.3);
+  width: 160px;
+  z-index: 5;
+}
+
+.pd-analysis.is-resolving .pd-analysis__core,
+.pd-analysis.is-resolving .pd-analysis__stream {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 360ms ease, transform 560ms var(--pd-ease);
+}
+
+.pd-analysis.is-resolving .pd-analysis__document {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(7.5);
+  transition: opacity 160ms ease, transform 900ms var(--pd-ease);
+}
+

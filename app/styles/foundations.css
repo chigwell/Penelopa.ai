@@ -1,0 +1,89 @@
+:root {
+  --canvas: #fcfbf8;
+  --surface: #f4f1e9;
+  --surface-raised: #fffefa;
+  --border: #e3e0d8;
+  --border-strong: #bdb9af;
+  --text: #26231f;
+  --ink: #11100f;
+  --muted: #777169;
+  --inverse: #171614;
+  --inverse-text: #fffdf8;
+  --code-line: #34312d;
+  --accent-one: #59aaf8;
+  --accent-two: #e653d2;
+  --accent-three: #ff641d;
+  --chart-session: #11100f;
+  --chart-messages: #2c7ec6;
+  --chart-projects: #ca4eac;
+  --chart-recommendations: #d96d2b;
+  --chart-tokens: #758d50;
+  --font-display: "DM Serif Display", Georgia, serif;
+  --font-main: "DM Sans", "Avenir Next", sans-serif;
+  --font-mono: "DM Mono", "SFMono-Regular", Consolas, monospace;
+  background: var(--canvas);
+  color: var(--text);
+  color-scheme: light;
+  font-family: var(--font-main);
+}
+
+:root[data-theme="dark"] {
+  --canvas: #12110f;
+  --surface: #1c1a17;
+  --surface-raised: #24211d;
+  --border: #3c3933;
+  --border-strong: #706b60;
+  --text: #eee9de;
+  --ink: #fffdf8;
+  --muted: #aaa397;
+  --inverse: #f9f6ee;
+  --inverse-text: #171614;
+  --code-line: #3c3933;
+  --chart-session: #fffdf8;
+  --chart-messages: #7dbfff;
+  --chart-projects: #f38cdf;
+  --chart-recommendations: #ff9f6b;
+  --chart-tokens: #adc478;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--text);
+  font-feature-settings: "liga" 0;
+  letter-spacing: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+

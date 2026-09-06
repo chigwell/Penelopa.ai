@@ -1,0 +1,308 @@
+@media (max-width: 1360px) {
+  .hero-inner {
+    gap: 54px;
+    grid-template-columns: 1fr;
+  }
+
+  .hero h1 {
+    max-width: 900px;
+  }
+
+  .stats-grid {
+    max-width: 800px;
+  }
+}
+
+@media (max-width: 920px) {
+  .install-section {
+    gap: 54px;
+    grid-template-columns: 1fr;
+  }
+
+  .hero-inner {
+    align-items: start;
+    min-height: 0;
+    padding-bottom: 52px;
+  }
+
+  .hero h1 {
+    font-size: clamp(58px, 11vw, 96px);
+  }
+
+  .stats-grid {
+    max-width: 800px;
+  }
+
+  .install-intro h2 {
+    max-width: none;
+  }
+
+  .pd-demo__intro {
+    gap: 24px;
+    grid-template-columns: 1fr;
+  }
+
+  .pd-demo__summary {
+    max-width: 680px;
+  }
+
+  .pd-agent__body {
+    grid-template-columns: 166px minmax(0, 1fr);
+  }
+
+  .pd-recommendation__article {
+    width: min(calc(100% - 48px), 1040px);
+  }
+}
+
+@media (max-width: 620px) {
+  .topbar-inner,
+  .hero-inner,
+  .install-section {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .topbar-inner {
+    height: 60px;
+  }
+
+  .brand-name {
+    font-size: 20px;
+  }
+
+  .hero-inner {
+    gap: 52px;
+    padding-bottom: 44px;
+    padding-top: 74px;
+  }
+
+  .hero h1 {
+    font-size: clamp(50px, 15vw, 76px);
+    line-height: 0.88;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat,
+  .stat:first-child {
+    padding: 19px 0;
+  }
+
+  .stat + .stat {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat strong {
+    font-size: clamp(54px, 16vw, 64px);
+  }
+
+  .install-section {
+    gap: 38px;
+    padding-bottom: 56px;
+    padding-top: 57px;
+  }
+
+  .install-surface {
+    gap: 19px;
+    margin: 0 -18px;
+    padding: 18px;
+  }
+
+  .installer-controls,
+  .install-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .api-endpoint {
+    text-align: left;
+  }
+
+  .script-box pre {
+    font-size: 12px;
+    min-width: 540px;
+    padding: 19px 0;
+  }
+
+  .feature-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-item {
+    gap: 28px;
+    padding: 22px 18px;
+  }
+
+  .feature-item + .feature-item {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .pd-demo {
+    padding: 68px 0 80px;
+  }
+
+  .pd-demo__inner {
+    width: min(100% - 36px, 1240px);
+  }
+
+  .pd-demo__title {
+    font-size: clamp(46px, 13vw, 68px);
+  }
+
+  .pd-shell__toolbar {
+    grid-template-columns: 1fr auto;
+    min-height: 54px;
+    padding-left: 10px;
+  }
+
+  .pd-demo__phase {
+    display: none;
+  }
+
+  .pd-stage {
+    height: 690px;
+    min-height: 690px;
+  }
+
+  .pd-agent__body {
+    grid-template-columns: 1fr;
+  }
+
+  .pd-agent__sidebar {
+    display: none;
+  }
+
+  .pd-conversation {
+    padding: 22px 18px 28px;
+  }
+
+  .pd-composer {
+    margin-bottom: 14px;
+    width: calc(100% - 28px);
+  }
+
+  .pd-message[data-role="user"] {
+    width: min(94%, 610px);
+  }
+
+  .pd-recommendation {
+    grid-template-rows: 60px minmax(0, 1fr);
+  }
+
+  .pd-recommendation__nav {
+    padding: 0 14px;
+  }
+
+  .pd-recommendation__back span {
+    display: none;
+  }
+
+  .pd-recommendation__article {
+    padding: 43px 0 64px;
+    width: calc(100% - 36px);
+  }
+
+  .pd-recommendation__title {
+    font-size: clamp(40px, 11vw, 61px);
+  }
+
+  .pd-copy-button {
+    margin-left: 0;
+    order: 5;
+    width: 100%;
+  }
+
+  .pd-recommendation__meta-row {
+    align-items: stretch;
+  }
+
+  .pd-finish {
+    bottom: 14px;
+    left: 14px;
+    min-width: 0;
+    right: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pd-demo__inner {
+    width: min(100% - 24px, 1240px);
+  }
+
+  .pd-demo__summary {
+    font-size: 15px;
+  }
+
+  .pd-agent-tab {
+    font-size: 11px;
+    padding-inline: 9px;
+  }
+
+  .pd-stage {
+    height: 720px;
+    min-height: 720px;
+  }
+
+  .pd-agent__connection span,
+  .pd-recommendation__brand-text {
+    display: none;
+  }
+
+  .pd-agent__topbar {
+    padding-inline: 12px;
+  }
+
+  .pd-conversation {
+    padding-inline: 12px;
+  }
+
+  .pd-message__body {
+    font-size: 13px;
+  }
+
+  .pd-composer__footer span:last-child {
+    display: none;
+  }
+
+  .pd-analysis__core {
+    width: calc(100% - 28px);
+  }
+
+  .pd-analysis__title {
+    font-size: 36px;
+  }
+
+  .pd-recommendation__logo {
+    height: 36px;
+    width: 36px;
+  }
+
+  .pd-recommendation__actions {
+    gap: 6px;
+  }
+
+  .pd-recommendation__actions .pd-icon-button:first-of-type {
+    display: none;
+  }
+
+  .pd-recommendation__article {
+    width: calc(100% - 28px);
+  }
+
+  .pd-recommendation__title {
+    font-size: 40px;
+  }
+
+  .pd-copy-toast {
+    bottom: 12px;
+    justify-content: center;
+    left: 12px;
+    right: 12px;
+  }
+}
+

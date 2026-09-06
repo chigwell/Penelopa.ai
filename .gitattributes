@@ -1,0 +1,8 @@
+# Keep source bundles, published hashes and stylesheet baselines stable on Windows.
+* text=auto eol=lf
+*.zip -text
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.webp -text
+*.ico -text

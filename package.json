@@ -41,6 +41,9 @@
     "test:desktop": "node scripts/test-desktop.cjs",
     "typecheck": "tsc --noEmit --incremental false",
     "verify:desktop-build": "node scripts/verify-desktop-build.cjs",
-    "verify:desktop-assets": "node scripts/verify-desktop-assets.cjs"
+    "verify:desktop-assets": "node scripts/verify-desktop-assets.cjs",
+    "test:web:unit": "node scripts/test-web-unit.cjs",
+    "test:web": "playwright test tests/browser/web-contracts.spec.mjs tests/browser/demo-contracts.spec.mjs",
+    "test:web:visual": "playwright test tests/browser/visual-parity.spec.mjs"
   }
 }

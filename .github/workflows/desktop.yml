@@ -1,4 +1,4 @@
-name: Desktop and installer verification
+name: Web, desktop and installer verification
 on:
   pull_request:
   push:
@@ -22,6 +22,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - name: Test web behavior and stylesheet contracts
+        run: npm run test:web:unit
       - name: Verify published asset integrity without regeneration
         run: npm run verify:desktop-assets
       - name: Test desktop and hooks
@@ -30,6 +32,15 @@ jobs:
       - name: Build website
         if: runner.os == 'Linux'
         run: npm run build
+      - name: Install browser for web characterization
+        if: runner.os == 'Linux' || matrix.os == 'macos-15'
+        run: npx playwright install --with-deps chromium
+      - name: Verify web interactions
+        if: runner.os == 'Linux'
+        run: npm run test:web
+      - name: Compare macOS visual baselines
+        if: matrix.os == 'macos-15'
+        run: npm run test:web:visual
       - name: Package and verify native launch with the private runtime
         if: runner.os != 'Linux'
         run: npm run verify:desktop-build

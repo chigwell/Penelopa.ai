@@ -149,3 +149,7 @@ next-env.d.ts
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Browser characterization reports (reviewed baselines live in tests/browser)
+test-results/
+playwright-report/

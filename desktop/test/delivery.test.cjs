@@ -10,6 +10,20 @@ const { extractZip } = require('../runtime/archive.cjs');
 const { capture } = require('../runtime/hook.cjs');
 const { readJson, writeJson, atomicWrite } = require('../runtime/files.cjs');
 const { download } = require('../runtime/network.cjs');
+const { alive, waitForExit } = require('../runtime/lifecycle.cjs');
+async function stopWorker(root) {
+  const owner = readJson(path.join(root, 'locks', 'worker.lock', 'owner.json'), null);
+  if (!owner || !alive(owner.pid)) return;
+  // hook.wake starts a detached worker. Stop its uploader as well, including on
+  // assertion failure, before deleting the fixture's credentials and queue.
+  if (process.platform === 'win32') {
+    spawnSync(path.join(process.env.SystemRoot, 'System32', 'taskkill.exe'), ['/PID', String(owner.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 5000 });
+  } else {
+    try { process.kill(-owner.pid, 'SIGTERM'); }
+    catch (error) { if (error.code !== 'ESRCH') throw error; }
+  }
+  await waitForExit(owner.pid, 5);
+}
 function child(file, env) {
   return new Promise((resolve, reject) => {
     const process_ = spawn(process.execPath, [file], { env, stdio: ['ignore', 'pipe', 'pipe'] }); let output = '';
@@ -18,7 +32,12 @@ function child(file, env) {
   });
 }
 async function setup(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-delivery-')); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-delivery-'));
+  t.after(async () => {
+    atomicWrite(path.join(root, 'collection-disabled'), 'fixture cleanup\n');
+    await stopWorker(root);
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
   const source = path.join(root, 'release'); extractZip(fs.readFileSync(path.join(__dirname, `../../public/desktop/releases/${require("../package.json").version}/source.zip`)), source);
   const env = { ...process.env, PENELOPA_TESTING: '1', AUTO_IMPROVE_HOME: root, CODEX_HOME: path.join(root, 'codex'), CLAUDE_CONFIG_DIR: path.join(root, 'claude'), AUTO_IMPROVE_HOOK_CONFIG: path.join(root, process.platform === 'win32' ? 'credential.json' : 'credential.env'), AUTO_IMPROVE_TOKEN: 'test-only-token', AUTO_IMPROVE_DATA_DIR: root };
   const result = spawnSync(process.execPath, [path.join(source, 'runtime/install.cjs'), '--no-desktop', '--drain-max-seconds', '2'], { env, encoding: 'utf8', timeout: 60_000 });
@@ -86,7 +105,7 @@ test('installed SessionEnd returns within three seconds while delivery is stalle
   const f = await setup(t);
   let received;
   const receiving = new Promise(resolve => { received = resolve; });
-  const server = http.createServer((_request, response) => { received(); setTimeout(() => { response.writeHead(503); response.end('{}'); }, 4000); });
+  const server = http.createServer((_request, response) => { received(); setTimeout(() => { response.writeHead(503); response.end('{}'); }, 4000).unref(); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => { server.closeAllConnections(); server.close(); });
   const endpoint = `http://127.0.0.1:${server.address().port}/v2/transcript-segments`;
@@ -97,18 +116,18 @@ test('installed SessionEnd returns within three seconds while delivery is stalle
   const hook = state.agents.find(agent => agent.source === 'codex-openai');
   const start = performance.now();
   const result = spawnSync(hook.command, { shell: true, env: { ...f.env, PATH: process.platform === 'win32' ? `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0` : '/usr/bin:/bin' }, input: JSON.stringify({ hook_event_name: 'SessionEnd', transcript_path: transcript }), encoding: 'utf8', timeout: 3000 });
-  assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout.trim(), '{}'); assert.ok(performance.now() - start < 3000);
+  const elapsed = performance.now() - start;
+  const launchStatus = JSON.stringify({ elapsedMs: Math.round(elapsed), status: result.status, signal: result.signal, error: result.error?.code, stderr: result.stderr });
+  t.diagnostic(`SessionEnd launch: ${launchStatus}`);
+  assert.equal(result.status, 0, launchStatus); assert.equal(result.stdout.trim(), '{}', launchStatus); assert.ok(elapsed < 3000, launchStatus);
   assert.ok(readJson(path.join(f.root, 'health/codex-openai.json'), null)?.lastEventAt, `SessionEnd did not capture the event: ${deliveryStatus(f.root)}`);
   let timer;
   try {
     await Promise.race([receiving, new Promise((_, reject) => { timer = setTimeout(() => reject(Error(`Worker did not reach the fixture server: ${deliveryStatus(f.root)}`)), 20_000); timer.unref(); })]);
   } finally { clearTimeout(timer); }
   // A worker may be killed after publishing its local segment and before ACK.
-  const marker = path.join(f.root, 'locks', 'worker.lock', 'owner.json');
-  const worker = readJson(marker, null); if (worker) { try { process.kill(worker.pid); } catch {} }
+  await stopWorker(f.root);
   for (let i = 0; i < 12; i++) capture('codex-openai', { hook_event_name: 'Stop', transcript_path: transcript, session_id: `parallel-${i}` }, f.root);
   assert.equal(fs.readdirSync(path.join(f.root, 'events')).filter(name => name.endsWith('.json')).length, 12);
   assert.ok(fs.readdirSync(path.join(f.root, 'outbox')).some(name => name.startsWith('pending-')));
-  // Let the already spawned transport finish before fixture cleanup.
-  await new Promise(resolve => setTimeout(resolve, 4500));
 });

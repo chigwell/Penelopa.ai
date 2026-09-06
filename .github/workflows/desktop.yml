@@ -22,7 +22,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run test:desktop
+      - name: Test desktop and hooks
+        timeout-minutes: 5
+        run: npm run test:desktop
       - name: Build website
         if: runner.os == 'Linux'
         run: npm run build

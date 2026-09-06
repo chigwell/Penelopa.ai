@@ -36,7 +36,7 @@
     "preview": "npm run build && npm run start --",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./worker-configuration.d.ts",
     "release:desktop": "node scripts/release-desktop.cjs",
-    "test:desktop": "npm run release:desktop && node --test desktop/test/*.test.cjs",
+    "test:desktop": "npm run release:desktop && node --test --test-concurrency=1 --test-reporter=tap desktop/test/*.test.cjs",
     "typecheck": "tsc --noEmit --incremental false",
     "verify:desktop-build": "node scripts/verify-desktop-build.cjs"
   }

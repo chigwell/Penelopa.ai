@@ -1,9 +1,8 @@
 const assert = require("node:assert/strict");
 const { createHash } = require("node:crypto");
-const { readFileSync } = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { buildSync, transformSync } = require("esbuild");
+const { buildSync } = require("esbuild");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 
@@ -12,12 +11,17 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const originalScenarioDigest = "e95bd20297ea768f56a53b05b782547e4ff69fc6c9a57e2a793ff57952148d9e";
 
 function loadScenario() {
-  const source = readFileSync(path.join(__dirname, "../../app/components/PenelopaHowItWorksDemo.tsx"), "utf8");
-  const start = source.indexOf("const DEMO_CONFIG =");
-  const end = source.indexOf("const INITIAL_ANALYSIS_STAGE");
-  assert.ok(start >= 0 && end > start, "demo scenario data must be identifiable");
-  const { code } = transformSync(source.slice(start, end), { loader: "ts", format: "cjs", target: "es2020" });
-  return new Function(`${code}; return { DEMO_CONFIG, TOKEN_POSITIONS };`)();
+  const { outputFiles } = buildSync({
+    entryPoints: [path.join(__dirname, "../../app/components/demo/scenario.ts")],
+    bundle: true,
+    write: false,
+    platform: "node",
+    format: "cjs",
+  });
+  const fixtureModule = { exports: {} };
+  new Function("module", "exports", outputFiles[0].text)(fixtureModule, fixtureModule.exports);
+  const { DEMO_CONFIG, TOKEN_POSITIONS } = fixtureModule.exports;
+  return { DEMO_CONFIG, TOKEN_POSITIONS };
 }
 
 test("demo scenario data matches the original behavior contract", () => {

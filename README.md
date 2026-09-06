@@ -1,4 +1,6 @@
-# Penelopa.ai
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Penelopa.ai&fontSize=50&fontAlignY=35&animation=fadeIn&fontColor=FFFFFF&descAlignY=55&descAlign=62" alt="Penelopa.ai" width="100%" />
+</div>
 
 Continuous improvement for AI coding agents. Connect Codex and Claude Code once, keep working, and review practical recommendations in your personal dashboard or desktop companion.
 

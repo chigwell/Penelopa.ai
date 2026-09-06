@@ -1,5 +1,4 @@
 'use strict';
-const fs = require('node:fs');
 const path = require('node:path');
 const { readJson, writeJson, home } = require('./files.cjs');
 function alive(pid) { if (!Number.isSafeInteger(pid) || pid < 1) return false; try { process.kill(pid, 0); return true; } catch (error) { return error.code !== 'ESRCH'; } }

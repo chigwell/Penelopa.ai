@@ -1,7 +1,6 @@
 'use strict';
-const fs = require('node:fs');
 const path = require('node:path');
-const { home, readJson, writeJson, atomicWrite, installState, lock } = require('./files.cjs');
+const { home, writeJson, atomicWrite, installState, lock } = require('./files.cjs');
 const { getManifest, prepareSource, ensureRuntime } = require('./releases.cjs');
 const { spawn } = require('node:child_process');
 const { alive, waitForExit } = require('./lifecycle.cjs');

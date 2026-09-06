@@ -19,7 +19,7 @@ function child(file, env) {
 }
 async function setup(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-delivery-')); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const source = path.join(root, 'release'); extractZip(fs.readFileSync(path.join(__dirname, '../../public/desktop/releases/1.0.0/source.zip')), source);
+  const source = path.join(root, 'release'); extractZip(fs.readFileSync(path.join(__dirname, `../../public/desktop/releases/${require("../package.json").version}/source.zip`)), source);
   const env = { ...process.env, PENELOPA_TESTING: '1', AUTO_IMPROVE_HOME: root, CODEX_HOME: path.join(root, 'codex'), CLAUDE_CONFIG_DIR: path.join(root, 'claude'), AUTO_IMPROVE_HOOK_CONFIG: path.join(root, process.platform === 'win32' ? 'credential.json' : 'credential.env'), AUTO_IMPROVE_TOKEN: 'test-only-token', AUTO_IMPROVE_DATA_DIR: root };
   const result = spawnSync(process.execPath, [path.join(source, 'runtime/install.cjs'), '--no-desktop', '--drain-max-seconds', '2'], { env, encoding: 'utf8', timeout: 60_000 });
   assert.equal(result.status, 0, result.stderr); return { root, source, env };
@@ -28,8 +28,10 @@ test('offline delivery retains segments, honors the captured byte boundary, vali
   const f = await setup(t); const requests = []; let mode = 'offline';
   const server = http.createServer(async (request, response) => {
     const chunks = []; for await (const chunk of request) chunks.push(chunk);
-    const body = Buffer.concat(chunks).toString();
-    const field = name => body.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1];
+    const bytes = Buffer.concat(chunks), body = bytes.toString();
+    // .NET legitimately uses unquoted disposition names and extra part headers.
+    const form = await new Response(bytes, { headers: { 'content-type': request.headers['content-type'] } }).formData();
+    const field = name => form.get(name);
     requests.push({ key: request.headers['idempotency-key'], body });
     if (mode === 'offline') { response.writeHead(503); response.end('{}'); return; }
     response.setHeader('Content-Type', 'application/json');

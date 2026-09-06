@@ -17,7 +17,7 @@ const { newer } = require('../runtime/update.cjs');
 function temporary(t) { const root = fs.mkdtempSync(path.join(os.tmpdir(), "penelopa spaces ' ü-")); t.after(() => fs.rmSync(root, { recursive: true, force: true })); return root; }
 function fixture(t) {
   const root = temporary(t), source = path.join(root, 'release');
-  const archive = fs.readFileSync(path.join(__dirname, '../../public/desktop/releases/1.0.0/source.zip'));
+  const archive = fs.readFileSync(path.join(__dirname, `../../public/desktop/releases/${require("../package.json").version}/source.zip`));
   extractZip(archive, source);
   const configFile = path.join(root, process.platform === 'win32' ? 'credential.json' : 'credential.env');
   const env = { ...process.env, AUTO_IMPROVE_HOME: root, CODEX_HOME: path.join(root, 'codex'), CLAUDE_CONFIG_DIR: path.join(root, 'claude'), AUTO_IMPROVE_HOOK_CONFIG: configFile, AUTO_IMPROVE_TOKEN: 'fixture-private-token', AUTO_IMPROVE_DATA_DIR: root };

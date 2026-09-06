@@ -286,7 +286,7 @@ var require_archive = __commonJS({
 var require_release_config = __commonJS({
   "desktop/release-config.json"(exports2, module2) {
     module2.exports = {
-      version: "1.0.0",
+      version: "1.0.1",
       schemaVersion: 1,
       bridgeVersion: 1,
       nodeVersion: "24.20.0",
@@ -297,7 +297,10 @@ var require_release_config = __commonJS({
         win32: "10.0.19045",
         linux: "kernel 4.18, glibc 2.28"
       },
-      minimumFreeBytes: { hooks: 3e8, desktop: 3e9 },
+      minimumFreeBytes: {
+        hooks: 3e8,
+        desktop: 3e9
+      },
       node: {
         "darwin-arm64": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
         "darwin-x64": "9e5b2644cf107befb6aefca676b96d3296bc10138096f022ed378d6233ed81f4",

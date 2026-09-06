@@ -78,8 +78,7 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd) || exit 0
 node_path=$(cat "$root/node-path") || exit 0
 exec "$node_path" "$root/bin/hook.cjs" "$1"
 `, 0o700);
-  const quote = value => `'${value.replace(/'/g, "''")}'`;
-  atomicWrite(path.join(root, 'bin', 'capture.ps1'), `\uFEFFparam([string]$Source)\n$OutputEncoding = [System.Text.UTF8Encoding]::new($false)\n[Console]::InputEncoding = $OutputEncoding\n[Console]::OutputEncoding = $OutputEncoding\n$env:AUTO_IMPROVE_HOME = ${quote(root)}\n$payload = [Console]::In.ReadToEnd()\n$nodePath = (Get-Content -LiteralPath ${quote(path.join(root, 'node-path'))} -Raw -Encoding UTF8).Trim()\n$payload | & $nodePath ${quote(path.join(root, 'bin', 'hook.cjs'))} $Source\nexit 0\n`);
+  atomicWrite(path.join(root, 'bin', 'capture.ps1'), '\uFEFF' + fs.readFileSync(path.join(__dirname, 'capture.ps1'), 'utf8'));
   atomicWrite(path.join(root, 'node-path'), process.execPath + '\n');
   return changes;
 }
@@ -95,8 +94,9 @@ async function selfTest(root, state) {
     const configFile = path.join(directory, state.platform === 'win32' ? 'credential.json' : 'credential.env');
     if (state.platform === 'win32') writeJson(configFile, { uploadMode: 'segments', token: '', dataDir: directory });
     else atomicWrite(configFile, 'AUTO_IMPROVE_UPLOAD_MODE=segments\nAUTO_IMPROVE_TOKEN=\n');
-    await executeUploader({ ...state, configFile, dataDir: directory }, event, receipt);
-    if (!readJson(receipt, null)?.spooled) throw new Error('The local hook self-test failed. Use --diagnose for connection status.');
+    const result = await executeUploader({ ...state, configFile, dataDir: directory }, event, receipt);
+    // This invocation contains only synthetic input and a blank credential.
+    if (!readJson(receipt, null)?.spooled) throw new Error(`The local hook self-test failed. ${result.errorOutput.trim() || `Uploader exit: ${result.code}.`} Use --diagnose for connection status.`);
     return { passed: true, at: new Date().toISOString() };
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });

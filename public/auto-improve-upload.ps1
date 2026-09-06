@@ -894,7 +894,10 @@ function Drain-Outbox {
 
 try {
     Add-Type -AssemblyName System.Net.Http
-    $inputJson = [Console]::In.ReadToEnd()
+    # Windows PowerShell may replace Console.In with a host reader whose code
+    # page does not change with Console.InputEncoding. Decode the pipe itself.
+    $inputReader = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false, $true))
+    try { $inputJson = $inputReader.ReadToEnd() } finally { $inputReader.Dispose() }
     if ([string]::IsNullOrWhiteSpace($inputJson)) {
         $pipelineInput = @($input)
         if ($pipelineInput.Count -gt 0) {

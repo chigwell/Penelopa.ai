@@ -72,6 +72,8 @@ test('MCP page documents local recommendations adapter setup', async ({ page }) 
   await page.goto('/mcp');
   await expect(page.getByRole('heading', { name: 'Recommendations MCP.', exact: true })).toBeVisible();
   await expect(page.getByText('penelopa-recommendations-mcp').first()).toBeVisible();
+  await expect(page.getByText('github.com/chigwell/penelopa.ai.git').first()).toBeVisible();
+  await expect(page.getByText(['github.com', 'chigwell', 'auto-improve.git'].join('/'))).toHaveCount(0);
   await expect(page.getByText('PENELOPA_API_TOKEN').first()).toBeVisible();
   await expect(page.getByText('list_recommendations')).toBeVisible();
   await expect(page.getByText('https://api.penelopa.ai/v1')).toBeVisible();

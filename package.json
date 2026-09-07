@@ -39,6 +39,7 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./worker-configuration.d.ts",
     "release:desktop": "node scripts/release-desktop.cjs",
     "test:desktop": "node scripts/test-desktop.cjs",
+    "test:mcp": "uv run --no-project --with ./mcp/penelopa-recommendations --with pytest --with pytest-asyncio pytest -q -c mcp/penelopa-recommendations/pyproject.toml mcp/penelopa-recommendations/tests",
     "typecheck": "tsc --noEmit --incremental false",
     "verify:desktop-build": "node scripts/verify-desktop-build.cjs",
     "verify:desktop-assets": "node scripts/verify-desktop-assets.cjs",

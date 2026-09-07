@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 
 const PACKAGE_SOURCE =
-  "git+https://github.com/chigwell/auto-improve.git#subdirectory=mcp/penelopa-recommendations";
+  "git+https://github.com/chigwell/penelopa.ai.git#subdirectory=mcp/penelopa-recommendations";
 
 const UVX_COMMAND =
   `uvx --from ${PACKAGE_SOURCE} penelopa-recommendations-mcp`;

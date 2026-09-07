@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { setup, NOW } from './fixtures.mjs';
 
+const DEMO_CLOCK_START = new Date(NOW.getTime() - 60_000);
+
 async function advanceUntil(page, locator, assertion, limit = 100) {
   for (let i = 0; i < limit; i++) {
     if (await assertion(locator)) return;
@@ -11,11 +13,11 @@ async function advanceUntil(page, locator, assertion, limit = 100) {
 
 for (const agent of ['Codex', 'Claude']) {
   test(`demo ${agent} playback, replay and clipboard failure`, async ({ page }) => {
-    await setup(page);
+    await page.clock.install({ time: DEMO_CLOCK_START });
+    await setup(page, { fixedTime: false });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await expect.poll(() => page.evaluate(() => window.__intersections.some(item => item.target.matches('.pd-demo')))).toBe(true);
-    await page.clock.install({ time: NOW });
     await page.clock.pauseAt(NOW);
     const demo = page.locator('.pd-demo');
     await demo.scrollIntoViewIfNeeded();
@@ -40,11 +42,11 @@ for (const agent of ['Codex', 'Claude']) {
 }
 
 test('demo viewport autoplay and switching agents cancel previous playback', async ({ page }) => {
-  await setup(page);
+  await page.clock.install({ time: DEMO_CLOCK_START });
+  await setup(page, { fixedTime: false });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await expect.poll(() => page.evaluate(() => window.__intersections.some(item => item.target.matches('.pd-demo')))).toBe(true);
-  await page.clock.install({ time: NOW });
   await page.clock.pauseAt(NOW);
   await page.evaluate(() => {
     const observer = window.__intersections.find(item => item.target.matches('.pd-demo'));

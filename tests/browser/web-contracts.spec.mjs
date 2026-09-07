@@ -126,8 +126,8 @@ test('Telegram saves before generating links and keeps two-step disconnect', asy
 });
 
 test('pending Telegram polls immediately and every two seconds, stopping at expiry', async ({ page }) => {
-  const { requests } = await setup(page, { token: 'fixture-token', telegram: { status: 'PENDING', enabled: true, link_expires_at: new Date(NOW.getTime() + 6000).toISOString() } });
   await page.clock.install({ time: NOW });
+  const { requests } = await setup(page, { fixedTime: false, token: 'fixture-token', telegram: { status: 'PENDING', enabled: true, link_expires_at: new Date(NOW.getTime() + 6000).toISOString() } });
   await page.goto('/dashboard/notifications');
   const count = () => requests.filter(r => r.path === '/v1/user/telegram-notifications').length;
   await expect.poll(count).toBe(2);
@@ -155,9 +155,9 @@ test('Telegram PATCH 204 reloads settings before creating a setup link', async (
 
 test('Telegram unavailable pending setup does not poll and auth expiry locks the route', async ({ page }) => {
   let expired = false;
-  const { requests } = await setup(page, { token: 'fixture-token', telegram: { status: 'PENDING', setup_available: false },
-    respond: () => expired ? { status: 403, json: {} } : null });
   await page.clock.install({ time: NOW });
+  const { requests } = await setup(page, { fixedTime: false, token: 'fixture-token', telegram: { status: 'PENDING', setup_available: false },
+    respond: () => expired ? { status: 403, json: {} } : null });
   await page.goto('/dashboard/notifications');
   await expect(page.getByRole('button', { name: 'Generate new link' })).toBeDisabled();
   await page.clock.runFor(10_000); expect(requests).toHaveLength(1);

@@ -25,7 +25,7 @@ export const disabledTelegram = {
 export async function setup(page, options = {}) {
   const requests = [];
   let telegram = { ...disabledTelegram, ...options.telegram };
-  await page.clock.setFixedTime(NOW);
+  if (options.fixedTime !== false) await page.clock.setFixedTime(NOW);
   await page.addInitScript(({ token, theme }) => {
     if (token) localStorage.setItem('penelopa-api-token', token);
     if (theme) localStorage.setItem('penelopa-theme', theme);

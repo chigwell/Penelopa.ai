@@ -13,6 +13,7 @@ const { waitForExit } = require('../runtime/lifecycle.cjs');
 const { sourceIntact, inventory } = require('../runtime/releases.cjs');
 const { atomicWrite, writeJson, readJson } = require('../runtime/files.cjs');
 const { apply } = require('../runtime/update.cjs');
+const startup = require('../runtime/startup.cjs');
 const { temporary: temp } = require('./fixtures.cjs');
 test('application replacement rolls back failed validation and retains the last working version', async t => {
   const root = temp(t, 'penelopa-recovery-'), bundle = path.join(root, 'build'), target = path.join(root, 'installed');
@@ -28,6 +29,22 @@ test('failed configuration commit restores credentials, hook definitions and run
   writeJson(hook, { user: true }); atomicWrite(pointer, '/old/node'); atomicWrite(token, 'old-secret');
   assert.throws(() => transaction([{ file: hook, data: { replaced: true } }, { file: pointer, bytes: '/new/node' }, { file: token, bytes: 'new-secret', sensitive: true }], () => { throw Error('Commit verification failed'); }), /Commit verification/);
   assert.deepEqual(readJson(hook), { user: true }); assert.equal(fs.readFileSync(pointer, 'utf8'), '/old/node'); assert.equal(fs.readFileSync(token, 'utf8'), 'old-secret');
+});
+test('startup refresh during desktop activation is best-effort', t => {
+  const root = temp(t, 'penelopa-recovery-'), oldHome = process.env.AUTO_IMPROVE_HOME;
+  process.env.AUTO_IMPROVE_HOME = root;
+  t.after(() => { if (oldHome === undefined) delete process.env.AUTO_IMPROVE_HOME; else process.env.AUTO_IMPROVE_HOME = oldHome; });
+  writeJson(path.join(root, 'preferences.json'), { autostart: true });
+  const pack = require('../runtime/package.cjs'), logs = [];
+  let calls = 0;
+  t.mock.method(startup, 'setAutostart', (enabled, state) => {
+    calls++;
+    assert.equal(enabled, true); assert.equal(state.desktop.executable, '/app/Penelopa');
+    throw new Error('startup store denied');
+  });
+  const result = pack.refreshAutostartRegistration({ version: '1.0.5' }, { executable: '/app/Penelopa' }, message => logs.push(message));
+  assert.equal(result.attempted, true); assert.equal(result.enabled, false);
+  assert.equal(calls, 1); assert.match(logs.join('\n'), /Warning: launch at login could not be refreshed. startup store denied/);
 });
 test('desktop update migrates Windows capture commands and rolls hooks and launchers back when activation fails', async t => {
   const root = temp(t, 'penelopa-recovery-'), configPath = path.join(root, 'codex/hooks.json'), bundle = path.join(root, 'bundle'), target = path.join(root, 'app');

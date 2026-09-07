@@ -11,6 +11,8 @@ const { AuthSession } = require('../runtime/auth.cjs');
 const { writeJson, readJson, atomicWrite } = require('../runtime/files.cjs');
 const { capture } = require('../runtime/hook.cjs');
 const { newer } = require('../runtime/update.cjs');
+const startup = require('../runtime/startup.cjs');
+const { enableFreshInstallAutostart } = require('../runtime/install.cjs');
 const { temporary, installation } = require('./fixtures.cjs');
 
 function fixture(t) { return installation(temporary(t)); }
@@ -71,6 +73,34 @@ test('capture is durable, bounded by a snapshot and does not report synthetic ac
   writeJson(path.join(root, 'preferences.json'), { paused: true }); assert.equal(capture('codex-openai', { hook_event_name: 'Stop', transcript_path: transcript }, root), null);
   const other = path.join(root, 'synthetic'); capture('claude-anthropic', { hook_event_name: 'Stop', transcript_path: transcript }, other, true);
   assert.equal(fs.existsSync(path.join(other, 'health')), false);
+});
+test('fresh desktop installs enable autostart by default and persist the preference', t => {
+  const root = temporary(t), state = { desktop: { executable: '/Applications/Penelopa.ai.app/Contents/MacOS/Penelopa' } };
+  const calls = [];
+  t.mock.method(startup, 'setAutostart', (enabled, install) => { calls.push([enabled, install]); return { enabled: true }; });
+  const result = enableFreshInstallAutostart(root, state, null, () => {});
+  assert.equal(result.attempted, true); assert.equal(result.enabled, true);
+  assert.deepEqual(calls, [[true, state]]);
+  assert.deepEqual(readJson(path.join(root, 'preferences.json')), { autostart: true });
+});
+test('default autostart skips existing installs, explicit preferences and hooks-only state', t => {
+  const state = { desktop: { executable: '/Applications/Penelopa.ai.app/Contents/MacOS/Penelopa' } };
+  let calls = 0;
+  t.mock.method(startup, 'setAutostart', () => { calls++; throw new Error('should not be called'); });
+  assert.equal(enableFreshInstallAutostart(temporary(t), state, { desktop: { path: '/old/Penelopa.ai.app' } }, () => {}).attempted, false);
+  const explicit = temporary(t); writeJson(path.join(explicit, 'preferences.json'), { autostart: false });
+  assert.equal(enableFreshInstallAutostart(explicit, state, null, () => {}).attempted, false);
+  assert.equal(enableFreshInstallAutostart(temporary(t), {}, null, () => {}).attempted, false);
+  assert.equal(calls, 0);
+});
+test('default autostart failure does not fail installation state changes', t => {
+  const root = temporary(t), state = { desktop: { executable: '/Applications/Penelopa.ai.app/Contents/MacOS/Penelopa' } };
+  const logs = [];
+  t.mock.method(startup, 'setAutostart', () => { throw new Error('permission denied'); });
+  const result = enableFreshInstallAutostart(root, state, null, message => logs.push(message));
+  assert.equal(result.attempted, true); assert.equal(result.enabled, false);
+  assert.match(logs.join('\n'), /Warning: launch at login could not be enabled automatically. permission denied/);
+  assert.equal(readJson(path.join(root, 'preferences.json'), null), null);
 });
 test('fresh installation, repair and uninstall preserve account and unrelated hooks', { timeout: 120_000 }, t => {
   const f = fixture(t); const codex = path.join(f.env.CODEX_HOME, 'hooks.json');

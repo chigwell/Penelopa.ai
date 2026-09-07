@@ -10,6 +10,8 @@ const { jsonRequest, allowedUrl, download } = require('./network.cjs');
 const release = require('../release-config.json');
 const pkg = require('../package.json');
 const log = message => process.stderr.write(`Penelopa: ${message}\n`);
+const preferencesFile = root => path.join(root, 'preferences.json');
+const objectPreference = value => value && typeof value === 'object' && !Array.isArray(value);
 const valueOptions = {
   agent: ['AUTO_IMPROVE_AGENT', 'both'], url: ['AUTO_IMPROVE_URL', 'https://api.penelopa.ai/v2/transcript-segments'],
   token: ['AUTO_IMPROVE_TOKEN', ''], 'token-url': ['AUTO_IMPROVE_TOKEN_URL', 'https://api.penelopa.ai/v1/auth/bootstrap-token'],
@@ -51,6 +53,22 @@ function preflight(root, desktop) {
   const disk = fs.statfsSync(root);
   const required = release.minimumFreeBytes[desktop ? 'desktop' : 'hooks'];
   if (Number(disk.bavail) * Number(disk.bsize) < required) throw new Error(`At least ${desktop ? '3 GB' : '300 MB'} of free disk space is required.`);
+}
+function enableFreshInstallAutostart(root, state, previous, logFn = log) {
+  if (previous?.desktop || !state.desktop?.executable) return { attempted: false, enabled: false };
+  try {
+    const preferences = readJson(preferencesFile(root), {});
+    if (objectPreference(preferences) && Object.prototype.hasOwnProperty.call(preferences, 'autostart')) {
+      return { attempted: false, enabled: !!preferences.autostart };
+    }
+    const result = require('./startup.cjs').setAutostart(true, state);
+    if (!result?.enabled) throw new Error('Launch at login was not registered.');
+    writeJson(preferencesFile(root), { ...(objectPreference(preferences) ? preferences : {}), autostart: true });
+    return { attempted: true, enabled: true };
+  } catch (error) {
+    logFn(`Warning: launch at login could not be enabled automatically. ${error.message}`);
+    return { attempted: true, enabled: false, error: error.message };
+  }
 }
 function agentsFor(root, options, previous) {
   const windows = process.platform === 'win32';
@@ -181,6 +199,7 @@ async function install(options, root = home()) {
     try {
       preflight(root, true); log('Building app');
       state.desktop = await require('./package.cjs').buildAndInstall(state);
+      enableFreshInstallAutostart(root, state, previous);
       writeJson(path.join(root, 'install.json'), state);
       if (!options['no-launch']) { log('Opening Penelopa.ai'); require('./package.cjs').launch(state); }
     } catch (error) {
@@ -211,4 +230,4 @@ async function main(args = process.argv.slice(2)) {
   finally { if (unlock) unlock(); }
 }
 if (require.main === module) main();
-module.exports = { main, install, repair, uninstall, selfTest, parseArgs, agentsFor, preflight };
+module.exports = { main, install, repair, uninstall, selfTest, parseArgs, agentsFor, preflight, enableFreshInstallAutostart };

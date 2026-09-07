@@ -36,7 +36,7 @@ Desktop targets: **macOS 13.5+ on Apple Silicon or Intel**, and **Windows 10 22H
 2. The desktop app opens with your installed account. No token needs to be copied into the client.
 3. Open **Connection** to see configured agents, the first real hook event, queued data and the last server-confirmed upload. The installation self-test uses synthetic data locally; it does not prove that an agent has approved its hooks.
 4. Continue a coding session. The status changes to **Connected** after a real event is observed.
-5. Enable system notifications or launch at login in **App settings** if wanted. Telegram preferences remain separate and are not changed by installation.
+5. Fresh desktop installs open at login by default so background delivery resumes after you sign in. Disable launch at login or enable system notifications in **App settings** if wanted. Telegram preferences remain separate and are not changed by installation.
 
 Closing the window keeps Penelopa in the tray/menu bar. **Quit** closes the desktop client; hooks still capture events and launch their own delivery worker. Failed uploads remain queued, and are retried by the running client or subsequent hook events. No additional always-running system service is installed.
 

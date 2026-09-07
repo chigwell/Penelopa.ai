@@ -8,6 +8,7 @@ const { home, mkdir, readJson, writeJson, settings } = require('./files.cjs');
 const { download } = require('./network.cjs');
 const config = require('../release-config.json');
 
+const log = message => process.stderr.write(`Penelopa: ${message}\n`);
 function executable(bundle) { return process.platform === 'darwin' ? path.join(bundle, 'Contents', 'MacOS', 'Penelopa') : path.join(bundle, 'Penelopa.exe'); }
 function run(file, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -68,6 +69,17 @@ async function smoke(bundle, root = home()) {
   });
   fs.rmSync(marker, { force: true });
 }
+function refreshAutostartRegistration(state, desktop, logFn = log) {
+  if (!settings().autostart) return { attempted: false, enabled: false };
+  try {
+    const result = require('./startup.cjs').setAutostart(true, { ...state, desktop });
+    if (!result?.enabled) throw new Error('Launch at login was not registered.');
+    return { attempted: true, enabled: true };
+  } catch (error) {
+    logFn(`Warning: launch at login could not be refreshed. ${error.message}`);
+    return { attempted: true, enabled: false, error: error.message };
+  }
+}
 async function activate(bundle, state) {
   const target = process.platform === 'darwin' ? path.join(os.homedir(), 'Applications', 'Penelopa.ai.app') : path.join(process.env.LOCALAPPDATA, 'Programs', 'Penelopa.ai');
   const previous = `${target}.previous`;
@@ -75,7 +87,7 @@ async function activate(bundle, state) {
   await require('./replace.cjs').replace(bundle, target, async () => {
     await smoke(target);
     if (process.platform === 'win32') await run(executable(target), ['--penelopa-register-shortcut'], { stdio: 'ignore', timeout: 20_000, env: { ...process.env, AUTO_IMPROVE_HOME: home() } });
-    if (settings().autostart) require('./startup.cjs').setAutostart(true, { ...state, desktop });
+    refreshAutostartRegistration(state, desktop);
   }, () => require('./lifecycle.cjs').requestDesktopExit());
   return desktop;
 }
@@ -86,4 +98,4 @@ function launch(state, background = false) {
   child.on('error', () => {}); child.unref();
 }
 if (require.main === module) buildAndInstall(require('./files.cjs').installState()).then(result => console.log(result.path)).catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = { build, activate, smoke, buildAndInstall, launch, run };
+module.exports = { build, activate, smoke, buildAndInstall, launch, run, refreshAutostartRegistration };

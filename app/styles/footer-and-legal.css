@@ -202,3 +202,20 @@
   margin: 32px 0;
 }
 
+.mcp-document pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-x: auto;
+  padding: 18px;
+}
+
+.mcp-document pre code {
+  background: transparent;
+  display: block;
+  padding: 0;
+  white-space: pre;
+}

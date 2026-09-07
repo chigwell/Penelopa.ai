@@ -52,7 +52,8 @@ export default function LegalPage({ title, updated, markdown }: LegalPageProps) 
       <footer className="site-footer">
         <div className="site-footer-inner">
           <p>Copyright 2026 Penelopa.ai. Made by Eugene Evstafev.</p>
-          <nav className="footer-links" aria-label="Legal links">
+          <nav className="footer-links" aria-label="Site links">
+            <a href="/mcp">MCP</a>
             <a href="/privacy">Privacy Policy</a>
             <a href="/terms">Terms of Service</a>
             <a href="mailto:support@penelopa.ai">support@penelopa.ai</a>

@@ -67,6 +67,17 @@ test('theme persists across pages and homepage copies both install commands', as
   await page.goto('/dashboard'); await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 
+test('MCP page documents local recommendations adapter setup', async ({ page }) => {
+  await setup(page);
+  await page.goto('/mcp');
+  await expect(page.getByRole('heading', { name: 'Recommendations MCP.', exact: true })).toBeVisible();
+  await expect(page.getByText('penelopa-recommendations-mcp').first()).toBeVisible();
+  await expect(page.getByText('PENELOPA_API_TOKEN').first()).toBeVisible();
+  await expect(page.getByText('list_recommendations')).toBeVisible();
+  await expect(page.getByText('https://api.penelopa.ai/v1')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'MCP', exact: true })).toHaveAttribute('href', '/mcp');
+});
+
 test('clipboard fallback preserves copied text and feedback', async ({ page }) => {
   await setup(page, { token: 'fixture-token' });
   await page.addInitScript(() => {

@@ -8,6 +8,7 @@ for (const theme of ['light', 'dark']) {
       ['dashboard', '/dashboard', 'Your activity.'],
       ['report', '/dashboard/recommendations/rec-1', 'Keep verification repeatable'],
       ['telegram', '/dashboard/notifications', 'Telegram notifications.'],
+      ['mcp', '/mcp', 'Recommendations MCP.'],
       ['privacy', '/privacy', 'Privacy Policy'],
       ['terms', '/terms', 'Terms of Service'],
     ]) {

@@ -6,11 +6,12 @@ const path = require('node:path');
 const { createZip, extractZip } = require('../runtime/archive.cjs');
 const { editHooks } = require('../runtime/hooks-config.cjs');
 const { validateRequest, externalUrl } = require('../runtime/api.cjs');
-const { advance } = require('../runtime/notifications.cjs');
+const { advance, RecommendationPoller } = require('../runtime/notifications.cjs');
 const { AuthSession } = require('../runtime/auth.cjs');
 const { writeJson, readJson, atomicWrite } = require('../runtime/files.cjs');
 const { capture } = require('../runtime/hook.cjs');
-const { newer } = require('../runtime/update.cjs');
+const { newer, check, prepare } = require('../runtime/update.cjs');
+const releases = require('../runtime/releases.cjs');
 const startup = require('../runtime/startup.cjs');
 const { enableFreshInstallAutostart } = require('../runtime/install.cjs');
 const { temporary, installation } = require('./fixtures.cjs');
@@ -55,6 +56,51 @@ test('notification baseline, deduplication, account changes and version comparis
   assert.equal(advance(next.state, [fresh, old], 'a').fresh.length, 0);
   assert.equal(advance(next.state, [fresh, old], 'b').fresh.length, 0);
   assert.equal(newer('1.1.0', '1.0.9'), true); assert.equal(newer('1.0.1', '1.1.0'), false);
+});
+test('recommendation polling reports safe health without turning API failures into notifications', async t => {
+  const root = temporary(t), reports = [], notifications = [];
+  const item = { id: 'rec-1', title: 'Private recommendation title', created_at: '2026-09-02T00:00:00Z' };
+  const poller = new RecommendationPoller(async () => ({ status: 200, data: { items: [item], total: 1 } }), () => 'private-token', items => notifications.push(items), root, event => reports.push(event));
+  await poller.poll();
+  assert.deepEqual(reports.map(event => event.status), ['checking', 'healthy']);
+  assert.equal(notifications.length, 0, 'the initial poll establishes a baseline');
+  assert.equal(fs.readFileSync(path.join(root, 'notification-state.json'), 'utf8').includes('private-token'), false);
+
+  const failures = [], failed = new RecommendationPoller(async () => ({ status: 503, data: {} }), () => 'private-token', () => assert.fail('a failed poll must not notify'), temporary(t), event => failures.push(event));
+  await failed.poll();
+  assert.deepEqual(failures.map(event => event.status), ['checking', 'retrying']);
+  assert.equal(failures.at(-1).failures, 1);
+
+  const signedOut = [];
+  await new RecommendationPoller(async () => assert.fail('signed-out polling must not call the API'), () => null, () => {}, temporary(t), event => signedOut.push(event)).poll();
+  assert.deepEqual(signedOut, [{ type: 'poll', status: 'signed-out' }]);
+});
+test('update checks expose availability and safe failure stages', async t => {
+  const root = temporary(t);
+  writeJson(path.join(root, 'install.json'), { version: '1.0.5' });
+  t.mock.method(releases, 'getManifest', async () => ({ version: '1.0.6' }));
+  const result = await check(root);
+  assert.deepEqual({ phase: result.phase, operation: result.operation, available: result.available, version: result.version }, { phase: 'idle', operation: 'check', available: true, version: '1.0.6' });
+  assert.ok(result.checkedAt);
+});
+test('update manifest and source failures retain a safe retry state', async t => {
+  const root = temporary(t);
+  writeJson(path.join(root, 'install.json'), { version: '1.0.5' });
+  t.mock.method(releases, 'getManifest', async () => { throw Error('private network detail'); });
+  await assert.rejects(check(root), /private network detail/);
+  let state = readJson(path.join(root, 'update.json'));
+  assert.deepEqual({ phase: state.phase, errorCode: state.errorCode, error: state.error }, {
+    phase: 'error', errorCode: 'manifest-unavailable', error: 'Could not check for updates. Check your connection and retry.',
+  });
+  assert.equal(JSON.stringify(state).includes('private network detail'), false);
+
+  t.mock.restoreAll();
+  t.mock.method(releases, 'getManifest', async () => ({ version: '1.0.6' }));
+  t.mock.method(releases, 'prepareSource', async () => { throw Error('download private path'); });
+  await assert.rejects(prepare(1, root), /download private path/);
+  state = readJson(path.join(root, 'update.json'));
+  assert.equal(state.phase, 'error'); assert.equal(state.errorCode, 'source-download'); assert.equal(state.available, true);
+  assert.equal(JSON.stringify(state).includes('download private path'), false);
 });
 test('desktop imports credentials without exposing them and persists sign-out', async t => {
   const root = temporary(t), configFile = path.join(root, 'credential.env');

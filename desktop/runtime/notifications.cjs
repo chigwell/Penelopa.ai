@@ -11,10 +11,19 @@ function advance(previous, items, account) {
   return { fresh, state: { account, seen: [...seen].slice(-10_000), createdAfter: Math.max(createdAfter, ...valid.map(item => Date.parse(item.created_at)), 0) } };
 }
 class RecommendationPoller {
-  constructor(request, token, notify, root = home()) { this.request = request; this.token = token; this.notify = notify; this.file = path.join(root, 'notification-state.json'); this.failures = 0; this.busy = false; }
+  constructor(request, token, notify, root = home(), report = () => {}) {
+    this.request = request; this.token = token; this.notify = notify; this.file = path.join(root, 'notification-state.json');
+    this.report = report; this.failures = 0; this.busy = false;
+  }
   async poll() {
-    if (this.busy || !this.token()) return;
+    if (this.busy) return;
+    if (!this.token()) {
+      this.report({ type: 'poll', status: 'signed-out' });
+      return;
+    }
     this.busy = true;
+    const attemptedAt = new Date().toISOString();
+    this.report({ type: 'poll', status: 'checking', attemptedAt });
     try {
       const account = fingerprint(this.token()); const previous = readJson(this.file, null);
       const items = []; let page = 1; let total = 0;
@@ -32,7 +41,11 @@ class RecommendationPoller {
       writeJson(this.file, result.state);
       if (result.fresh.length) this.notify(result.fresh);
       this.failures = 0;
-    } catch { this.failures++; }
+      this.report({ type: 'poll', status: 'healthy', attemptedAt, succeededAt: new Date().toISOString(), failures: 0 });
+    } catch {
+      this.failures++;
+      this.report({ type: 'poll', status: 'retrying', attemptedAt, failedAt: new Date().toISOString(), failures: this.failures });
+    }
     finally { this.busy = false; }
   }
   delay() { return Math.min(15 * 60_000, 60_000 * 2 ** Math.min(this.failures, 4)) + Math.floor(Math.random() * 10_000); }

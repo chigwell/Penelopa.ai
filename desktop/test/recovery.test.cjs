@@ -70,6 +70,7 @@ test('desktop update migrates Windows capture commands and rolls hooks and launc
   assert.equal(fs.readFileSync(path.join(root, 'node-path'), 'utf8'), old.nodePath + '\n');
   assert.equal(fs.readFileSync(path.join(root, 'bin/hook.cjs'), 'utf8'), 'old launcher');
   assert.equal(fs.readFileSync(path.join(target, 'version'), 'utf8'), 'old');
+  assert.equal(readJson(path.join(root, 'update.json')).errorCode, 'activation');
   failLaunch = false; await apply(0, root);
   const state = readJson(path.join(root, 'install.json')), migrated = readJson(configPath);
   assert.ok(state.agents[0].command.startsWith(`"${process.execPath}" `)); assert.ok(state.agents[0].ownedCommands.includes(command));

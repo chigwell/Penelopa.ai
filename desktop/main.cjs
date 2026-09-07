@@ -49,6 +49,7 @@ const { createApiRequest } = require("./runtime/desktop-api.cjs");
 const { createLocalAction } = require("./runtime/local-actions.cjs");
 const root = home();
 mkdir(root);
+const notificationHealthFile = path.join(root, "notification-health.json");
 const smokeIndex = process.argv.indexOf("--penelopa-smoke-test");
 app.setPath(
   "userData",
@@ -71,6 +72,43 @@ let window,
   quitting = false,
   nativeError = null;
 const timers = [];
+const activeNotifications = new Set();
+
+function readNotificationHealth() {
+  const stored = readJson(notificationHealthFile, {});
+  return {
+    schemaVersion: 1,
+    polling: stored?.polling && typeof stored.polling === "object" ? stored.polling : {},
+    toast: stored?.toast && typeof stored.toast === "object" ? stored.toast : {},
+  };
+}
+function writeNotificationHealth(section, values) {
+  const health = readNotificationHealth();
+  health[section] = { ...health[section], ...values };
+  writeJson(notificationHealthFile, health);
+  return health;
+}
+function notificationHealth() {
+  const health = readNotificationHealth();
+  if (!settings(root).notifications) {
+    health.polling = { ...health.polling, status: "disabled" };
+  } else if (!auth?.token) {
+    health.polling = { ...health.polling, status: "signed-out" };
+  } else if (!health.polling.status || ["disabled", "signed-out"].includes(health.polling.status)) {
+    health.polling = { ...health.polling, status: "waiting" };
+  }
+  return health;
+}
+function reportNotificationPoll(event) {
+  writeNotificationHealth("polling", {
+    status: event.status,
+    ...(event.attemptedAt ? { lastAttemptAt: event.attemptedAt } : {}),
+    ...(event.succeededAt ? { lastSuccessAt: event.succeededAt } : {}),
+    ...(event.failedAt ? { lastFailureAt: event.failedAt } : {}),
+    ...(Number.isInteger(event.failures) ? { failures: event.failures } : {}),
+  });
+  pushState();
+}
 
 function registerShortcut() {
   if (process.platform !== "win32") return;
@@ -169,6 +207,7 @@ function localState() {
     connection,
     auth: auth?.state(),
     preferences: settings(root),
+    notificationHealth: notificationHealth(),
     update: readJson(path.join(root, "update.json"), {}),
     nativeError,
     version: app.getVersion(),
@@ -237,8 +276,17 @@ function startUpdater(mode, purge = false) {
     )
   )
     throw new Error("An update is already running.");
+  const updateFile = path.join(root, "update.json");
+  const previous = readJson(updateFile, {});
   if (mode === "--prepare")
-    writeJson(path.join(root, "update.json"), { phase: "downloading" });
+    writeJson(updateFile, {
+      ...previous,
+      phase: "downloading",
+      operation: "prepare",
+      available: true,
+      error: undefined,
+      errorCode: undefined,
+    });
   const child = spawn(
     state.nodePath,
     [
@@ -255,16 +303,22 @@ function startUpdater(mode, purge = false) {
     },
   );
   if (mode === "--prepare")
-    writeJson(path.join(root, "update.json"), {
+    writeJson(updateFile, {
+      ...readJson(updateFile, {}),
       phase: "downloading",
+      operation: "prepare",
+      available: true,
       pid: child.pid,
     });
   child.on("error", () => {
-    writeJson(path.join(root, "update.json"), {
+    const current = readJson(updateFile, {});
+    writeJson(updateFile, {
+      ...current,
       phase: "error",
+      operation: "updater-start",
+      errorCode: "updater-start",
       error: "The updater could not start. Retry the update.",
     });
-    nativeError = "The updater could not start.";
     pushState();
   });
   child.unref();
@@ -273,10 +327,14 @@ function startUpdater(mode, purge = false) {
     app.quit();
   }
 }
-function notify(items) {
+function notify(items, source = "recommendation") {
+  const attemptedAt = new Date().toISOString();
   if (!Notification.isSupported()) {
-    nativeError =
-      "System notifications are unavailable. Recommendations remain available in the dashboard.";
+    writeNotificationHealth("toast", {
+      status: "unsupported",
+      lastAttemptAt: attemptedAt,
+      source,
+    });
     pushState();
     return;
   }
@@ -290,16 +348,53 @@ function notify(items) {
       : "Open Penelopa.ai to review your latest recommendations.",
     silent: false,
   });
+  activeNotifications.add(notification);
+  while (activeNotifications.size > 20)
+    activeNotifications.delete(activeNotifications.values().next().value);
+  let settled = false;
+  writeNotificationHealth("toast", {
+    status: "pending",
+    lastAttemptAt: attemptedAt,
+    source,
+  });
+  notification.on("show", () => {
+    settled = true;
+    writeNotificationHealth("toast", {
+      status: "shown",
+      lastShownAt: new Date().toISOString(),
+      source,
+    });
+    pushState();
+  });
   notification.on("click", () => {
     showWindow();
     showPage("dashboard", one ? items[0].id : undefined);
   });
   notification.on("failed", () => {
-    nativeError =
-      "Notifications could not be displayed. Check the operating system notification settings for Penelopa.ai.";
+    settled = true;
+    activeNotifications.delete(notification);
+    writeNotificationHealth("toast", {
+      status: "failed",
+      lastFailureAt: new Date().toISOString(),
+      source,
+    });
     pushState();
   });
+  notification.on("close", () => activeNotifications.delete(notification));
   notification.show();
+  if (source === "test") {
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      writeNotificationHealth("toast", {
+        status: "unconfirmed",
+        lastUnconfirmedAt: new Date().toISOString(),
+        source,
+      });
+      pushState();
+    }, 5_000);
+    timeout.unref();
+    timers.push(timeout);
+  }
 }
 async function pollRecommendations() {
   if (quitting) return;
@@ -312,14 +407,19 @@ async function checkUpdate() {
   const current = readJson(path.join(root, "update.json"), {});
   if (["downloading", "building", "ready-to-restart"].includes(current.phase))
     return;
+  writeJson(path.join(root, "update.json"), {
+    ...current,
+    phase: "checking",
+    operation: "check",
+    error: undefined,
+    errorCode: undefined,
+  });
+  pushState();
   try {
     await require(path.join(state.releaseDir, "runtime", "update.cjs")).check(
       root,
     );
-  } catch {
-    nativeError =
-      "Update check is unavailable. Your installed version is unchanged.";
-  }
+  } catch {}
   pushState();
 }
 const localAction = createLocalAction({
@@ -560,6 +660,7 @@ async function initialise() {
     () => (settings(root).notifications ? auth.token : null),
     notify,
     root,
+    reportNotificationPoll,
   );
   void pollRecommendations();
   wakeWorker();
@@ -576,8 +677,11 @@ async function initialise() {
         !require("./runtime/lifecycle.cjs").alive(update.pid)
       ) {
         writeJson(path.join(root, "update.json"), {
+          ...update,
           phase: "error",
+          operation: "updater-stopped",
           available: true,
+          errorCode: "updater-stopped",
           error:
             "The updater stopped before finishing. Your existing version is preserved. Retry the update.",
         });

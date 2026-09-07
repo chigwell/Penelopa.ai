@@ -14,7 +14,7 @@ function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'penelopa-main-contract-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const calls = [], handlers = new Map();
-  const state = { prefs: { paused: false, notifications: false, autostart: false }, update: {}, install: null };
+  const state = { prefs: { paused: false, notifications: false, autostart: false }, update: {}, install: null, notificationSupported: false, nativeNotifications: [] };
   const auth = {
     token: 'synthetic-account', state: () => ({ authenticated: !!auth.token }),
     signOut: reason => { calls.push(['sign-out', reason]); auth.token = null; },
@@ -64,7 +64,11 @@ function fixture(t) {
     Tray: class extends EventEmitter { setToolTip() {} setContextMenu() {} },
     Menu: { buildFromTemplate: value => value },
     nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
-    Notification: class { static isSupported() { return false; } },
+    Notification: class extends EventEmitter {
+      constructor(options) { super(); this.options = options; state.nativeNotifications.push(this); }
+      static isSupported() { return state.notificationSupported; }
+      show() { calls.push(['notification-show', this.options]); }
+    },
     shell: { openExternal: async url => { calls.push(['external', url]); } },
     dialog: { showSaveDialog: async () => ({ canceled: true }), showMessageBox: async () => ({ response: 0 }), showErrorBox() {} },
   };
@@ -100,9 +104,9 @@ function fixture(t) {
     require: mockedRequire, __dirname: path.dirname(filename), module: { exports: {} },
     process: { ...process, platform: 'darwin', argv: ['node', filename], env: { ...process.env, AUTO_IMPROVE_HOME: root } },
     console, URL, Response, AbortSignal,
-    setTimeout: () => 1, setInterval: () => 1, clearTimeout() {},
+    setTimeout: () => ({ unref() {} }), setInterval: () => 1, clearTimeout() {},
   });
-  const expose = '\nmodule.exports = { initialise, apiRequest, localAction, showPage, configureContent, localState };';
+  const expose = '\nmodule.exports = { initialise, apiRequest, localAction, showPage, configureContent, localState, notify };';
   vm.runInContext(fs.readFileSync(filename, 'utf8') + expose, context, { filename });
   return { root, calls, state, auth, app, handlers, electron, main: context.module.exports };
 }
@@ -130,8 +134,10 @@ test('local actions preserve preference effects, sign-out, reconnect, and update
   const f = fixture(t); await f.main.initialise();
   f.state.install = { nodePath: '/private/node', releaseDir: path.join(f.root, 'release') };
   fs.writeFileSync(path.join(f.root, 'notification-state.json'), '{}');
+  fs.writeFileSync(path.join(f.root, 'notification-health.json'), '{}');
   await f.main.localAction('preferences', { autostart: true, notifications: true, paused: true });
   assert.equal(f.state.prefs.autostart, true); assert.equal(fs.existsSync(path.join(f.root, 'notification-state.json')), false);
+  assert.equal(fs.existsSync(path.join(f.root, 'notification-health.json')), false);
   assert.equal(f.calls.filter(call => call[0] === 'autostart').length, 1);
   f.calls.length = 0;
   await f.main.localAction('preferences', { paused: false });
@@ -144,6 +150,28 @@ test('local actions preserve preference effects, sign-out, reconnect, and update
   assert.equal(spawned[1], '/private/node'); assert.equal(spawned[2][1], '--prepare');
   assert.equal(spawned[3].detached, true); assert.equal(f.state.update.phase, 'downloading');
   await assert.rejects(f.main.localAction('update'), /already running/);
+});
+
+test('native notification lifecycle is visible locally without persisting recommendation content', async t => {
+  const f = fixture(t); await f.main.initialise();
+  f.main.notify([{ id: 'rec-private', title: 'Do not persist this recommendation' }], 'recommendation');
+  let health = f.main.localState().notificationHealth;
+  assert.equal(health.toast.status, 'unsupported');
+  assert.equal(JSON.stringify(health).includes('Do not persist'), false);
+
+  f.state.notificationSupported = true;
+  f.main.notify([{ id: 'test', title: 'Test title' }], 'test');
+  const pending = f.state.nativeNotifications.at(-1);
+  health = f.main.localState().notificationHealth;
+  assert.equal(health.toast.status, 'pending'); assert.equal(health.toast.source, 'test');
+  pending.emit('show');
+  assert.equal(f.main.localState().notificationHealth.toast.status, 'shown');
+
+  f.main.notify([{ id: 'test', title: 'Test title' }], 'test');
+  f.state.nativeNotifications.at(-1).emit('failed', null, 'private native error');
+  health = f.main.localState().notificationHealth;
+  assert.equal(health.toast.status, 'failed');
+  assert.equal(JSON.stringify(health).includes('private native error'), false);
 });
 
 test('window close hides to tray, explicit Quit exits, and failed navigation shows offline state', async t => {

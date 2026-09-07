@@ -9,7 +9,7 @@ The root project serves the existing dashboard and static installer assets. `des
 - `runtime/install.cjs` validates both agent configurations before changing them. It preserves unrelated hooks, takes backups, installs stable launchers, and records ownership for removal. Reinstalling with a narrower agent choice does not forget previously managed hooks.
 - Capture writes a bounded event descriptor durably and returns. A detached Node worker tails complete JSONL data through the existing POSIX/PowerShell uploader, then separately drains the durable outbox. Queue receipts are distinct from network acknowledgements. A missing/replaced source remains an error; queued bytes are not marked delivered without the v2 acknowledgement.
 - On Windows, agent commands invoke the installed private Node executable and `bin/hook.cjs` directly. PowerShell remains in the bootstrap and background uploader, but does not relay capture stdin/stdout. This avoids its native pipeline leaking capture pipe handles into the detached worker and making a completed hook appear to time out.
-- System notifications poll the existing paginated recommendation endpoint. Initial results establish a baseline; account-scoped IDs are persisted before toasts are displayed. There are no system alerts for operational errors.
+- System notifications poll the existing paginated recommendation endpoint. Initial results establish a baseline; account-scoped IDs are persisted before toasts are displayed. `notification-health.json` records only safe local polling/toast lifecycle metadata for App settings; there are no system alerts for operational errors.
 
 ## Release assets
 

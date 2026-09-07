@@ -69,6 +69,10 @@ function createLocalAction({
           fs.rmSync(path.join(root, "notification-state.json"), {
             force: true,
           });
+        if (next.notifications !== old.notifications)
+          fs.rmSync(path.join(root, "notification-health.json"), {
+            force: true,
+          });
         writeJson(path.join(root, "preferences.json"), next);
         if (!next.paused) wakeWorker();
         break;
@@ -76,7 +80,7 @@ function createLocalAction({
       case "test-notification":
         notify([
           { id: "", title: "Notifications are enabled for this computer." },
-        ]);
+        ], "test");
         break;
       case "export-diagnostics": {
         const result = await dialog.showSaveDialog(getWindow(), {

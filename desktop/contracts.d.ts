@@ -19,8 +19,13 @@ export type ConnectionStatus = {
   errors: { at?: string; error: string }[];
 };
 export type UpdateState = {
-  phase: 'idle' | 'downloading' | 'building' | 'ready-to-restart' | 'complete' | 'error';
-  available?: boolean; version?: string; checkedAt?: string; error?: string;
+  phase: 'idle' | 'checking' | 'downloading' | 'building' | 'ready-to-restart' | 'complete' | 'error';
+  operation?: string; available?: boolean; version?: string; checkedAt?: string; error?: string; errorCode?: string;
+};
+export type NotificationHealth = {
+  schemaVersion: 1;
+  polling: { status?: 'disabled' | 'signed-out' | 'waiting' | 'checking' | 'healthy' | 'retrying'; lastAttemptAt?: string; lastSuccessAt?: string; lastFailureAt?: string; failures?: number };
+  toast: { status?: 'pending' | 'shown' | 'failed' | 'unsupported' | 'unconfirmed'; lastAttemptAt?: string; lastShownAt?: string; lastFailureAt?: string; lastUnconfirmedAt?: string; source?: 'test' | 'recommendation' };
 };
 export type LocalAction = 'state' | 'navigate' | 'retry' | 'repair' | 'connect' | 'sign-out' | 'preferences' |
   'test-notification' | 'export-diagnostics' | 'check-update' | 'update' | 'uninstall' | 'quit';

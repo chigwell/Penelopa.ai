@@ -45,15 +45,53 @@ function connection(state) {
 function toggle(name, title, description, checked) {
   return `<label class="setting"><div><strong>${title}</strong><p>${description}</p></div><input type="checkbox" data-setting="${name}" aria-label="${title}" ${checked ? "checked" : ""} ${busy ? "disabled" : ""}></label>`;
 }
+function pollingStatus(polling = {}) {
+  switch (polling.status) {
+    case "disabled": return "Notifications are turned off.";
+    case "signed-out": return "Reconnect this client to check for new recommendations.";
+    case "checking": return "Checking for new recommendations…";
+    case "healthy": return `Last successful check · ${date(polling.lastSuccessAt)}`;
+    case "retrying": return `Could not check recommendations. Retrying automatically · ${date(polling.lastFailureAt)}`;
+    default: return "Waiting for the first recommendation check.";
+  }
+}
+function toastStatus(toast = {}) {
+  switch (toast.status) {
+    case "pending": return "Sending a notification to your operating system…";
+    case "shown": return `Last notification reached your operating system · ${date(toast.lastShownAt)}`;
+    case "failed": return "Your operating system could not display the last notification. Enable Penelopa in its notification settings.";
+    case "unsupported": return "System notifications are not supported on this computer.";
+    case "unconfirmed": return "Your operating system did not confirm the test notification. Check Penelopa in its notification settings.";
+    default: return "No notification has been sent from this computer yet.";
+  }
+}
+function notificationStatus(health = {}) {
+  return `<div class="detail"><span>Recommendation checks</span><strong>${escape(pollingStatus(health.polling))}</strong></div><div class="detail"><span>System notification</span><strong>${escape(toastStatus(health.toast))}</strong></div>`;
+}
+function updateStatus(update) {
+  if (update.phase === "checking") return "Checking";
+  if (["downloading", "building", "ready-to-restart"].includes(update.phase)) return update.phase.replaceAll("-", " ");
+  if (update.available) return `Update ${update.version || "available"}`;
+  if (update.phase === "error") return "Update needs attention";
+  if (update.checkedAt) return "Installed";
+  return "Not checked";
+}
+function updateDetail(update) {
+  if (update.error) return update.error;
+  if (update.phase === "checking") return "Checking the current Penelopa release…";
+  if (update.available) return `Version ${update.version || "new"} is ready to install.`;
+  if (update.checkedAt) return `Last checked · ${date(update.checkedAt)}.`;
+  return "Check for updates to compare with the latest release.";
+}
 function settingsPage(state) {
   const update = state.update || {};
-  const updating = ["downloading", "building", "ready-to-restart"].includes(
+  const updating = ["checking", "downloading", "building", "ready-to-restart"].includes(
     update.phase,
   );
   return `<div class="intro"><span class="eyebrow">Make it yours</span><h1>Quietly useful.</h1><p>Choose when Penelopa works in the background and when it gets your attention.</p></div>
   <section class="card"><h2>Background activity</h2>${toggle("paused", "Pause collection", "Pause new capture and delivery. Already queued data stays on this computer.", state.preferences.paused)}${toggle("autostart", "Open at login", "Start in the background when you sign in to this computer.", state.preferences.autostart)}<p>Closing the window keeps Penelopa in the tray. Quit exits the client; installed hooks continue working independently.</p></section>
-  <section class="card"><h2>System notifications</h2>${toggle("notifications", "New recommendations", "Notify me when a new recommendation is ready. No alerts for connection errors.", state.preferences.notifications)}<div class="actions">${button("Send a test notification", "test-notification")}</div><p>Telegram preferences are separate. Manage them in Telegram alerts.</p></section>
-  <section class="card"><div class="card-row"><div><h2>App updates</h2><p>Version ${escape(state.version)} · built on this computer</p></div><span class="pill">${updating ? escape(update.phase.replaceAll("-", " ")) : update.available ? "Update available" : "Installed"}</span></div><p>The dashboard updates automatically. App and runtime updates are installed when you choose Update & restart.</p>${update.error ? `<div class="notice">${escape(update.error)}</div>` : ""}<div class="actions">${button("Check for updates", "check-update")}${update.available && !updating ? button("Update & restart", "update", "primary") : ""}</div></section>
+  <section class="card"><h2>System notifications</h2>${toggle("notifications", "New recommendations", "Notify me when a new recommendation is ready. No alerts for connection errors.", state.preferences.notifications)}${notificationStatus(state.notificationHealth)}<div class="actions">${button("Send a test notification", "test-notification")}</div><p>Telegram preferences are separate. Manage them in Telegram alerts.</p></section>
+  <section class="card"><div class="card-row"><div><h2>App updates</h2><p>Version ${escape(state.version)} · built on this computer</p></div><span class="pill">${escape(updateStatus(update))}</span></div><p>The dashboard updates automatically. App and runtime updates are installed when you choose Update & restart.</p><div class="detail"><span>Update status</span><strong>${escape(updateDetail(update))}</strong></div><div class="actions">${button("Check for updates", "check-update")}${update.available && !updating ? button("Update & restart", "update", "primary") : ""}</div></section>
   <section class="card"><h2>Local installation</h2><p>${state.connection.desktop?.signed === "ad-hoc" ? "This Mac app uses a local ad-hoc signature. The operating system may request approval after an update." : "This local build does not include a trusted publisher certificate. System security policies still apply."}</p><div class="actions">${button("Uninstall Penelopa.ai", "uninstall", "danger")}${button("Quit app", "quit")}</div></section>`;
 }
 function render(state) {
@@ -104,12 +142,14 @@ async function invoke(action, data) {
   try {
     const result = await bridge.invoke(action, data);
     if (result) render(result);
-    if (["repair", "retry", "preferences"].includes(action))
+    if (["repair", "retry", "preferences", "test-notification"].includes(action))
       message(
         action === "repair"
           ? "Hooks repaired. Review changed definitions in your coding agent."
           : action === "retry"
             ? "Delivery retry started."
+            : action === "test-notification"
+              ? "Sending a test notification…"
             : "Preferences saved.",
       );
   } catch (error) {

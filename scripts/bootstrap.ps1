@@ -7,7 +7,7 @@ param(
   [ValidateSet('segments','delta')][string]$UploadMode = 'segments',
   [ValidateSet('auto','off','required')][string]$Desktop = $(if ($env:AUTO_IMPROVE_DESKTOP) { $env:AUTO_IMPROVE_DESKTOP } else { 'auto' }),
   [switch]$ForceNewToken, [switch]$NoDesktop, [switch]$Diagnose, [switch]$Repair,
-  [switch]$Uninstall, [switch]$PurgeData, [switch]$NoLaunch, [switch]$PrintAccessLink,
+  [switch]$Uninstall, [switch]$PurgeData, [switch]$NoLaunch, [switch]$NoAccessLink,
   [switch]$InstallDeps, [switch]$Help
 )
 $ErrorActionPreference = 'Stop'
@@ -28,13 +28,13 @@ function Test-Checksum([string]$File, [string]$Expected) {
   if ((Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Expected) { throw 'Download checksum mismatch. Nothing from that download was installed.' }
 }
 if ($Help) {
-  Write-Output 'Penelopa.ai: -Agent codex|claude|both -Desktop auto|off|required -NoDesktop -Diagnose -Repair -Uninstall -PurgeData -ForceNewToken -NoLaunch -PrintAccessLink. Existing token, endpoint and upload options remain supported. Node/npm are installed privately; Git and Python are not required.'
+  Write-Output 'Penelopa.ai: -Agent codex|claude|both -Desktop auto|off|required -NoDesktop -Diagnose -Repair -Uninstall -PurgeData -ForceNewToken -NoLaunch -NoAccessLink. Existing token, endpoint and upload options remain supported. Node/npm are installed privately; Git and Python are not required.'
   return
 }
 $nodeArgs = @('--agent', $Agent, '--desktop', $Desktop, '--upload-mode', $UploadMode)
 $values = @{ Url='url'; Token='token'; TokenUrl='token-url'; DashboardUrl='dashboard-url'; TelegramSettingsUrl='telegram-settings-url'; TelegramLinkUrl='telegram-link-url'; EnvFile='env-file'; HookUrl='hook-url'; ProjectId='project-id'; DataDir='data-dir'; SourceSchemaVersion='source-schema-version'; SegmentMaxBytes='segment-max-bytes'; DrainMaxAttempts='drain-max-attempts'; DrainMaxSeconds='drain-max-seconds' }
 foreach ($entry in $values.GetEnumerator()) { if ($PSBoundParameters.ContainsKey($entry.Key)) { $nodeArgs += @("--$($entry.Value)", [string]$PSBoundParameters[$entry.Key]) } }
-$switches = @{ ForceNewToken='force-new-token'; NoDesktop='no-desktop'; Diagnose='diagnose'; Repair='repair'; Uninstall='uninstall'; PurgeData='purge-data'; NoLaunch='no-launch'; PrintAccessLink='print-access-link'; InstallDeps='install-deps' }
+$switches = @{ ForceNewToken='force-new-token'; NoDesktop='no-desktop'; Diagnose='diagnose'; Repair='repair'; Uninstall='uninstall'; PurgeData='purge-data'; NoLaunch='no-launch'; NoAccessLink='no-access-link'; InstallDeps='install-deps' }
 foreach ($entry in $switches.GetEnumerator()) { if ($PSBoundParameters[$entry.Key]) { $nodeArgs += "--$($entry.Value)" } }
 if ($Diagnose -or $Repair -or $Uninstall) {
   $marker = Join-Path $root 'node-path'; $cli = Join-Path $root 'bin/penelopa.cjs'

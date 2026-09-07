@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "schemaVersion": 1,
   "bridgeVersion": 1,
   "nodeVersion": "24.20.0",
@@ -27,11 +27,11 @@
     "win32-x64": "4021363e3090d67a144ebedb90765cf193b0e61f300c519c83f0174502a481da"
   },
   "source": {
-    "url": "https://penelopa.ai/desktop/releases/1.0.3/source.zip",
-    "sha256": "bfa9c844550d43e2b420f3bf5e24373877188455c7df5d5d3908f776bcaee347"
+    "url": "https://penelopa.ai/desktop/releases/1.0.4/source.zip",
+    "sha256": "f83105813929b64dfeed50bfa3200b1e0fa8d5d87db99e03dafa3f00dfb9dd7e"
   },
   "bootstrap": {
     "url": "https://penelopa.ai/desktop/bootstrap.cjs",
-    "sha256": "5074c141648cd124dd47d932402d279793015f8ecdf49753de0d8f0c74fcfcfc"
+    "sha256": "65bb8cd7f5c5808a7843141e22522deb0789046f58adea794cddb36e5d1adcab"
   }
 }

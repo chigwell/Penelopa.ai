@@ -61,19 +61,22 @@ var require_files = __commonJS({
         throw new Error(`Cannot read valid JSON: ${path2.basename(file)}`);
       }
     }
+    function currentWindowsSid() {
+      const sid = execFileSync("whoami.exe", ["/user", "/fo", "csv", "/nh"], { encoding: "utf8", windowsHide: true }).match(/S-1-5-[0-9-]+/);
+      if (!sid) throw new Error("Cannot determine the current Windows user.");
+      return sid[0];
+    }
     function protect(dir) {
       mkdir(dir);
       if (process.platform === "win32") {
-        const sid = execFileSync("whoami.exe", ["/user", "/fo", "csv", "/nh"], { encoding: "utf8", windowsHide: true }).match(/S-1-5-[0-9-]+/);
-        if (!sid) throw new Error("Cannot determine the current Windows user.");
-        execFileSync("icacls.exe", [dir, "/inheritance:r", "/grant:r", `*${sid[0]}:(OI)(CI)F`, "*S-1-5-18:(OI)(CI)F"], { stdio: "ignore", windowsHide: true });
+        const sid = currentWindowsSid();
+        execFileSync("icacls.exe", [dir, "/inheritance:r", "/grant:r", `*${sid}:(OI)(CI)F`, "*S-1-5-18:(OI)(CI)F"], { stdio: "ignore", windowsHide: true });
       } else fs.chmodSync(dir, 448);
     }
     function protectFile(file) {
       if (process.platform !== "win32") return fs.chmodSync(file, 384);
-      const sid = execFileSync("whoami.exe", ["/user", "/fo", "csv", "/nh"], { encoding: "utf8", windowsHide: true }).match(/S-1-5-[0-9-]+/);
-      if (!sid) throw new Error("Cannot determine the current Windows user.");
-      execFileSync("icacls.exe", [file, "/inheritance:r", "/grant:r", `*${sid[0]}:F`, "*S-1-5-18:F"], { stdio: "ignore", windowsHide: true });
+      const sid = currentWindowsSid();
+      execFileSync("icacls.exe", [file, "/inheritance:r", "/grant:r", `*${sid}:F`, "*S-1-5-18:F"], { stdio: "ignore", windowsHide: true });
     }
     function lock(file) {
       mkdir(path2.dirname(file));
@@ -286,7 +289,7 @@ var require_archive = __commonJS({
 var require_release_config = __commonJS({
   "desktop/release-config.json"(exports2, module2) {
     module2.exports = {
-      version: "1.0.3",
+      version: "1.0.4",
       schemaVersion: 1,
       bridgeVersion: 1,
       nodeVersion: "24.20.0",

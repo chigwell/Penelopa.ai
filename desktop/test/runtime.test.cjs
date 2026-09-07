@@ -76,7 +76,7 @@ test('fresh installation, repair and uninstall preserve account and unrelated ho
   const f = fixture(t); const codex = path.join(f.env.CODEX_HOME, 'hooks.json');
   writeJson(codex, { other: 'preserve-me', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo unrelated' }] }] } });
   let result = f.run('--no-desktop'); assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stderr.includes('fixture-private-token'), false);
+  assert.equal(result.stderr.trim().split(/\r?\n/).at(-1), 'Penelopa: Private dashboard: https://penelopa.ai/dashboard#token=fixture-private-token');
   const before = fs.readFileSync(f.configFile, 'utf8');
   assert.equal(readJson(path.join(f.root, 'install.json')).selfTest.passed, true);
   const restoreLegacyCommands = () => {
@@ -112,6 +112,25 @@ test('fresh installation, repair and uninstall preserve account and unrelated ho
   result = f.run('--diagnose'); assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout.includes('fixture-private-token'), false);
   result = f.run('--uninstall'); assert.equal(result.status, 0, result.stderr);
   assert.equal(readJson(codex).hooks.Stop.length, 1); assert.equal(readJson(codex).other, 'preserve-me'); assert.equal(fs.existsSync(f.configFile), true);
+});
+test('access link is printed by default, suppressible and no longer enabled by the old flag', t => {
+  let f = fixture(t);
+  let result = f.run('--no-desktop');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr.trim().split(/\r?\n/).at(-1), 'Penelopa: Private dashboard: https://penelopa.ai/dashboard#token=fixture-private-token');
+  assert.equal(result.stderr.includes('fixture-private-token'), true);
+
+  f = fixture(t);
+  result = f.run('--no-desktop', '--no-access-link');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr.includes('Private dashboard:'), false);
+  assert.equal(result.stderr.includes('fixture-private-token'), false);
+
+  f = fixture(t);
+  result = f.run('--print-access-link');
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown or incomplete option: --print-access-link/);
+  assert.equal(result.stderr.includes('fixture-private-token'), false);
 });
 test('malformed agent JSON aborts before credentials or other agent files change', t => {
   const f = fixture(t); const codex = path.join(f.env.CODEX_HOME, 'hooks.json'); const claude = path.join(f.env.CLAUDE_CONFIG_DIR, 'settings.json');

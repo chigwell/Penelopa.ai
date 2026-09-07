@@ -23,7 +23,7 @@ Penelopa.ai — install hooks and build the desktop client locally.
 --purge-data                   With --uninstall, also remove local data
 --force-new-token              Explicitly request a new account token
 --no-launch                    Build without opening the client
---print-access-link            Explicitly reveal a private browser sign-in link
+--no-access-link               Do not print the private browser sign-in link
 --token TOKEN --url URL --token-url URL --dashboard-url URL
 --env-file FILE --hook-url URL --project-id VALUE --data-dir DIRECTORY
 --upload-mode segments --source-schema-version VERSION

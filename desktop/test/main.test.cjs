@@ -52,7 +52,7 @@ function fixture(t) {
   }
   const app = new EventEmitter();
   Object.assign(app, {
-    setPath() {}, setName() {}, setAppUserModelId() {}, getVersion: () => '1.0.3',
+    setPath() {}, setName() {}, setAppUserModelId() {}, getVersion: () => '1.0.4',
     requestSingleInstanceLock: () => true, whenReady: () => new Promise(() => {}),
     quit: () => calls.push(['quit']), exit: code => calls.push(['exit', code]),
   });

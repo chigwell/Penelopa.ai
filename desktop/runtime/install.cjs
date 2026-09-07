@@ -27,7 +27,7 @@ function parseArgs(args) {
   for (let i = 0; i < args.length; i++) {
     let key = args[i].replace(/^--/, '');
     if (args[i] === '-h') key = 'help';
-    if (['help', 'force-new-token', 'install-deps', 'no-desktop', 'diagnose', 'repair', 'uninstall', 'purge-data', 'no-launch', 'print-access-link'].includes(key)) options[key] = true;
+    if (['help', 'force-new-token', 'install-deps', 'no-desktop', 'diagnose', 'repair', 'uninstall', 'purge-data', 'no-launch', 'no-access-link'].includes(key)) options[key] = true;
     else if (key in valueOptions && args[i + 1] !== undefined) options[key] = args[++i];
     else throw new Error(`Unknown or incomplete option: ${args[i]}`);
   }
@@ -42,7 +42,7 @@ function parseArgs(args) {
   return options;
 }
 function help() {
-  return `Penelopa.ai installer\n\nUsage: installer [options]\n\n${Object.keys(valueOptions).map(key => `  --${key} VALUE`).join('\n')}\n  --no-desktop             Install hooks only\n  --diagnose               Print a redacted connection report\n  --repair                 Restore Penelopa hooks with the existing token\n  --uninstall              Remove Penelopa hooks and application\n  --purge-data             Also remove Penelopa credentials and queued data\n  --force-new-token        Explicitly create a new account token\n  --no-launch              Build without opening the desktop client\n  --print-access-link      Explicitly print a private browser sign-in link\n  --install-deps           Compatibility flag; private runtime is automatic\n  --help\n`;
+  return `Penelopa.ai installer\n\nUsage: installer [options]\n\n${Object.keys(valueOptions).map(key => `  --${key} VALUE`).join('\n')}\n  --no-desktop             Install hooks only\n  --diagnose               Print a redacted connection report\n  --repair                 Restore Penelopa hooks with the existing token\n  --uninstall              Remove Penelopa hooks and application\n  --purge-data             Also remove Penelopa credentials and queued data\n  --force-new-token        Explicitly create a new account token\n  --no-launch              Build without opening the desktop client\n  --no-access-link         Do not print the private browser sign-in link\n  --install-deps           Compatibility flag; private runtime is automatic\n  --help\n`;
 }
 function preflight(root, desktop) {
   protect(root);
@@ -190,8 +190,10 @@ async function install(options, root = home()) {
     }
   }
   log('Hooks installed and local delivery checked. In Codex, review Stop and SessionEnd in Settings → Hooks (CLI: /hooks).');
-  if (!desktop) log('Open https://penelopa.ai/dashboard. Use --print-access-link only when you want to reveal a private browser sign-in link.');
-  if (options['print-access-link']) log(`Private dashboard: ${options['dashboard-url']}#token=${encodeURIComponent(token)}`);
+  if (process.exitCode) return state;
+  if (options['no-access-link']) {
+    if (!desktop) log(`Open ${options['dashboard-url']}.`);
+  } else log(`Private dashboard: ${options['dashboard-url']}#token=${encodeURIComponent(token)}`);
   return state;
 }
 async function main(args = process.argv.slice(2)) {

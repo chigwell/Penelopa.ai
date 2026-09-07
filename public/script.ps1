@@ -7,13 +7,13 @@ param(
   [ValidateSet('segments','delta')][string]$UploadMode = 'segments',
   [ValidateSet('auto','off','required')][string]$Desktop = $(if ($env:AUTO_IMPROVE_DESKTOP) { $env:AUTO_IMPROVE_DESKTOP } else { 'auto' }),
   [switch]$ForceNewToken, [switch]$NoDesktop, [switch]$Diagnose, [switch]$Repair,
-  [switch]$Uninstall, [switch]$PurgeData, [switch]$NoLaunch, [switch]$PrintAccessLink,
+  [switch]$Uninstall, [switch]$PurgeData, [switch]$NoLaunch, [switch]$NoAccessLink,
   [switch]$InstallDeps, [switch]$Help
 )
 $ErrorActionPreference = 'Stop'
 $nodeVersion = '24.20.0'
 $nodeSha = '6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba'
-$bootstrapSha = '5074c141648cd124dd47d932402d279793015f8ecdf49753de0d8f0c74fcfcfc'
+$bootstrapSha = '65bb8cd7f5c5808a7843141e22522deb0789046f58adea794cddb36e5d1adcab'
 $releaseBase = if ($env:AUTO_IMPROVE_RELEASE_BASE_URL) { $env:AUTO_IMPROVE_RELEASE_BASE_URL } else { 'https://penelopa.ai/desktop' }
 $root = if ($env:AUTO_IMPROVE_HOME) { $env:AUTO_IMPROVE_HOME } else { Join-Path $HOME '.auto-improve' }
 function Write-Stage([string]$Message) { [Console]::Error.WriteLine("Penelopa: $Message") }
@@ -28,13 +28,13 @@ function Test-Checksum([string]$File, [string]$Expected) {
   if ((Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Expected) { throw 'Download checksum mismatch. Nothing from that download was installed.' }
 }
 if ($Help) {
-  Write-Output 'Penelopa.ai: -Agent codex|claude|both -Desktop auto|off|required -NoDesktop -Diagnose -Repair -Uninstall -PurgeData -ForceNewToken -NoLaunch -PrintAccessLink. Existing token, endpoint and upload options remain supported. Node/npm are installed privately; Git and Python are not required.'
+  Write-Output 'Penelopa.ai: -Agent codex|claude|both -Desktop auto|off|required -NoDesktop -Diagnose -Repair -Uninstall -PurgeData -ForceNewToken -NoLaunch -NoAccessLink. Existing token, endpoint and upload options remain supported. Node/npm are installed privately; Git and Python are not required.'
   return
 }
 $nodeArgs = @('--agent', $Agent, '--desktop', $Desktop, '--upload-mode', $UploadMode)
 $values = @{ Url='url'; Token='token'; TokenUrl='token-url'; DashboardUrl='dashboard-url'; TelegramSettingsUrl='telegram-settings-url'; TelegramLinkUrl='telegram-link-url'; EnvFile='env-file'; HookUrl='hook-url'; ProjectId='project-id'; DataDir='data-dir'; SourceSchemaVersion='source-schema-version'; SegmentMaxBytes='segment-max-bytes'; DrainMaxAttempts='drain-max-attempts'; DrainMaxSeconds='drain-max-seconds' }
 foreach ($entry in $values.GetEnumerator()) { if ($PSBoundParameters.ContainsKey($entry.Key)) { $nodeArgs += @("--$($entry.Value)", [string]$PSBoundParameters[$entry.Key]) } }
-$switches = @{ ForceNewToken='force-new-token'; NoDesktop='no-desktop'; Diagnose='diagnose'; Repair='repair'; Uninstall='uninstall'; PurgeData='purge-data'; NoLaunch='no-launch'; PrintAccessLink='print-access-link'; InstallDeps='install-deps' }
+$switches = @{ ForceNewToken='force-new-token'; NoDesktop='no-desktop'; Diagnose='diagnose'; Repair='repair'; Uninstall='uninstall'; PurgeData='purge-data'; NoLaunch='no-launch'; NoAccessLink='no-access-link'; InstallDeps='install-deps' }
 foreach ($entry in $switches.GetEnumerator()) { if ($PSBoundParameters[$entry.Key]) { $nodeArgs += "--$($entry.Value)" } }
 if ($Diagnose -or $Repair -or $Uninstall) {
   $marker = Join-Path $root 'node-path'; $cli = Join-Path $root 'bin/penelopa.cjs'

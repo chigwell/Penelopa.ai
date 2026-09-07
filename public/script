@@ -3,7 +3,7 @@ set -eu
 umask 077
 
 NODE_VERSION='24.20.0'
-BOOTSTRAP_SHA='5074c141648cd124dd47d932402d279793015f8ecdf49753de0d8f0c74fcfcfc'
+BOOTSTRAP_SHA='65bb8cd7f5c5808a7843141e22522deb0789046f58adea794cddb36e5d1adcab'
 BASE_URL="${AUTO_IMPROVE_RELEASE_BASE_URL:-https://penelopa.ai/desktop}"
 ROOT="${AUTO_IMPROVE_HOME:-$HOME/.auto-improve}"
 log() { printf 'Penelopa: %s\n' "$*" >&2; }
@@ -23,7 +23,7 @@ Penelopa.ai — install hooks and build the desktop client locally.
 --purge-data                   With --uninstall, also remove local data
 --force-new-token              Explicitly request a new account token
 --no-launch                    Build without opening the client
---print-access-link            Explicitly reveal a private browser sign-in link
+--no-access-link               Do not print the private browser sign-in link
 --token TOKEN --url URL --token-url URL --dashboard-url URL
 --env-file FILE --hook-url URL --project-id VALUE --data-dir DIRECTORY
 --upload-mode segments --source-schema-version VERSION

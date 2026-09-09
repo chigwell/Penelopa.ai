@@ -74,7 +74,7 @@ Before public release, manually verify on clean standard-user macOS arm64/Intel 
 
 ## Compatibility boundaries
 
-Client bridge version 1 allows only the existing stats, recommendations and Telegram routes. There is no generic command or arbitrary-origin HTTP interface. Browser auth remains available when the desktop bridge is absent.
+Client bridge version 1 retains stats, recommendations and Telegram routes. Updated clients advertise the additive `capabilities.transcriptRead` flag and allow endpoint-specific v2 GET reads for sessions, events, content sections, related tools, live updates and process evidence. Missing capability shows an update prompt in Sessions without falling back to browser credentials. V2 scope-related 403 responses preserve the installed account; v1 403 and all 401 responses expire authentication. There is no generic command or arbitrary-origin HTTP interface. Browser auth remains available when the desktop bridge is absent.
 
 Source/runtime versions and OS requirements are pinned, not resolved to `latest` on a user's computer. macOS uses ad-hoc signing with the JIT and library-validation entitlements Electron needs. Windows uses a local unsigned bundle and a stable AppUserModelID shortcut. Native security policies remain in force. Desktop/notification failures are reported locally without deleting a working hook setup.
 

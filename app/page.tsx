@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "./components/loading/Loading";
 import { useTheme } from "./lib/use-theme";
 
 import type { PublicStatsSummary, GitHubRepoStats } from "./lib/api-types";
@@ -45,8 +46,9 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
 
-    fetch("/api/public-stats", { headers: { Accept: "application/json" } })
+    fetch("/api/public-stats", { headers: { Accept: "application/json" }, signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error("stats unavailable");
@@ -68,13 +70,15 @@ export default function Home() {
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
 
-    fetch("/api/github-repo", { headers: { Accept: "application/json" } })
+    fetch("/api/github-repo", { headers: { Accept: "application/json" }, signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error("GitHub repo stats unavailable");
@@ -96,6 +100,7 @@ export default function Home() {
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
 
@@ -152,11 +157,11 @@ export default function Home() {
             <h1 id="usage-title">Continuous improvement for AI agents.</h1>
           </div>
 
-          <section className="stats-board" aria-label="Public usage totals">
+          <section className="stats-board" aria-label="Public usage totals" aria-busy={!stats && !statsError}>
             <div className="stats-heading">
               <span>All time usage</span>
               <span className={statsError ? "status-error" : undefined}>
-                {statsError ? "Unavailable" : generatedAtLabel}
+                {statsError ? "Unavailable" : !stats ? <><span className="sr-only" role="status">Loading usage totals</span><Skeleton width={108} height={11} /></> : generatedAtLabel}
               </span>
             </div>
             <div className="stats-grid">
@@ -166,9 +171,9 @@ export default function Home() {
                 return (
                   <article className="stat" key={metric.key}>
                     <span className="stat-label">{metric.label}</span>
-                    <strong>{formatMetric(total)}</strong>
+                    <strong>{!stats && !statsError ? <Skeleton /> : formatMetric(total)}</strong>
                     <span className="stat-subline">
-                      +{formatMetric(lastDay)} {metric.shortLabel} / 24h
+                      {!stats && !statsError ? <Skeleton /> : <>+{formatMetric(lastDay)} {metric.shortLabel} / 24h</>}
                     </span>
                   </article>
                 );
@@ -258,10 +263,10 @@ export default function Home() {
             aria-label={`Open ${GITHUB_REPO_NAME} on GitHub in a new tab`}
           >
             <span className="github-stars-repo">GitHub</span>
-            <span className="github-stars-count" aria-live="polite">
+            <span className="github-stars-count" aria-live="polite" aria-busy={!githubRepo && !githubRepoError}>
               {githubRepoError
                 ? "Stars unavailable"
-                : formatStars(githubRepo?.stargazers_count)}
+                : !githubRepo ? <><span className="sr-only">Loading stars</span><Skeleton className="github-loading-value" width={46} height={14} /></> : formatStars(githubRepo.stargazers_count)}
             </span>
           </a>
         </div>

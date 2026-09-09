@@ -32,6 +32,35 @@ export function useTelegramSettings({ onAuthExpired, token }: {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const settingsRef = useRef<TelegramNotificationState | null>(null);
+  const mounted = useRef(true);
+  const activeToken = useRef(token);
+  activeToken.current = token;
+  const readVersion = useRef(0);
+  const readController = useRef<AbortController | null>(null);
+  const readInFlight = useRef(false);
+  const mutationInFlight = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      readVersion.current += 1;
+      readController.current?.abort();
+      readInFlight.current = false;
+    };
+  }, [token]);
+
+  function requestIsCurrent() {
+    return mounted.current && activeToken.current === token;
+  }
+
+  function cancelSettingsRead() {
+    readVersion.current += 1;
+    readController.current?.abort();
+    readInFlight.current = false;
+    setIsPolling(false);
+    setIsRefreshing(false);
+  }
 
   const applySettings = useCallback(
     (
@@ -67,6 +96,12 @@ export function useTelegramSettings({ onAuthExpired, token }: {
     }: {
       reason?: "initial" | "manual" | "poll";
     } = {}) => {
+      if (!mounted.current || activeToken.current !== token || readInFlight.current || (reason === "poll" && mutationInFlight.current)) return;
+      const version = ++readVersion.current;
+      const controller = new AbortController();
+      readController.current = controller;
+      readInFlight.current = true;
+      const isCurrent = () => mounted.current && activeToken.current === token && readVersion.current === version;
       if (reason === "poll") {
         setIsPolling(true);
       } else if (reason === "manual") {
@@ -80,15 +115,19 @@ export function useTelegramSettings({ onAuthExpired, token }: {
         const nextSettings = await apiRequest<TelegramNotificationState | null>(
           SETTINGS_PATH,
           token,
+          { signal: controller.signal },
         );
+        if (!isCurrent()) return;
         if (!nextSettings) {
           throw new Error("Empty Telegram notification settings response.");
         }
+        setError(current => current === "Telegram notification settings could not be loaded." ? "" : current);
         applySettings(nextSettings, {
           announceConnection: reason !== "initial",
           recordCheck: true,
         });
       } catch (caught) {
+        if (!isCurrent() || controller.signal.aborted) return;
         if (
           isApiError(caught) &&
           (caught.status === 401 || caught.status === 403)
@@ -98,6 +137,8 @@ export function useTelegramSettings({ onAuthExpired, token }: {
         }
         setError("Telegram notification settings could not be loaded.");
       } finally {
+        if (!isCurrent()) return;
+        readInFlight.current = false;
         if (reason === "poll") {
           setIsPolling(false);
         } else if (reason === "manual") {
@@ -209,6 +250,8 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       return null;
     }
 
+    cancelSettingsRead();
+    mutationInFlight.current = true;
     if (!options.quiet) {
       setIsSaving(true);
       setError("");
@@ -229,11 +272,13 @@ export function useTelegramSettings({ onAuthExpired, token }: {
         },
       );
 
+      if (!requestIsCurrent()) return false;
       if (updated) {
         applySettings(updated);
       } else {
         await loadSettings({ reason: "manual" });
       }
+      if (!requestIsCurrent()) return false;
 
       if (!options.quiet) {
         setMessage(successMessage);
@@ -241,6 +286,7 @@ export function useTelegramSettings({ onAuthExpired, token }: {
 
       return true;
     } catch (caught) {
+      if (!requestIsCurrent()) return false;
       if (
         isApiError(caught) &&
         (caught.status === 401 || caught.status === 403)
@@ -251,7 +297,8 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       setError("Telegram notification preferences could not be saved.");
       return false;
     } finally {
-      if (!options.quiet) {
+      mutationInFlight.current = false;
+      if (requestIsCurrent() && !options.quiet) {
         setIsSaving(false);
       }
     }
@@ -268,7 +315,7 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       enabled,
       enabled ? "Notifications enabled." : "Notifications paused.",
     );
-    if (!saved) {
+    if (!saved && requestIsCurrent()) {
       setDraftEnabled(previousEnabled);
     }
   }
@@ -301,9 +348,11 @@ export function useTelegramSettings({ onAuthExpired, token }: {
 
     try {
       const saved = await updatePreferences(true, "", { quiet: true });
-      if (!saved) {
+      if (!saved || !requestIsCurrent()) {
         return;
       }
+      cancelSettingsRead();
+      mutationInFlight.current = true;
 
       const link = await apiRequest<TelegramSetupLinkResponse | null>(
         `${SETTINGS_PATH}/link`,
@@ -311,6 +360,7 @@ export function useTelegramSettings({ onAuthExpired, token }: {
         { method: "POST" },
       );
 
+      if (!requestIsCurrent()) return;
       if (!link) {
         throw new Error("Empty Telegram setup link response.");
       }
@@ -331,6 +381,7 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       setLastCheckedAt(null);
       setMessage("Open Telegram. We will update this page automatically.");
     } catch (caught) {
+      if (!requestIsCurrent()) return;
       if (
         isApiError(caught) &&
         (caught.status === 401 || caught.status === 403)
@@ -344,7 +395,8 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       }
       setError("Telegram setup link could not be generated.");
     } finally {
-      setIsLinking(false);
+      mutationInFlight.current = false;
+      if (requestIsCurrent()) setIsLinking(false);
     }
   }
 
@@ -354,6 +406,8 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       return;
     }
 
+    cancelSettingsRead();
+    mutationInFlight.current = true;
     setIsDisconnecting(true);
     setError("");
     setMessage("");
@@ -362,6 +416,7 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       await apiRequest<void | null>(`${SETTINGS_PATH}/connection`, token, {
         method: "DELETE",
       });
+      if (!requestIsCurrent()) return;
       const nextSettings: TelegramNotificationState = {
         enabled: false,
         language: draftLanguage,
@@ -378,6 +433,7 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       applySettings(nextSettings);
       setMessage("Telegram disconnected.");
     } catch (caught) {
+      if (!requestIsCurrent()) return;
       if (
         isApiError(caught) &&
         (caught.status === 401 || caught.status === 403)
@@ -387,7 +443,8 @@ export function useTelegramSettings({ onAuthExpired, token }: {
       }
       setError("Telegram could not be disconnected.");
     } finally {
-      setIsDisconnecting(false);
+      mutationInFlight.current = false;
+      if (requestIsCurrent()) setIsDisconnecting(false);
     }
   }
 

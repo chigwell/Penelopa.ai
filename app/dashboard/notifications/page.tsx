@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationsSkeleton, Skeleton } from "../../components/loading/Loading";
 import { useTheme } from "../../lib/use-theme";
 
 import { clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../../lib/penelopa-client";
@@ -84,7 +85,14 @@ export default function TelegramNotificationsPage() {
     setScreen("locked");
   }, []);
 
-  if (screen !== "ready" || !token) {
+  if (screen === "loading") {
+    return <main className="dashboard-shell">
+      <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} />
+      <article className="notification-page-main"><Skeleton width="70%" height={64} /><NotificationsSkeleton /></article>
+    </main>;
+  }
+
+  if (screen === "locked" || !token) {
     return (
       <main className="dashboard-shell token-shell">
         <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} />
@@ -96,7 +104,7 @@ export default function TelegramNotificationsPage() {
           </div>
           <AccessTokenForm
             desktop={desktop}
-            loading={screen === "loading"}
+            loading={false}
             value={tokenInput}
             onChange={setTokenInput}
             error={error}
@@ -122,6 +130,7 @@ export default function TelegramNotificationsPage() {
         </header>
         <TelegramNotificationsSettings
           mode="full"
+          key={token}
           token={token}
           onAuthExpired={handleAuthExpired}
         />

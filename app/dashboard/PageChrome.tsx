@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, LogOut, Moon, RefreshCw, Sun } from "lucide-react";
 import type { FormEvent } from "react";
 import type { Theme } from "../lib/use-theme";
@@ -21,15 +23,16 @@ export function DashboardTopbar({
   backHref?: string;
   backLabel?: string;
 }) {
+  const pathname = usePathname();
   return (
     <header className="dashboard-topbar">
       <div className="dashboard-topbar-inner">
-        <a className="brand" href="/" aria-label="Penelopa.ai home">
+        <Link className="brand" href="/" aria-label="Penelopa.ai home">
           <span className="brand-mark" aria-hidden="true">
             <Image src="/penelopa-ai.png" alt="" width={42} height={42} priority className="brand-logo" />
           </span>
           <span className="brand-name">Penelopa.ai</span>
-        </a>
+        </Link>
         <div className="dashboard-actions">
           <a className="back-link" href={backHref}>
             <ArrowLeft aria-hidden="true" size={15} strokeWidth={1.8} />
@@ -56,6 +59,11 @@ export function DashboardTopbar({
           </button>
         </div>
       </div>
+      <nav className="dashboard-section-nav" aria-label="Dashboard sections">
+        <Link href="/dashboard" aria-current={pathname === "/dashboard" ? "page" : undefined}>Overview</Link>
+        <Link href="/dashboard/sessions" aria-current={pathname?.startsWith("/dashboard/sessions") ? "page" : undefined}>Sessions<span className="nav-new-dot" aria-hidden="true" /></Link>
+        <Link href="/dashboard/notifications" aria-current={pathname === "/dashboard/notifications" ? "page" : undefined}>Notifications</Link>
+      </nav>
     </header>
   );
 }

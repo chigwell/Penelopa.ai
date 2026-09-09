@@ -1,5 +1,6 @@
 "use client";
 
+import { RecommendationSkeleton } from "../../../components/loading/Loading";
 import { useTheme } from "../../../lib/use-theme";
 
 import type { RecommendationDetail } from "../../../lib/api-types";
@@ -13,7 +14,7 @@ import { DashboardTopbar, AccessTokenForm } from "../../PageChrome";
 import { Check, Copy } from "lucide-react";
 import { useParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ScreenState = "locked" | "loading" | "ready";
 
@@ -31,33 +32,51 @@ export default function RecommendationPage() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  async function loadRecommendation(candidate: string, persistToken: boolean) {
+  const requestVersion = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+  const currentToken = useRef<string | null>(null);
+  const copyTimer = useRef<number | undefined>(undefined);
+  const [retryable, setRetryable] = useState(false);
+
+  const loadRecommendation = useCallback(async (candidate: string, persistToken: boolean) => {
+    const version = ++requestVersion.current;
+    controller.current?.abort();
+    const requestController = new AbortController();
+    controller.current = requestController;
+    currentToken.current = candidate;
     if (!recommendationId) {
       setError("This recommendation link is invalid.");
       setScreen("ready");
       return;
     }
     setError("");
+    setCopied(false);
+    setRecommendation(null);
     setScreen("loading");
     try {
       const detail = await apiGet<RecommendationDetail>(
         `/hermes/recommendations/${encodeURIComponent(recommendationId)}`,
         candidate,
+        { signal: requestController.signal },
       );
+      if (requestVersion.current !== version) return;
       if (persistToken) {
         storeToken(candidate);
       }
       setRecommendation(detail);
       setScreen("ready");
     } catch (caught) {
+      if (requestVersion.current !== version || requestController.signal.aborted) return;
       const requestError = caught as ApiError;
       if (requestError.status === 401 || requestError.status === 403) {
         clearStoredToken();
+        currentToken.current = null;
         setError("That access token is not valid.");
         setScreen("locked");
         return;
       }
       setRecommendation(null);
+      setRetryable(requestError.status !== 404);
       setError(
         requestError.status === 404
           ? "This recommendation is no longer available."
@@ -65,7 +84,7 @@ export default function RecommendationPage() {
       );
       setScreen("ready");
     }
-  }
+  }, [recommendationId]);
 
   useEffect(() => {
     const storedToken = readStoredToken();
@@ -74,7 +93,12 @@ export default function RecommendationPage() {
       return;
     }
     void loadRecommendation(storedToken, false);
-  }, [recommendationId]);
+    return () => {
+      requestVersion.current += 1;
+      controller.current?.abort();
+      window.clearTimeout(copyTimer.current);
+    };
+  }, [loadRecommendation]);
 
   function handleSignIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,6 +111,9 @@ export default function RecommendationPage() {
   }
 
   function handleLogout() {
+    requestVersion.current += 1;
+    controller.current?.abort();
+    currentToken.current = null;
     clearStoredToken();
     setTokenInput("");
     setRecommendation(null);
@@ -98,12 +125,26 @@ export default function RecommendationPage() {
     if (!recommendation) {
       return;
     }
-    await copyText(recommendation.report_markdown);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    const version = requestVersion.current;
+    try {
+      await copyText(recommendation.report_markdown);
+      if (requestVersion.current !== version) return;
+      setCopied(true);
+      window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      if (requestVersion.current === version) setError("This recommendation could not be copied.");
+    }
   }
 
-  if (screen !== "ready") {
+  if (screen === "loading") {
+    return <main className="dashboard-shell">
+      <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} />
+      <article className="recommendation-page-main"><RecommendationSkeleton /></article>
+    </main>;
+  }
+
+  if (screen === "locked") {
     return (
       <main className="dashboard-shell token-shell">
         <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} />
@@ -115,7 +156,7 @@ export default function RecommendationPage() {
           </div>
           <AccessTokenForm
             desktop={desktop}
-            loading={screen === "loading"}
+            loading={false}
             value={tokenInput}
             onChange={setTokenInput}
             error={error}
@@ -129,9 +170,10 @@ export default function RecommendationPage() {
   return (
     <main className="dashboard-shell">
       <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} onLogout={handleLogout} />
-      <article className="recommendation-page-main">
+      <article className="recommendation-page-main dashboard-content-ready">
         {recommendation ? (
           <>
+            {error && <p className="dashboard-error" role="alert">{error}</p>}
             <header className="recommendation-page-heading">
               <p className="eyebrow">Recommendation</p>
               <h1>{recommendation.title}</h1>
@@ -156,7 +198,8 @@ export default function RecommendationPage() {
           <section className="detail-empty-state">
             <p className="eyebrow">Recommendation</p>
             <h1>Unavailable.</h1>
-            <p>{error}</p>
+            <p role="alert">{error}</p>
+            {retryable && <button className="notification-primary-button" onClick={() => { if (currentToken.current) void loadRecommendation(currentToken.current, true); }}>Try again</button>}
             <a href="/dashboard">Back to dashboard</a>
           </section>
         )}

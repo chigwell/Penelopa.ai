@@ -40,7 +40,7 @@ Desktop targets: **macOS 13.5+ on Apple Silicon or Intel**, and **Windows 10 22H
 
 Closing the window keeps Penelopa in the tray/menu bar. **Quit** closes the desktop client; hooks still capture events and launch their own delivery worker. Failed uploads remain queued, and are retried by the running client or subsequent hook events. No additional always-running system service is installed.
 
-The app displays the current web dashboard, including activity, recommendations, individual reports and Telegram settings. An internet connection is needed for these pages. Connection diagnostics and app settings remain available offline.
+The app displays the current web dashboard, including activity, recommendations, individual reports, Telegram settings and the Sessions explorer. Sessions lets you browse captured conversations, inspect each message and tool input/output, follow newly delivered events, and trace process steps back to their evidence. Large content is read in bounded fragments; availability follows server retention. Older clients show an update prompt for Sessions until the desktop is updated. An internet connection is needed for these pages. Connection diagnostics and app settings remain available offline.
 
 ## Local signing
 
@@ -103,7 +103,7 @@ Run `npm run release:desktop` explicitly to prepare deterministic source ZIPs, c
 
 Source bundles contain an isolated desktop lockfile and the durable uploaders. Installation uses `npm ci --ignore-scripts` and an explicitly verified Electron archive; it does not run arbitrary npm lifecycle scripts or compile Chromium. See [desktop delivery notes](docs/desktop-delivery.md) for the architecture, CI matrix, launch verification and release sequence.
 
-`npm run test:web:visual` compares the reviewed macOS Chromium screenshots. Browser tests mock API responses and control time; they do not need an account. The [behavior contracts](docs/behavior-contracts.md) and [refactor ledger](docs/refactor-ledger.md) describe preserved differences, validation evidence and separate migration work. The standalone `penelopa-how-it-works-demo.html` is an archived reference; maintain the React demo in `app/components/`.
+`npm run test:web:visual` compares the reviewed macOS Chromium screenshots. Browser tests mock API responses and control time; they do not need an account. The [Session Explorer notes](docs/session-explorer.md), [behavior contracts](docs/behavior-contracts.md) and [refactor ledger](docs/refactor-ledger.md) describe preserved differences, validation evidence and separate migration work. The standalone `penelopa-how-it-works-demo.html` is an archived reference; maintain the React demo in `app/components/`.
 
 The desktop checks for updates at startup and daily. **Update & restart** prepares the next version outside the running app, checks its signature/launch, and then replaces it. Failure keeps the previous working bundle and the existing account, settings and queue.
 

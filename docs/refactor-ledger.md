@@ -1,6 +1,18 @@
 # Refactor ledger
 
-This work preserves product behavior, API shapes, persisted data, and public entrypoints. The approved tooling change makes website builds and desktop tests independent of publishing release assets. The standalone `penelopa-how-it-works-demo.html` is an archived design reference; the React demo is maintained.
+The earlier refactor recorded below preserved product behavior, API shapes, persisted data and public entrypoints. The subsequent approved Session Explorer redesign deliberately changes transcript navigation, detail APIs, loading states and their visual presentation; those changes are recorded separately below. Authentication, IPC, capture durability and installer compatibility remain protected. Website builds and desktop tests remain independent of publishing release assets. The standalone `penelopa-how-it-works-demo.html` is an archived design reference; the React demo is maintained.
+
+## Session Explorer and loading redesign · September 2026
+
+The user approved a new Sessions library, event and Process inspection, live updates and shared preloaders. This feature supersedes the refactor-only restrictions on layouts, request-completion order, loading/error screens and whole-CSS identity. [Behavior contracts](behavior-contracts.md) now describe the maintained behavior; [Session Explorer](session-explorer.md) documents API integration, verification and rollout.
+
+- Web: user-read catalog, recent sessions, URL-addressed events/blocks/steps, a responsive inspector, bounded fragments and live/history navigation. Shared skeletons replace loading-time token forms and placeholder prose. Dashboard refresh preserves existing content; request cancellation and scope guards prevent late account/selection responses from taking over.
+- Backend: companion changes live in the sibling `auto-improve/backend` repository. Migration `0042_transcript_explorer` adds live revisions and tool-block references; bounded detail/tail APIs, decimal sequence fields and a resumable historical content-index backfill support the new views. Existing v1 reads and numeric compatibility fields remain available.
+- Desktop: the v1 bridge gains an additive transcript-read capability and explicit GET allowlisting. Installed credentials remain exclusively in the main process. Older app versions keep existing dashboard functionality and show an update action for Sessions.
+- Styles: the original digest test is retired, not rebased to a new digest. Its replacement asserts resolvable ordered imports, readable light/dark theme tokens, keyboard focus and reduced-motion overrides. New and changed screenshots require visual review against the approved feature.
+- Delivery: release backend/schema and backfill first, then compatible web, then a new immutable desktop release after native gates. The implementation and local checks do not constitute a deployment. No deployment or release publication occurred as part of this documentation update.
+
+Verification is recorded through the current test suites rather than the historical counts below: `npm run typecheck`, `npm run test:web:unit`, `npm run test:web`, `npm run test:web:visual`, `npm run test:desktop` and the backend explorer/read/process tests. The loading suite includes browser and late-IPC logout races, transient refresh preservation, selection races, skeleton readiness and reduced motion. Native signing, packaging and consumer-machine gates remain separate.
 
 ## Ownership and compatibility
 
@@ -15,7 +27,7 @@ This work preserves product behavior, API shapes, persisted data, and public ent
 
 ## Review passes
 
-Each implementation checkpoint is a separate local commit, listed below in review order. Each can be reverted independently in reverse dependency order. The original source baseline is `9784ec0`. Characterization assertions were established before the relevant extraction; helper test loaders subsequently switched to the extracted modules without changing expected values.
+The historical refactor checkpoints below are separate local commits, listed in their original review order. They do not claim that the later Session Explorer feature preserves the old UI byte-for-byte. Each refactor checkpoint can be reverted independently in reverse dependency order. The original source baseline is `9784ec0`. Characterization assertions were established before the relevant extraction; helper test loaders subsequently switched to the extracted modules without changing expected values.
 
 | Pass / commits | Current behavior preserved | Structural improvement | Validation evidence |
 | --- | --- | --- | --- |
@@ -45,14 +57,16 @@ Each implementation checkpoint is a separate local commit, listed below in revie
 - Web: unused `apiGet` import on notifications; unused `consumeTokenFromHash` import on detail; homepage `API_DOMAIN`; detail's write-only token state/setters.
 - Desktop: unused `fs` imports in lifecycle/update and unused `readJson` import in update.
 - No reference-count-only file or CSS deletion. The HTML prototype remains intact.
-- The dashboard route is now 119 lines, Telegram's public facade 30 lines and the demo wrapper 152 lines. Scenario data and playback mechanics remain separate, named responsibilities. The stylesheet entrypoint retains the original cascade through ordered imports.
-- Routes, response/error text, storage keys, installer options, runtime pins, bridge v1, IPC channels, credentials, queue layout and acknowledgement semantics remain unchanged. Recommendation list/detail and Telegram type exports retain their existing distinctions/re-exports.
+- The refactor split route orchestration, Telegram views/settings, scenario data and playback into named responsibilities. The later Session Explorer feature builds on those modules and extends the stylesheet entrypoint with ordered feature imports.
+- During the historical refactor, routes and response/error text remained unchanged. Session Explorer subsequently adds routes, v2 reads and new loading/error presentation. Storage keys, installer options, bridge v1 trust boundaries, credential ownership, queue layout and acknowledgement semantics remain protected. Recommendation list/detail and Telegram type exports retain their existing distinctions/re-exports.
 
-## Validation and remaining release gates
+## Historical refactor validation and remaining release gates
+
+The counts, CI runs and temporary evidence paths in this section describe the earlier refactor, not verification of the later Session Explorer implementation. Re-run the current suites and native gates for any release.
 
 Local validation uses macOS arm64. The complete desktop suite passes **38/38 without skips** on Node **24.20.0**, including PowerShell execution. Web pure-function/transport/route/demo/CSS tests pass **21/21**. All **40/40 browser checks** pass after the final Telegram extraction. Typechecking and the production website build pass; a before/after content hash comparison found **zero tracked files changed by the build**. The published-asset integrity check also passes without regeneration.
 
-The browser harness uses synthetic API responses, UTC time, a controlled clock, clipboard stubs and explicit intersection events. It covers 16 interaction scenarios and 24 screenshots: home, dashboard, report, Telegram, privacy and terms at 390/1280 pixels in both themes. Font requests are stubbed for deterministic fallback rendering. Screenshot baselines are macOS/Chromium-specific; CI runs interactions on Linux and visual comparisons on macOS. Do not regenerate expectations to approve a changed UI. During baseline QA, the privacy/light/1280 image was corrected because the original capture contained a transient development fetch-error overlay and a broken image. Legal source and expanded CSS were unchanged; image/overlay readiness assertions now reject that invalid baseline condition.
+The browser harness uses synthetic API responses, UTC time, a controlled clock, clipboard stubs and explicit intersection events. It covers 16 interaction scenarios and 24 screenshots: home, dashboard, report, Telegram, privacy and terms at 390/1280 pixels in both themes. Font requests are stubbed for deterministic fallback rendering. Screenshot baselines are macOS/Chromium-specific; CI runs interactions on Linux and visual comparisons on macOS. Do not regenerate expectations merely to hide a failure. The subsequently approved Session Explorer and loading redesign permits reviewed visual baseline changes; unaffected demo/legal scenes remain regression checks. During baseline QA, the privacy/light/1280 image was corrected because the original capture contained a transient development fetch-error overlay and a broken image. Legal source and expanded CSS were unchanged; image/overlay readiness assertions now reject that invalid baseline condition.
 
 Current-source native packaging passed on macOS arm64 with Node 24.20.0 / Electron 44.2.0: source/archive verification, minimal-PATH packaging, strict ad-hoc signature verification, launch, preload isolation and rendered Connection UI. Retained evidence lives under `/private/tmp/penelopa-build-ehdWIH/`; detailed filenames/hash are in [desktop delivery](desktop-delivery.md). This is local evidence, not evidence of a native Windows or Intel Mac run.
 
@@ -70,4 +84,4 @@ Commit `2252e33` corrects only the fixture's PowerShell wire format, retains act
 
 Initial TypeScript check passed. On macOS arm64 / Node 22.22.1, desktop tests passed 25/26 after loopback access was enabled; the managed PowerShell ACK fixture reported a multipart parse error. The same minimal .NET multipart body and all four PowerShell tests pass on pinned Node 24.20.0. This is a Node 22 `Response.formData()` parsing difference; neither uploader behavior nor its ACK fixture needed a change.
 
-Do not combine this work with dependency/framework upgrades, changing floating version policy, CommonJS-to-ESM/TypeScript conversion, a replacement local desktop renderer, uploader unification, compatibility retirement, new auth or polling behavior, queue schema changes, signing changes or deployment redesign. Those require separate migration tasks.
+Do not combine this work with dependency/framework upgrades, changing floating version policy, CommonJS-to-ESM/TypeScript conversion, a replacement local desktop renderer, uploader unification, compatibility retirement, unrelated auth or polling changes, capture queue schema changes, signing changes or deployment redesign. Those require separate migration tasks. Session Explorer’s approved v2 read/live polling and backend content-index migration are explicitly covered by the feature section above.

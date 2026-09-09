@@ -1,5 +1,7 @@
 "use client";
 
+import { NotificationsSkeleton } from "../../components/loading/Loading";
+
 import { ArrowUpRight, RefreshCw } from "lucide-react";
 import {
   getStatusTone,
@@ -22,6 +24,7 @@ export function renderTelegramCompactSettings(state: TelegramSettings) {
     <section
       className="notifications-panel notifications-panel--compact"
       aria-labelledby="notifications-title"
+      aria-busy={isLoading}
     >
       <div className="panel-topline notifications-topline">
         <div>
@@ -35,8 +38,8 @@ export function renderTelegramCompactSettings(state: TelegramSettings) {
       </div>
 
       <div className="notifications-compact-body">
-        {isLoading ? (
-          <p className="notifications-muted">Loading notification settings...</p>
+        {isLoading && !settings ? (
+          <NotificationsSkeleton compact />
         ) : error && !settings ? (
           <div className="notifications-load-error" role="alert">
             <p>{error}</p>

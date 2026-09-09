@@ -1,0 +1,68 @@
+.skeleton {
+  background: var(--surface);
+  border-radius: 4px;
+  display: block;
+  flex: 0 0 auto;
+  height: 16px;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.skeleton::after {
+  animation: skeleton-shimmer 1.7s ease-in-out infinite;
+  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--ink) 6%, transparent) 48%, transparent 76%);
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: translateX(-100%);
+}
+
+.loading-region { min-width: 0; }
+.skeleton-stack { display: grid; gap: 12px; min-width: 0; }
+.skeleton-avatar { height: 34px; width: 34px; border-radius: 9px; }
+.session-skeleton-row, .timeline-skeleton-row { align-items: center; border-bottom: 1px solid var(--border); display: grid; gap: 18px; grid-template-columns: 34px minmax(0, 1fr) auto; padding: 24px 0; }
+.timeline-skeleton-row { align-items: start; grid-template-columns: 34px minmax(0, 1fr); padding: 25px 16px; }
+.detail-skeleton { display: grid; gap: 26px; padding: 28px; }
+.detail-skeleton.is-compact { gap: 20px; padding: 24px 0; }
+.skeleton-code { background: color-mix(in srgb, var(--ink) 5%, var(--canvas)); border: 1px solid var(--border); }
+.recommendation-page-skeleton { display: grid; gap: 28px; }
+.recommendation-page-skeleton > .detail-skeleton { border-top: 1px solid var(--border); padding: 32px 0; }
+.notifications-skeleton { display: grid; gap: 34px; grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr); margin-top: 32px; }
+.notifications-skeleton.is-compact { display: block; margin-top: 0; }
+.skeleton-summary-grid { display: grid; gap: 20px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 20px; }
+.dashboard-title-skeleton { gap: 20px; margin-bottom: 45px; }
+.skeleton-panel { border-top: 1px solid var(--border); margin-top: 60px; padding-top: 26px; }
+.skeleton-panel > .loading-region, .skeleton-chart { margin-top: 24px; }
+.loading-status { align-items: center; color: var(--muted); display: inline-flex; font-family: var(--font-mono); font-size: 11px; gap: 8px; line-height: 1.5; }
+.loading-status-dot { animation: loading-breathe 1.5s ease-in-out infinite; background: var(--accent-three, var(--ink)); border-radius: 50%; height: 6px; width: 6px; }
+.background-update-status { align-items: center; display: flex; gap: 10px; }
+.dashboard-content-ready, .recommendation-inline-detail { animation: content-arrive 200ms ease-out both; }
+.recommendations-panel { position: relative; }
+.recommendations-panel > .loading-progress { left: 0; position: absolute; right: 0; top: -1px; }
+.loading-progress { background: var(--surface); height: 2px; overflow: hidden; }
+.loading-progress::after { animation: loading-progress 1.6s ease-in-out infinite; background: var(--ink); content: ""; display: block; height: 100%; width: 28%; }
+.stat > strong > .skeleton { height: .86em; margin: .04em 0; width: 78%; }
+.stat-subline > .skeleton { height: 12px; margin-top: 3px; width: 85%; }
+.github-loading-value { display: inline-block; vertical-align: middle; }
+.page-load-error { border-top: 1px solid var(--border); margin-top: 40px; padding: 34px 0; }
+.page-load-error h1 { font-family: var(--font-display); font-size: clamp(38px, 5vw, 64px); font-weight: 400; margin: 0 0 18px; }
+.page-load-error p { color: var(--muted); margin-bottom: 24px; }
+.page-load-error-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+@keyframes skeleton-shimmer { to { transform: translateX(100%); } }
+@keyframes loading-breathe { 50% { opacity: .35; } }
+@keyframes content-arrive { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes loading-progress { from { transform: translateX(-110%); } to { transform: translateX(470%); } }
+@media (max-width: 700px) {
+  .notifications-skeleton { grid-template-columns: 1fr; }
+  .session-skeleton-row { gap: 12px; grid-template-columns: 34px minmax(0, 1fr); }
+  .skeleton-row-meta { display: none; }
+  .detail-skeleton { padding: 20px 16px; }
+  .dashboard-title-skeleton > .skeleton:last-child { height: 54px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after, .loading-status-dot, .loading-progress::after, .notification-spinner,
+  .dashboard-content-ready, .recommendation-inline-detail { animation: none; }
+  .skeleton::after { transform: none; opacity: .4; }
+}

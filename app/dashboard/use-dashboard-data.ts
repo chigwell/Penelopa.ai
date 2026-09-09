@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, type ApiError } from "../lib/penelopa-client";
 import type { DashboardSummary, DailyActivityPoint, RecommendationPage, DashboardData } from "../lib/api-types";
 
-type ScreenState = "locked" | "loading" | "ready";
+type ScreenState = "locked" | "loading" | "ready" | "error";
 const RECOMMENDATIONS_PAGE_SIZE = 10;
 
 export function useDashboardData() {
@@ -14,66 +14,103 @@ export function useDashboardData() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [pageLoading, setPageLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const activeToken = useRef<string | null>(null);
+  const currentDashboard = useRef<DashboardData | null>(null);
+  const loadVersion = useRef(0);
+  const pageVersion = useRef(0);
+  const loadController = useRef<AbortController | null>(null);
+  const pageController = useRef<AbortController | null>(null);
 
-  async function loadDashboard(candidate: string, page: number, persistToken: boolean) {
+  const cancelRequests = useCallback(() => {
+    loadVersion.current += 1;
+    pageVersion.current += 1;
+    loadController.current?.abort();
+    pageController.current?.abort();
+  }, []);
+
+  const lockDashboard = useCallback((message: string) => {
+    cancelRequests();
+    clearStoredToken();
+    activeToken.current = null;
+    currentDashboard.current = null;
+    setToken(null);
+    setTokenInput("");
+    setDashboard(null);
+    setError(message);
+    setPageLoading(false);
+    setRefreshing(false);
+    setUpdatedAt(null);
+    setScreen("locked");
+  }, [cancelRequests]);
+
+  const handleLogout = useCallback(() => lockDashboard(""), [lockDashboard]);
+  const handleAuthExpired = useCallback(() => lockDashboard("Your access token has expired. Enter it again."), [lockDashboard]);
+
+  const loadDashboard = useCallback(async (candidate: string, page: number, persistToken: boolean) => {
+    const keepContent = activeToken.current === candidate && currentDashboard.current !== null;
+    cancelRequests();
+    const version = loadVersion.current;
+    const controller = new AbortController();
+    loadController.current = controller;
+    activeToken.current = candidate;
+    setToken(candidate);
     setError("");
-    setScreen("loading");
+    setPageLoading(false);
+    setRefreshing(keepContent);
+    if (!keepContent) {
+      currentDashboard.current = null;
+      setDashboard(null);
+      setScreen("loading");
+    }
 
     try {
+      const init = { signal: controller.signal };
       const [summary, activity, recommendations] = await Promise.all([
-        apiGet<DashboardSummary>("/admin/stats/summary", candidate),
-        apiGet<DailyActivityPoint[]>("/admin/stats/daily-activity?days=30", candidate),
-        apiGet<RecommendationPage>(
-          `/hermes/recommendations?page=${page}&page_size=${RECOMMENDATIONS_PAGE_SIZE}`,
-          candidate,
-        ),
+        apiGet<DashboardSummary>("/admin/stats/summary", candidate, init),
+        apiGet<DailyActivityPoint[]>("/admin/stats/daily-activity?days=30", candidate, init),
+        apiGet<RecommendationPage>(`/hermes/recommendations?page=${page}&page_size=${RECOMMENDATIONS_PAGE_SIZE}`, candidate, init),
       ]);
-
-      if (persistToken) {
-        storeToken(candidate);
-      }
-      setToken(candidate);
-      setDashboard({ summary, activity, recommendations });
+      if (loadVersion.current !== version) return;
+      if (persistToken) storeToken(candidate);
+      const next = { summary, activity, recommendations };
+      currentDashboard.current = next;
+      setDashboard(next);
+      setUpdatedAt(new Date().toISOString());
       setScreen("ready");
     } catch (caught) {
+      if (loadVersion.current !== version || controller.signal.aborted) return;
       const requestError = caught as ApiError;
       if (requestError.status === 401 || requestError.status === 403) {
-        clearStoredToken();
-        setToken(null);
-        setError("That access token is not valid.");
+        lockDashboard("That access token is not valid.");
       } else {
         setError("Dashboard data is unavailable. Try again shortly.");
+        setScreen(keepContent ? "ready" : "error");
       }
-      setDashboard(null);
-      setScreen("locked");
+    } finally {
+      if (loadVersion.current === version) setRefreshing(false);
     }
-  }
+  }, [cancelRequests, lockDashboard]);
 
   useEffect(() => {
     function loadHashToken() {
       const hashToken = consumeTokenFromHash();
-      if (!hashToken) {
-        return false;
-      }
+      if (!hashToken) return false;
       void loadDashboard(hashToken, 1, true);
       return true;
     }
-
     window.addEventListener("hashchange", loadHashToken);
-
-    if (loadHashToken()) {
-      return () => window.removeEventListener("hashchange", loadHashToken);
+    if (!loadHashToken()) {
+      const storedToken = readStoredToken();
+      if (storedToken) void loadDashboard(storedToken, 1, false);
+      else setScreen("locked");
     }
-
-    const storedToken = readStoredToken();
-    if (!storedToken) {
-      setScreen("locked");
-      return () => window.removeEventListener("hashchange", loadHashToken);
-    }
-    void loadDashboard(storedToken, 1, false);
-
-    return () => window.removeEventListener("hashchange", loadHashToken);
-  }, []);
+    return () => {
+      window.removeEventListener("hashchange", loadHashToken);
+      cancelRequests();
+    };
+  }, [cancelRequests, loadDashboard]);
 
   function handleSignIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,54 +122,35 @@ export function useDashboardData() {
     void loadDashboard(candidate, 1, true);
   }
 
-  function handleLogout() {
-    clearStoredToken();
-    setToken(null);
-    setTokenInput("");
-    setDashboard(null);
-    setError("");
-    setScreen("locked");
-  }
-
-  const handleAuthExpired = useCallback(() => {
-    clearStoredToken();
-    setToken(null);
-    setTokenInput("");
-    setDashboard(null);
-    setError("Your access token has expired. Enter it again.");
-    setScreen("locked");
-  }, []);
-
   async function changePage(page: number) {
-    if (!token || !dashboard || pageLoading) {
-      return;
-    }
-
+    if (!token || !currentDashboard.current || pageLoading || refreshing) return;
+    pageController.current?.abort();
+    const controller = new AbortController();
+    pageController.current = controller;
+    const version = ++pageVersion.current;
     setPageLoading(true);
     setError("");
     try {
       const recommendations = await apiGet<RecommendationPage>(
-        `/hermes/recommendations?page=${page}&page_size=${RECOMMENDATIONS_PAGE_SIZE}`,
-        token,
+        `/hermes/recommendations?page=${page}&page_size=${RECOMMENDATIONS_PAGE_SIZE}`, token, { signal: controller.signal },
       );
-      setDashboard((current) =>
-        current ? { ...current, recommendations } : current,
-      );
-    } catch (caught) {
-      const requestError = caught as ApiError;
-      if (requestError.status === 401 || requestError.status === 403) {
-        handleLogout();
-        setError("Your access token has expired. Enter it again.");
-      } else {
-        setError("Recommendations could not be loaded.");
+      if (pageVersion.current !== version || activeToken.current !== token) return;
+      if (currentDashboard.current) {
+        currentDashboard.current = { ...currentDashboard.current, recommendations };
+        setDashboard(currentDashboard.current);
       }
+    } catch (caught) {
+      if (pageVersion.current !== version || controller.signal.aborted) return;
+      const requestError = caught as ApiError;
+      if (requestError.status === 401 || requestError.status === 403) handleAuthExpired();
+      else setError("Recommendations could not be loaded.");
     } finally {
-      setPageLoading(false);
+      if (pageVersion.current === version) setPageLoading(false);
     }
   }
 
   return {
-    screen, tokenInput, setTokenInput, token, dashboard, error, setError, pageLoading,
+    screen, tokenInput, setTokenInput, token, dashboard, error, setError, pageLoading, refreshing, updatedAt,
     loadDashboard, handleSignIn, handleLogout, handleAuthExpired, changePage,
   };
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { NotificationsSkeleton } from "../../components/loading/Loading";
+
 import {
   ArrowRight,
   Bell,
@@ -39,6 +41,7 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
     <section
       className="notifications-detail-panel"
       aria-labelledby="notification-settings-title"
+      aria-busy={isLoading || isRefreshing}
     >
       <div className="panel-topline notifications-topline">
         <div>
@@ -58,8 +61,8 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
         ) : null}
       </div>
 
-      {isLoading ? (
-        <p className="notifications-muted">Loading notification settings...</p>
+      {isLoading && !settings ? (
+        <NotificationsSkeleton />
       ) : error && !settings ? (
         <div className="notifications-load-error" role="alert">
           <p>{error}</p>

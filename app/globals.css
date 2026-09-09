@@ -15,3 +15,5 @@
 @import "./styles/telegram.css";
 @import "./styles/activity-and-recommendations.css";
 @import "./styles/dashboard-responsive.css";
+@import "./styles/loading.css";
+@import "./styles/sessions.css";

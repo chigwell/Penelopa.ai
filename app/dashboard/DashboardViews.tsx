@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import { DetailSkeleton, LoadingStatus } from "../components/loading/Loading";
 import { ArrowUpRight, Check, ChevronDown, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -147,13 +148,14 @@ export function DashboardRecommendationsView({
 }) {
   const totalPages = Math.max(1, Math.ceil(recommendations.total / recommendations.page_size));
   return (
-    <section className="recommendations-panel" aria-labelledby="recommendations-title">
+    <section className="recommendations-panel" aria-labelledby="recommendations-title" aria-busy={pageLoading}>
+      {pageLoading && <div className="loading-progress" aria-hidden="true" />}
       <div className="panel-topline recommendations-heading">
         <div>
           <p className="eyebrow">Process improvements</p>
           <h2 id="recommendations-title">Recommendations</h2>
         </div>
-        <span>{recommendations.total} total</span>
+        <span>{pageLoading ? <LoadingStatus>Loading page</LoadingStatus> : `${recommendations.total} total`}</span>
       </div>
 
       <div className="recommendations-table-wrap">
@@ -218,7 +220,7 @@ export function DashboardRecommendationsView({
                     <tr className="recommendation-detail-row" id={`recommendation-detail-${item.id}`}>
                       <td colSpan={6}>
                         {expandedLoading ? (
-                          <p className="recommendation-loading">Loading full recommendation...</p>
+                          <DetailSkeleton compact />
                         ) : expandedRecommendation ? (
                           <div className="recommendation-inline-detail">
                             <div className="inline-detail-topline">

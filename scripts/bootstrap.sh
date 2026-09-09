@@ -18,7 +18,7 @@ Penelopa.ai — install hooks and build the desktop client locally.
 --desktop auto|off|required    Default: auto (Mac/Windows only)
 --no-desktop                   Install hooks only
 --diagnose                     Print redacted local diagnostics
---repair                       Repair installed hooks without changing accounts
+--repair                       Repair/update hooks; keeps the token unless a new token is supplied
 --uninstall                    Remove Penelopa; retain credentials and queued data
 --purge-data                   With --uninstall, also remove local data
 --force-new-token              Explicitly request a new account token
@@ -39,14 +39,13 @@ case "$BASE_URL" in https://*) ;; *) die 'The release server must use HTTPS.' ;;
 case "$ROOT" in /*) ;; *) die 'AUTO_IMPROVE_HOME must be an absolute path.' ;; esac
 for argument in "$@"; do
   case "$argument" in
-    --diagnose|--repair|--uninstall)
+    --diagnose|--uninstall)
       if [ -f "$ROOT/node-path" ] && [ -f "$ROOT/bin/penelopa.cjs" ]; then
         node_path=$(cat "$ROOT/node-path")
         [ -x "$node_path" ] || die 'The private runtime is missing. Rerun the installer.'
         exec "$node_path" "$ROOT/bin/penelopa.cjs" "$@"
       fi
-      [ "$argument" != '--diagnose' ] && [ "$argument" != '--uninstall' ] || { log 'No managed Penelopa installation found.'; exit 0; }
-      die 'No managed installation found. Rerun without --repair.' ;;
+      log 'No managed Penelopa installation found.'; exit 0 ;;
   esac
 done
 fetch() {

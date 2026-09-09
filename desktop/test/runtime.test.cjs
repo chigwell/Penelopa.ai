@@ -164,7 +164,7 @@ test('fresh installation, repair and uninstall preserve account and unrelated ho
     }
     writeJson(path.join(f.root, 'install.json'), state);
   };
-  const verifyMigration = () => {
+  const verifyMigration = expectedConfig => {
     const state = readJson(path.join(f.root, 'install.json'));
     for (const agent of state.agents) {
       assert.equal(agent.command.includes('capture.ps1'), false);
@@ -176,16 +176,25 @@ test('fresh installation, repair and uninstall preserve account and unrelated ho
         assert.equal(commands.some(command => command.includes('capture.ps1')), false);
       }
     }
-    assert.equal(fs.readFileSync(f.configFile, 'utf8'), before);
+    assert.equal(fs.readFileSync(f.configFile, 'utf8'), expectedConfig);
   };
   restoreLegacyCommands();
   result = f.run('--no-desktop'); assert.equal(result.status, 0, result.stderr);
-  verifyMigration();
+  verifyMigration(before);
   assert.equal(fs.readFileSync(f.configFile, 'utf8'), before); assert.equal(readJson(codex).hooks.Stop.length, 2);
   restoreLegacyCommands();
   result = f.run('--repair'); assert.equal(result.status, 0, result.stderr);
-  verifyMigration();
+  verifyMigration(before);
+  restoreLegacyCommands();
+  result = f.run('--repair', '--token', 'replacement-private-token');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr.includes('replacement-private-token'), false);
+  const replaced = fs.readFileSync(f.configFile, 'utf8');
+  assert.notEqual(replaced, before);
+  assert.equal(replaced.includes('replacement-private-token'), true);
+  verifyMigration(replaced);
   result = f.run('--diagnose'); assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout.includes('fixture-private-token'), false);
+  assert.equal(result.stdout.includes('replacement-private-token'), false);
   result = f.run('--uninstall'); assert.equal(result.status, 0, result.stderr);
   assert.equal(readJson(codex).hooks.Stop.length, 1); assert.equal(readJson(codex).other, 'preserve-me'); assert.equal(fs.existsSync(f.configFile), true);
 });

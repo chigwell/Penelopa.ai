@@ -44,7 +44,7 @@ function parseArgs(args) {
   return options;
 }
 function help() {
-  return `Penelopa.ai installer\n\nUsage: installer [options]\n\n${Object.keys(valueOptions).map(key => `  --${key} VALUE`).join('\n')}\n  --no-desktop             Install hooks only\n  --diagnose               Print a redacted connection report\n  --repair                 Restore Penelopa hooks with the existing token\n  --uninstall              Remove Penelopa hooks and application\n  --purge-data             Also remove Penelopa credentials and queued data\n  --force-new-token        Explicitly create a new account token\n  --no-launch              Build without opening the desktop client\n  --no-access-link         Do not print the private browser sign-in link\n  --install-deps           Compatibility flag; private runtime is automatic\n  --help\n`;
+  return `Penelopa.ai installer\n\nUsage: installer [options]\n\n${Object.keys(valueOptions).map(key => `  --${key} VALUE`).join('\n')}\n  --no-desktop             Install hooks only\n  --diagnose               Print a redacted connection report\n  --repair                 Repair/update hooks; keeps the token unless a new token is supplied\n  --uninstall              Remove Penelopa hooks and application\n  --purge-data             Also remove Penelopa credentials and queued data\n  --force-new-token        Explicitly create a new account token\n  --no-launch              Build without opening the desktop client\n  --no-access-link         Do not print the private browser sign-in link\n  --install-deps           Compatibility flag; private runtime is automatic\n  --help\n`;
 }
 function preflight(root, desktop) {
   protect(root);
@@ -152,7 +152,7 @@ async function uninstall(root, purge = false) {
 async function install(options, root = home()) {
   const previous = installState(root);
   const official = options.url === 'https://api.penelopa.ai/v2/transcript-segments' && options['dashboard-url'] === 'https://penelopa.ai/dashboard' && options['token-url'] === 'https://api.penelopa.ai/v1/auth/bootstrap-token';
-  const desktop = options.desktop !== 'off' && ['darwin', 'win32'].includes(process.platform) && official;
+  const desktop = !options.repair && options.desktop !== 'off' && ['darwin', 'win32'].includes(process.platform) && official;
   if (options.desktop === 'required' && !desktop) throw new Error('Desktop requires macOS or Windows x64 and the production Penelopa endpoints.');
   preflight(root, false);
   const agents = agentsFor(root, options, previous);
@@ -160,6 +160,7 @@ async function install(options, root = home()) {
   const configFile = process.env.AUTO_IMPROVE_HOOK_CONFIG || previous?.configFile || path.join(os.homedir(), process.platform === 'win32' ? '.auto-improve-hook.json' : '.auto-improve-hook.env');
   const oldCredential = credential({ platform: process.platform, configFile });
   let token = options.token || (!options['force-new-token'] ? oldCredential || envFile(options['env-file']).API_ACCESS_TOKEN : '');
+  if (options.repair && !token && !options['force-new-token']) throw new Error('No installed account token was found. Rerun without --repair or pass --token.');
   if (!token) {
     log('Connecting your account');
     const response = await jsonRequest(options['token-url'], { method: 'POST', headers: { Accept: 'application/json' } });
@@ -188,7 +189,7 @@ async function install(options, root = home()) {
     powershellPath: process.platform === 'win32' ? path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe') : null,
     desktop: previous?.desktop || null, releaseBaseUrl: release.baseUrl, uploaderPath };
   state.selfTest = await selfTest(root, state);
-  log('Installing hooks');
+  log(options.repair ? 'Repairing hooks' : 'Installing hooks');
   const credentialChange = process.platform === 'win32' ? { file: configFile, data: config } : { file: configFile, bytes: Object.entries({ AUTO_IMPROVE_URL: config.url, AUTO_IMPROVE_TOKEN: token, AUTO_IMPROVE_PROJECT_ID: config.projectId,
       AUTO_IMPROVE_UPLOAD_MODE: 'segments', AUTO_IMPROVE_DATA_DIR: dataDir, AUTO_IMPROVE_SOURCE_SCHEMA_VERSION: config.sourceSchemaVersion,
       AUTO_IMPROVE_SEGMENT_MAX_BYTES: config.segmentMaxBytes, AUTO_IMPROVE_DRAIN_MAX_ATTEMPTS: config.drainMaxAttempts, AUTO_IMPROVE_DRAIN_MAX_SECONDS: config.drainMaxSeconds }).map(([key, value]) => `${key}=${value}`).join('\n') + '\n' };
@@ -208,7 +209,7 @@ async function install(options, root = home()) {
       log(`${state.desktop.error} ${error.message}`); process.exitCode = 2;
     }
   }
-  log('Hooks installed and local delivery checked. In Codex, review Stop and SessionEnd in Settings → Hooks (CLI: /hooks).');
+  log(`${options.repair ? 'Hooks repaired' : 'Hooks installed'} and local delivery checked. In Codex, review Stop and SessionEnd in Settings → Hooks (CLI: /hooks).`);
   if (process.exitCode) return state;
   if (options['no-access-link']) {
     if (!desktop) log(`Open ${options['dashboard-url']}.`);
@@ -224,7 +225,7 @@ async function main(args = process.argv.slice(2)) {
     mkdir(root); unlock = lock(path.join(root, 'locks', 'install.lock'));
     if (!unlock) throw new Error('Another Penelopa installation is already running.');
     if (options.uninstall) await uninstall(root, options['purge-data']);
-    else if (options.repair) { await repair(root); log('Hooks repaired. Review changed hooks in your coding agent.'); }
+    else if (options.repair) await install({ ...options, desktop: 'off', 'no-launch': true, 'no-access-link': true }, root);
     else await install(options, root);
   } catch (error) { log(error.message); process.exitCode = 1; }
   finally { if (unlock) unlock(); }

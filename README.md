@@ -55,7 +55,13 @@ After installation, commands can run offline from the private runtime. On macOS/
 "$(cat "$HOME/.auto-improve/node-path")" "$HOME/.auto-improve/bin/penelopa.cjs" --repair
 ```
 
-Alternatively, download/rerun the original installer with these options. PowerShell uses the corresponding names, for example `-Diagnose`, `-Repair`, `-NoDesktop`.
+To refresh an existing Claude Code hook with a supplied account token in one command:
+
+```sh
+curl -fsSL https://penelopa.ai/script | AUTO_IMPROVE_TOKEN='YOUR_TOKEN' sh -s -- --repair --agent claude --no-desktop
+```
+
+Alternatively, download/rerun the original installer with these options. PowerShell uses the corresponding names, for example `-Diagnose`, `-Repair`, `-Token`, `-NoDesktop`.
 
 | Option | Purpose |
 | --- | --- |
@@ -63,10 +69,10 @@ Alternatively, download/rerun the original installer with these options. PowerSh
 | `--no-desktop` | Install hooks without building a client |
 | `--desktop required` | Require a supported production desktop target |
 | `--diagnose` | Print diagnostics without credentials or transcripts |
-| `--repair` | Restore Penelopa hooks and repeat the local self-test |
+| `--repair` | Repair or update Penelopa hooks, repeat the local self-test, and keep the account token unless a new token is supplied |
 | `--no-launch` | Build without opening the app |
 | `--force-new-token` | Explicitly create a new account token |
-| `--print-access-link` | Explicitly reveal a private browser sign-in link |
+| `--no-access-link` | Suppress the private browser sign-in link |
 | `--uninstall` | Remove Penelopa hooks/app/startup registration, retaining account and queued data |
 | `--uninstall --purge-data` | Also remove Penelopa credentials and local queued data |
 

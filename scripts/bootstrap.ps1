@@ -28,7 +28,7 @@ function Test-Checksum([string]$File, [string]$Expected) {
   if ((Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Expected) { throw 'Download checksum mismatch. Nothing from that download was installed.' }
 }
 if ($Help) {
-  Write-Output 'Penelopa.ai: -Agent codex|claude|both -Desktop auto|off|required -NoDesktop -Diagnose -Repair -Uninstall -PurgeData -ForceNewToken -NoLaunch -NoAccessLink. Existing token, endpoint and upload options remain supported. Node/npm are installed privately; Git and Python are not required.'
+  Write-Output 'Penelopa.ai: -Agent codex|claude|both -Desktop auto|off|required -NoDesktop -Diagnose -Repair -Uninstall -PurgeData -ForceNewToken -NoLaunch -NoAccessLink. Repair updates hooks and keeps the token unless a new token is supplied. Existing endpoint and upload options remain supported. Node/npm are installed privately; Git and Python are not required.'
   return
 }
 $nodeArgs = @('--agent', $Agent, '--desktop', $Desktop, '--upload-mode', $UploadMode)
@@ -36,7 +36,7 @@ $values = @{ Url='url'; Token='token'; TokenUrl='token-url'; DashboardUrl='dashb
 foreach ($entry in $values.GetEnumerator()) { if ($PSBoundParameters.ContainsKey($entry.Key)) { $nodeArgs += @("--$($entry.Value)", [string]$PSBoundParameters[$entry.Key]) } }
 $switches = @{ ForceNewToken='force-new-token'; NoDesktop='no-desktop'; Diagnose='diagnose'; Repair='repair'; Uninstall='uninstall'; PurgeData='purge-data'; NoLaunch='no-launch'; NoAccessLink='no-access-link'; InstallDeps='install-deps' }
 foreach ($entry in $switches.GetEnumerator()) { if ($PSBoundParameters[$entry.Key]) { $nodeArgs += "--$($entry.Value)" } }
-if ($Diagnose -or $Repair -or $Uninstall) {
+if ($Diagnose -or $Uninstall) {
   $marker = Join-Path $root 'node-path'; $cli = Join-Path $root 'bin/penelopa.cjs'
   if ((Test-Path -LiteralPath $marker) -and (Test-Path -LiteralPath $cli)) {
     $installedNode = (Get-Content -LiteralPath $marker -Raw -Encoding UTF8).Trim()
@@ -44,7 +44,6 @@ if ($Diagnose -or $Repair -or $Uninstall) {
     if ($LASTEXITCODE -ne 0) { throw "Penelopa finished with status $LASTEXITCODE." }
     return
   }
-  if ($Repair) { throw 'No managed installation found. Rerun without -Repair.' }
   Write-Stage 'No managed Penelopa installation found.'; return
 }
 if (-not [Environment]::Is64BitOperatingSystem -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') { throw 'This installer supports Windows x64. Windows ARM is not included in this release.' }

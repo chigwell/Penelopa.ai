@@ -28,7 +28,7 @@ function createLocalAction({
         return localState();
       case "navigate":
         if (
-          !["dashboard", "notifications", "connection", "settings"].includes(
+          !["dashboard", "sessions", "notifications", "connection", "settings"].includes(
             data,
           )
         )

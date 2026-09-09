@@ -1,12 +1,18 @@
 'use strict';
 const API_ORIGIN = 'https://api.penelopa.ai';
 const WEB_ORIGIN = 'https://penelopa.ai';
+const { validateTranscriptRequest } = require('./transcript-api.cjs');
 
 function validateRequest(request) {
-  if (!request || typeof request.path !== 'string' || request.path.length > 2048) throw new Error('Invalid API request.');
+  if (!request || typeof request.path !== 'string' || request.path.length > 8192) throw new Error('Invalid API request.');
   const method = request.method || 'GET';
   const url = new URL(request.path, `${API_ORIGIN}/v1/`);
-  if (!request.path.startsWith('/v1/') || url.origin !== API_ORIGIN || url.hash || /%2f|%5c|\\|\.\./i.test(request.path)) throw new Error('This API path is not available to the desktop client.');
+  const rawPath = request.path.split('?')[0];
+  if (!/^\/v[12]\//.test(request.path) || url.origin !== API_ORIGIN || url.hash || /%2f|%5c|\\|\.\./i.test(rawPath)) throw new Error('This API path is not available to the desktop client.');
+  if (url.pathname.startsWith('/v2/')) {
+    validateTranscriptRequest(url, method, request.body);
+    return { url: url.href, method, body: request.body };
+  }
   const routes = [
     ['GET', /^\/v1\/admin\/stats\/summary$/],
     ['GET', /^\/v1\/admin\/stats\/daily-activity$/],

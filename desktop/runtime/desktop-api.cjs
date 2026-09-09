@@ -36,7 +36,7 @@ function createApiRequest({ validateRequest, net, getAuth, showPage }) {
         } catch {}
       }
       if (
-        [401, 403].includes(response.status) &&
+        (response.status === 401 || (response.status === 403 && new URL(validated.url).pathname.startsWith("/v1/"))) &&
         getAuth().token === accountToken
       ) {
         getAuth().signOut("Your installed account needs to be reconnected.");

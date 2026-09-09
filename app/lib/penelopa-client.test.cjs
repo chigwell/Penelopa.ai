@@ -115,3 +115,65 @@ test("desktop bridge owns credentials and receives only versioned request data",
   client.clearStoredToken();
   assert.equal(signedOut, 1);
 });
+
+test("v2 browser reads preserve query encoding and request cancellation", async () => {
+  const requests = [], controller = new AbortController();
+  const { client } = clientFor({ fetch: async (...args) => {
+    requests.push(args);
+    return new Response('{"items":[]}');
+  } });
+  assert.equal(client.hasTranscriptSupport(), true);
+  assert.deepEqual(await client.apiV2Get('/user-read/projects?query=repo%2Fname', 'account', { signal: controller.signal }), { items: [] });
+  const [url, init] = requests[0];
+  assert.equal(url, 'https://api.penelopa.ai/v2/user-read/projects?query=repo%2Fname');
+  assert.equal(init.signal, controller.signal);
+  assert.equal(init.headers.get('Authorization'), 'Bearer account');
+  assert.equal(init.method, 'GET');
+});
+
+test("v2 errors expose backend code and details without stringifying an object", async () => {
+  const detail = { code: 'archive_pending', message: 'Archive restoration is pending.', retry_after_seconds: 5 };
+  const { client } = clientFor({ fetch: async () => new Response(JSON.stringify({ detail }), { status: 409 }) });
+  await assert.rejects(client.apiV2Get('/user-read/sessions/id', 'account'), error => {
+    assert.equal(error.status, 409);
+    assert.equal(error.code, 'archive_pending');
+    assert.equal(error.message, detail.message);
+    assert.deepEqual(error.details, detail);
+    return true;
+  });
+});
+
+test("v2 storage errors without server copy retain structured lifecycle detail", async () => {
+  const detail = { code: 'storage_payload_unavailable', storage_state: 'EXPIRED', deleted_at: null };
+  const { client } = clientFor({ fetch: async () => new Response(JSON.stringify({ detail }), { status: 410 }) });
+  await assert.rejects(client.apiV2Get('/user-read/sessions/id', 'account'), error => {
+    assert.equal(error.code, 'storage_payload_unavailable');
+    assert.equal(error.details.storage_state, 'EXPIRED');
+    assert.equal(error.message, 'The request could not be completed.');
+    return true;
+  });
+});
+
+test("old desktop sessions require an update without falling back to browser credentials", async () => {
+  let calls = 0;
+  const { client } = clientFor({ bridge: { version: 1, request: async () => { calls++; } }, fetch: async () => { calls++; } });
+  assert.equal(client.hasTranscriptSupport(), false);
+  await assert.rejects(client.apiV2Get('/user-read/sessions', 'never-send'), error => error.status === 426 && error.code === 'desktop_update_required');
+  assert.equal(calls, 0);
+});
+
+test("updated desktop sends only v2 read paths and never renderer credentials", async () => {
+  const requests = [];
+  const { client } = clientFor({ bridge: { version: 1, capabilities: { transcriptRead: true }, request: async request => {
+    requests.push(JSON.parse(JSON.stringify(request)));
+    return { status: 200, data: { items: [] } };
+  } } });
+  assert.equal(client.hasTranscriptSupport(), true);
+  await client.apiV2Get('/user-read/sessions?limit=25', 'never-send');
+  assert.deepEqual(requests, [{ path: '/v2/user-read/sessions?limit=25', method: 'GET' }]);
+  for (const [path, init] of [
+    ['/user-read/sessions', { method: 'POST' }], ['/user-read/sessions', { body: '{}' }],
+    ['/auth/token', {}], ['/user-read/../auth/token', {}], ['/user-read/sessions#private', {}],
+  ]) await assert.rejects(client.apiV2Get(path, 'never-send', init), error => error.status === 400);
+  assert.equal(requests.length, 1);
+});

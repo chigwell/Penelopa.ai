@@ -13,7 +13,7 @@ function ui() {
     module: { exports: {} },
     setTimeout() { return 1; },
   });
-  vm.runInContext(`${source}\nmodule.exports = { pollingStatus, toastStatus, updateStatus, updateDetail, settingsPage };`, context);
+  vm.runInContext(`${source}\nmodule.exports = { pollingStatus, toastStatus, updateStatus, updateDetail, settingsPage, workspaceLoading };`, context);
   return context.module.exports;
 }
 
@@ -39,6 +39,15 @@ test('App settings renders quiet notification diagnostics without recommendation
   assert.match(html, /Could not check recommendations\. Retrying automatically/);
   assert.match(html, /notification settings/);
   assert.doesNotMatch(html, /recommendation title|private-token/i);
+});
+
+test('native workspace loading reserves content space and announces one loading status', () => {
+  const html = ui().workspaceLoading();
+  assert.match(html, /aria-busy="true"/);
+  assert.equal((html.match(/role="status"/g) || []).length, 1);
+  assert.match(html, /skeleton-heading/);
+  assert.match(html, /skeleton-panel/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../ui/index.html'), 'utf8'), /data-page="sessions"/);
 });
 
 test('App settings exposes an available update and suppresses restart while checking', () => {

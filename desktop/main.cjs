@@ -69,6 +69,9 @@ let window,
   auth,
   poller,
   activePage = "dashboard",
+  remoteLoading = false,
+  remoteUrl = null,
+  remoteNavigation = 0,
   quitting = false,
   nativeError = null;
 const timers = [];
@@ -166,9 +169,31 @@ function viewBounds() {
 function hideRemote() {
   if (view) view.setVisible(false);
 }
+function remotePageForUrl(value) {
+  const pathname = new URL(value).pathname;
+  return /^\/dashboard\/sessions(?:\/|$)/.test(pathname)
+    ? "sessions"
+    : /^\/dashboard\/notifications(?:\/|$)/.test(pathname) ? "notifications" : "dashboard";
+}
+function finishRemoteNavigation(navigation, failed = false) {
+  if (navigation !== remoteNavigation || !remoteUrl) return;
+  remoteLoading = false;
+  if (failed) {
+    hideRemote();
+    activePage = "offline";
+    remoteUrl = null;
+  } else {
+    view.setVisible(true);
+    viewBounds();
+  }
+  pushState();
+}
 function showPage(page, recommendationId) {
+  const navigation = ++remoteNavigation;
   activePage = page;
   if (["connection", "settings"].includes(page)) {
+    remoteLoading = false;
+    remoteUrl = null;
     hideRemote();
     pushState();
     return;
@@ -176,17 +201,20 @@ function showPage(page, recommendationId) {
   const route =
     page === "notifications"
       ? "/dashboard/notifications"
+      : page === "sessions"
+        ? "/dashboard/sessions"
       : recommendationId
         ? `/dashboard/recommendations/${encodeURIComponent(recommendationId)}`
         : "/dashboard";
-  activePage = page === "notifications" ? "notifications" : "dashboard";
-  view.setVisible(true);
+  remoteUrl = `${WEB_ORIGIN}${route}`;
+  activePage = remotePageForUrl(remoteUrl);
+  remoteLoading = true;
+  hideRemote();
   viewBounds();
-  view.webContents.loadURL(`${WEB_ORIGIN}${route}`).catch(() => {
-    hideRemote();
-    activePage = "offline";
-    pushState();
-  });
+  view.webContents.loadURL(remoteUrl).then(
+    () => finishRemoteNavigation(navigation),
+    () => finishRemoteNavigation(navigation, true),
+  );
   pushState();
 }
 function localState() {
@@ -204,6 +232,7 @@ function localState() {
   }
   return {
     page: activePage,
+    remoteLoading,
     connection,
     auth: auth?.state(),
     preferences: settings(root),
@@ -575,20 +604,35 @@ async function initialise() {
   window.contentView.addChildView(view);
   configureContent(window.webContents, false);
   configureContent(view.webContents, true);
+  view.webContents.on("did-start-navigation", (_event, url, isInPlace, mainFrame) => {
+    if (!mainFrame || !webAllowed(url) || ["connection", "settings"].includes(activePage)) return;
+    if (isInPlace) return;
+    if (!remoteLoading || remoteUrl !== url) remoteNavigation++;
+    remoteUrl = url;
+    activePage = remotePageForUrl(url);
+    remoteLoading = true;
+    hideRemote();
+    pushState();
+  });
+  view.webContents.on("did-navigate-in-page", (_event, url, mainFrame) => {
+    if (!mainFrame || !remoteUrl || !webAllowed(url)) return;
+    remoteUrl = url;
+    activePage = remotePageForUrl(url);
+    pushState();
+  });
+  view.webContents.on("did-finish-load", () => {
+    if (remoteUrl && view.webContents.getURL() === remoteUrl)
+      finishRemoteNavigation(remoteNavigation);
+  });
   view.webContents.on(
     "did-fail-load",
-    (_event, code, _description, _url, mainFrame) => {
-      if (mainFrame && code !== -3) {
-        hideRemote();
-        activePage = "offline";
-        pushState();
-      }
+    (_event, code, _description, url, mainFrame) => {
+      if (mainFrame && code !== -3 && url === remoteUrl)
+        finishRemoteNavigation(remoteNavigation, true);
     },
   );
   view.webContents.on("render-process-gone", () => {
-    hideRemote();
-    activePage = "offline";
-    pushState();
+    finishRemoteNavigation(remoteNavigation, true);
   });
   window.on("resize", viewBounds);
   window.on("close", (event) => {

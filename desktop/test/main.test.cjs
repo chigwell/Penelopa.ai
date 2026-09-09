@@ -29,7 +29,12 @@ function fixture(t) {
     value.session.setPermissionCheckHandler = handler => { value.permissionCheck = handler; };
     value.setWindowOpenHandler = handler => { value.openHandler = handler; };
     value.send = (channel, data) => calls.push(['send', channel, data]);
-    value.loadURL = async url => { calls.push(['load', url]); if (state.offline) throw Error('offline'); };
+    value.getURL = () => value.currentUrl || value.mainFrame.url;
+    value.loadURL = url => {
+      calls.push(['load', url]); value.currentUrl = url;
+      if (state.pendingLoads) return new Promise((resolve, reject) => state.pendingLoads.push({ url, resolve, reject }));
+      return state.offline ? Promise.reject(Error('offline')) : Promise.resolve();
+    };
     return value;
   }
   class Window extends EventEmitter {
@@ -128,6 +133,60 @@ test('main API transport retains validated requests, null responses, and account
   assert.equal((await f.main.apiRequest({ path: '/v1/admin/stats/summary' })).status, 401);
   assert.equal(f.calls.filter(call => call[0] === 'fetch').length, 0);
   await assert.rejects(f.main.apiRequest({ path: '/v1/auth/bootstrap-token', method: 'POST' }));
+});
+
+test('transcript scope errors retain installed credentials while unauthorized responses reconnect', async t => {
+  const f = fixture(t); await f.main.initialise();
+  f.state.response = { status: 403, text: async () => '{"detail":{"code":"forbidden","message":"This session is outside the token scope."}}' };
+  const result = await f.main.apiRequest({ path: '/v2/user-read/sessions' });
+  assert.equal(result.status, 403);
+  assert.equal(result.data.detail.code, 'forbidden');
+  assert.equal(f.auth.token, 'synthetic-account');
+  assert.notEqual(f.main.localState().page, 'connection');
+  f.state.response = { status: 401, text: async () => '{}' };
+  await f.main.apiRequest({ path: '/v2/user-read/sessions' });
+  assert.equal(f.auth.token, null);
+  assert.equal(f.main.localState().page, 'connection');
+});
+
+test('Sessions navigation retains native loading until current content succeeds', async t => {
+  const f = fixture(t); f.state.pendingLoads = []; await f.main.initialise();
+  assert.equal(f.main.localState().remoteLoading, true);
+  await f.main.localAction('navigate', 'sessions');
+  assert.equal(f.main.localState().page, 'sessions');
+  assert.equal(f.main.localState().remoteLoading, true);
+  assert.equal(f.state.pendingLoads[1].url, 'https://penelopa.ai/dashboard/sessions');
+  f.state.pendingLoads[0].reject(Error('obsolete load'));
+  await Promise.resolve();
+  assert.equal(f.main.localState().page, 'sessions');
+  f.state.pendingLoads[1].resolve(); await Promise.resolve();
+  assert.equal(f.main.localState().remoteLoading, false);
+  assert.deepEqual(f.calls.filter(call => call[0] === 'visible').at(-1), ['visible', true]);
+  await f.main.localAction('navigate', 'dashboard');
+  await f.main.localAction('navigate', 'settings');
+  f.state.pendingLoads[2].resolve(); await Promise.resolve();
+  assert.equal(f.main.localState().page, 'settings');
+  assert.deepEqual(f.calls.filter(call => call[0] === 'visible').at(-1), ['visible', false]);
+});
+
+test('remote document and in-page navigation keep native Sessions selection in sync', async t => {
+  const f = fixture(t); await f.main.initialise();
+  const web = f.state.view.webContents;
+  const url = 'https://penelopa.ai/dashboard/sessions/12345678-1234-1234-1234-123456789abc';
+  web.emit('did-start-navigation', {}, url, false, true);
+  assert.equal(f.main.localState().page, 'sessions');
+  assert.equal(f.main.localState().remoteLoading, true);
+  web.emit('did-fail-load', {}, -2, 'old failure', 'https://penelopa.ai/dashboard', true);
+  assert.equal(f.main.localState().page, 'sessions');
+  web.currentUrl = url; web.emit('did-finish-load');
+  assert.equal(f.main.localState().remoteLoading, false);
+  web.emit('did-navigate-in-page', {}, `${url}?event=one`, true);
+  assert.equal(f.main.localState().page, 'sessions');
+  assert.equal(f.main.localState().remoteLoading, false);
+  web.emit('did-start-navigation', {}, 'https://penelopa.ai/dashboard/notifications', false, true);
+  web.emit('did-fail-load', {}, -2, 'offline', 'https://penelopa.ai/dashboard/notifications', true);
+  assert.equal(f.main.localState().page, 'offline');
+  assert.equal(f.main.localState().remoteLoading, false);
 });
 
 test('local actions preserve preference effects, sign-out, reconnect, and update handoff', async t => {

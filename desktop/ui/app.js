@@ -20,6 +20,9 @@ const date = (value) =>
     : "Waiting for activity";
 const button = (text, action, style = "") =>
   `<button class="button ${style}" data-action="${action}" ${busy ? "disabled" : ""}>${text}</button>`;
+function workspaceLoading() {
+  return '<section class="workspace-loading" aria-busy="true" aria-label="Loading your workspace"><span class="loading-label" role="status">Opening your workspace…</span><div class="skeleton skeleton-heading"></div><div class="skeleton-metrics"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div><div class="skeleton skeleton-panel"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></section>';
+}
 function message(text) {
   const element = document.getElementById("message");
   element.textContent = text;
@@ -121,6 +124,7 @@ function render(state) {
   document.getElementById("page-title").textContent =
     {
       dashboard: "Overview",
+      sessions: "Sessions",
       notifications: "Telegram alerts",
       connection: "Connection",
       settings: "App settings",
@@ -133,7 +137,7 @@ function render(state) {
         ? settingsPage(state)
         : state.page === "offline"
           ? '<section class="empty"><div class="symbol">↻</div><h1>A moment offline.</h1><p>Your queued activity is safe on this computer. We will continue delivery when the connection returns.</p><div class="actions"><button class="button primary" data-page="dashboard">Try again</button><button class="button" data-page="connection">View connection</button></div></section>'
-          : '<div class="loading">Opening your workspace…</div>';
+          : state.remoteLoading ? workspaceLoading() : '';
 }
 async function invoke(action, data) {
   if (busy) return;

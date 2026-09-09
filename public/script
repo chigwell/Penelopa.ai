@@ -3,7 +3,7 @@ set -eu
 umask 077
 
 NODE_VERSION='24.20.0'
-BOOTSTRAP_SHA='ee8c1e2562743e7cb9da2ba2415ca69925bb00b7d9dccf7a146fa099370845fa'
+BOOTSTRAP_SHA='5ccc72eb7d226b0a66f4b32556e79e7f7aec101ed00c8ca2ca5605d9bc6d0dd9'
 BASE_URL="${AUTO_IMPROVE_RELEASE_BASE_URL:-https://penelopa.ai/desktop}"
 ROOT="${AUTO_IMPROVE_HOME:-$HOME/.auto-improve}"
 log() { printf 'Penelopa: %s\n' "$*" >&2; }

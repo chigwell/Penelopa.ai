@@ -28,7 +28,7 @@ const routes = [
     cursor, limit: integer(1, 100), max_chars: integer(1, 30000),
   }],
   [new RegExp(`^${session}/events/tail$`), { cursor, limit: integer(1, 100) }],
-  [new RegExp(`^${event}$`), { sections_cursor: cursor, sections_limit: integer(1, 50) }],
+  [new RegExp(`^${event}$`), { section_id: section, sections_cursor: cursor, sections_limit: integer(1, 50) }],
   [new RegExp(`^${event}/content/[a-zA-Z0-9_-]{1,128}$`), { cursor, max_chars: integer(1, 32768) }],
   [new RegExp(`^${event}/related$`), { section_id: section, cursor, limit: integer(1, 100) }],
   [/^\/v2\/process\/sessions$/, {
@@ -54,6 +54,8 @@ function validateTranscriptRequest(url, method, body) {
       throw new Error("Invalid transcript query.");
     seen.add(key);
   }
+  if (seen.has("section_id") && seen.has("sections_cursor"))
+    throw new Error("Choose a content section or a section page, not both.");
 }
 
 module.exports = { validateTranscriptRequest };

@@ -3,17 +3,40 @@ const test = require('node:test');
 const vm = require('node:vm');
 const { buildSync } = require('esbuild');
 const path = require('node:path');
+const { TextEncoder } = require('node:util');
 function load(file) {
   const source = buildSync({ entryPoints: [path.join(__dirname, file)], bundle: true, platform: 'node', format: 'cjs', write: false, external: ['react'] }).outputFiles[0].text;
-  const module = { exports: {} }; vm.runInNewContext(source, { module, exports: module.exports, require, URLSearchParams, AbortController, DOMException, setTimeout }); return module.exports;
+  const module = { exports: {} }; vm.runInNewContext(source, { module, exports: module.exports, require, URLSearchParams, AbortController, DOMException, setTimeout, TextEncoder, Uint8Array, DataView, ArrayBuffer, Blob, URL }); return module.exports;
 }
 const { normalizeGraphText, mergeKnowledgeGraphs, graphForSelection, resolveGraphSelection } = load('knowledge-graph-model.ts');
 const { createGraphClient, graphAvailable, graphCatalog, GraphProjectLoader } = load('knowledge-graph-client.ts');
+const { buildKnowledgeGraphExport, createStoreZip, KNOWLEDGE_GRAPH_CSV_NAME, KNOWLEDGE_GRAPH_README_NAME } = load('knowledge-graph-export.ts');
 const json = value => JSON.parse(JSON.stringify(value));
 const run = (id, day, extra = {}) => ({ id, project_id: 'p', session_id: id, session_key: id, source: 'codex', graph_created_at: `2026-09-0${day}T00:00:00Z`, graph_finished_at: null, node_count: 2, ...extra });
 const snapshot = (id, day, edges, extra = {}) => ({ run: run(id, day, extra), nodes: [...new Set(edges.flatMap(edge => [edge.from, edge.to]))].map(label => ({ id: label, label })), edges });
 const noFilters = { sessions: [], source: '' };
 const before = Date.parse('2026-09-01T12:00:00Z');
+function readStoreZip(bytes) {
+  const buffer = Buffer.from(bytes), entries = {};
+  let offset = 0;
+  while (offset + 4 <= buffer.length && buffer.readUInt32LE(offset) === 0x04034b50) {
+    const flags = buffer.readUInt16LE(offset + 6), method = buffer.readUInt16LE(offset + 8), size = buffer.readUInt32LE(offset + 18);
+    const nameLength = buffer.readUInt16LE(offset + 26), extraLength = buffer.readUInt16LE(offset + 28);
+    assert.equal(flags, 0x800); assert.equal(method, 0);
+    const name = buffer.subarray(offset + 30, offset + 30 + nameLength).toString('utf8'), start = offset + 30 + nameLength + extraLength;
+    entries[name] = buffer.subarray(start, start + size).toString('utf8');
+    offset = start + size;
+  }
+  assert.equal(buffer.readUInt32LE(offset), 0x02014b50);
+  return entries;
+}
+function exportOrigin(runId, at, extra = {}) {
+  return {
+    runId, projectId: 'p', projectKey: '/work/penelopa.ai', sessionId: 's', sessionKey: 'Build the dashboard',
+    source: 'codex-openai', at, originalId: null, label: '', transcriptStart: '2026-09-01T09:00:00Z',
+    transcriptEnd: '2026-09-01T10:00:00Z', search: '', ...extra,
+  };
+}
 
 test('normalization matches Python casefold and whitespace semantics', () => {
   assert.equal(normalizeGraphText('  Straße\u0085Σς\u001c A  '), 'strasse σσ a');
@@ -42,6 +65,44 @@ test('default URL selection is all time and old at links resolve as latest', () 
   assert.deepEqual(json(resolveGraphSelection({ mode: 'latest' }, latest)), { mode: 'latest', at: latest });
   assert.deepEqual(json(resolveGraphSelection({ at: '2026-09-01T00:00:00Z' }, latest)), { mode: 'latest', at: Date.parse('2026-09-01T00:00:00Z') });
   assert.deepEqual(json(resolveGraphSelection({ mode: 'range', from: '2026-09-01T00:00:00Z', to: '2026-09-02T00:00:00Z' }, latest)), { mode: 'range', from: Date.parse('2026-09-01T00:00:00Z'), to: Date.parse('2026-09-02T00:00:00Z') });
+});
+test('knowledge graph CSV export writes relationship origins, metadata and deterministic ZIP bytes', () => {
+  const first = Date.parse('2026-09-01T11:00:00Z'), second = Date.parse('2026-09-02T11:00:00Z');
+  const nodes = [
+    { id: 'source-node', projectId: 'p', projectKey: '/work/penelopa.ai', label: '=Source', firstSeen: first, observedAt: first, search: '',
+      origins: [exportOrigin('r1', first, { originalId: 'n1', label: '=Source' }), exportOrigin('r2', second, { originalId: 'n2', label: '=Source v2' })] },
+    { id: 'target-node', projectId: 'p', projectKey: '/work/penelopa.ai', label: 'Target, "Quoted"', firstSeen: first, observedAt: first, search: '',
+      origins: [exportOrigin('r1', first, { originalId: 'n3', label: 'Target, "Quoted"' }), exportOrigin('r2', second, { originalId: 'n4', label: 'Target v2' })] },
+    { id: 'isolated-node', projectId: 'p', projectKey: '/work/penelopa.ai', label: 'Isolated', firstSeen: first, observedAt: first, search: '', origins: [exportOrigin('r1', first, { originalId: 'n5', label: 'Isolated' })] },
+  ];
+  const edges = [{ id: 'edge-1', projectId: 'p', projectKey: '/work/penelopa.ai', source: 'source-node', target: 'target-node',
+    relationship: '+links', firstSeen: first, observedAt: first, search: '',
+    origins: [exportOrigin('r1', first, { originalId: 'e1', label: '+links' }), exportOrigin('r2', second, { originalId: 'e2', label: 'rel, "two"' })] }];
+  const input = {
+    nodes, edges, selection: { mode: 'all' }, skipped: 3, generatedAt: new Date('2026-09-06T12:00:00Z'),
+    project: { id: 'p', label: 'penelopa.ai' }, source: { value: 'codex-openai', label: 'Codex' },
+    sessions: [{ id: 's', label: 'Build the dashboard' }], relationship: '+links', edgeQuery: 'rel',
+    entityQuery: '=Source', currentUrl: 'https://example.test/dashboard/knowledge-graph?edge_q=rel',
+  };
+  const output = buildKnowledgeGraphExport(input), again = buildKnowledgeGraphExport(input);
+  assert.equal(output.filename, 'knowledge-graph-current-view-20260906T120000Z.zip');
+  assert.deepEqual(Array.from(output.bytes), Array.from(again.bytes));
+  assert.equal(output.csv.trim().split('\r\n').length, 3);
+  assert.match(output.csv, /"'\=Source"/);
+  assert.match(output.csv, /"Target, ""Quoted"""/);
+  assert.match(output.csv, /"'\+links"/);
+  assert.match(output.csv, /"rel, ""two"""/);
+  assert.match(output.csv, /"\[""n1""\]","\[""=Source""\]"/);
+  assert.doesNotMatch(output.csv, /Isolated/);
+  assert.match(output.readme, /Entity search: =Source \(highlight only; not applied to CSV rows\)/);
+  assert.match(output.readme, /Omitted isolated entities: 1/);
+  assert.match(output.readme, /Relationship origins exported: 2/);
+  assert.match(output.readme, /Invalid elements skipped while preparing graph: 3/);
+  const entries = readStoreZip(output.bytes);
+  assert.deepEqual(Object.keys(entries).sort(), [KNOWLEDGE_GRAPH_CSV_NAME, KNOWLEDGE_GRAPH_README_NAME].sort());
+  assert.equal(entries[KNOWLEDGE_GRAPH_CSV_NAME], output.csv);
+  assert.equal(entries[KNOWLEDGE_GRAPH_README_NAME], output.readme);
+  assert.throws(() => createStoreZip([{ name: '../bad.csv', contents: '' }]), /Unsafe ZIP entry name/);
 });
 test('all-project graph keeps same labels separate across projects', () => {
   const graph = mergeKnowledgeGraphs([

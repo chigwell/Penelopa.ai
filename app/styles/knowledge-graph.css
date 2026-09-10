@@ -1,5 +1,6 @@
 .kg-main { max-width: 1600px; margin: 0 auto; padding: 42px 40px 28px; }
 .kg-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
+.kg-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .kg-heading .eyebrow { display: flex; align-items: center; gap: 8px; }
 .kg-heading h1 { margin: 8px 0 10px; font: 40px/1.15 var(--font-display); letter-spacing: -.8px; }
 .kg-heading p:last-child { margin: 0; color: var(--muted); font-size: 14px; }
@@ -96,7 +97,7 @@
 .kg-shell button:disabled { cursor: default; opacity: .5; }
 @media (max-width: 1100px) { .kg-main { padding: 28px 24px; } .kg-toolbar { flex-wrap: wrap; gap: 12px; } .kg-count { width: 100%; padding: 0; } .kg-timeline { grid-template-columns: 1fr; gap: 16px; } }
 @media (max-width: 959px) { .kg-workspace.has-selection { grid-template-columns: minmax(0, 1fr); } .kg-workspace > .inspector-dialog { height: 100dvh; max-height: 100dvh; min-height: 0; } }
-@media (max-width: 600px) { .kg-main { padding: 24px 16px; } .kg-heading { align-items: start; flex-wrap: wrap; gap: 16px; } .kg-heading h1 { font-size: 32px; } .kg-heading p:last-child { font-size: 12px; line-height: 1.6; } .kg-toolbar > label:first-child { width: 100%; } .kg-toolbar select { max-width: 100%; } .kg-session-filter > div { left: -100px; } .kg-searchbar label { flex-basis: 100%; } .kg-searchbar select { min-width: 0; flex: 1; } .kg-stage { min-height: 460px; height: 64vh; } .kg-canvas { grid-template-rows: minmax(0, 1fr) 96px; } .kg-native-timeline { min-height: 96px; padding: 8px 10px; } .kg-timeline { padding: 18px 14px; } .kg-timeline-control > div { flex-wrap: wrap; gap: 8px; } .kg-timeline-control .session-button { font-size: 10px; padding: 8px; } .kg-canvas-hint { font-size: 8px; left: 8px; } .kg-footnote { flex-direction: column; line-height: 1.5; } }
+@media (max-width: 600px) { .kg-main { padding: 24px 16px; } .kg-heading { align-items: start; flex-wrap: wrap; gap: 16px; } .kg-heading-actions { justify-content: flex-start; } .kg-heading h1 { font-size: 32px; } .kg-heading p:last-child { font-size: 12px; line-height: 1.6; } .kg-toolbar > label:first-child { width: 100%; } .kg-toolbar select { max-width: 100%; } .kg-session-filter > div { left: -100px; } .kg-searchbar label { flex-basis: 100%; } .kg-searchbar select { min-width: 0; flex: 1; } .kg-stage { min-height: 460px; height: 64vh; } .kg-canvas { grid-template-rows: minmax(0, 1fr) 96px; } .kg-native-timeline { min-height: 96px; padding: 8px 10px; } .kg-timeline { padding: 18px 14px; } .kg-timeline-control > div { flex-wrap: wrap; gap: 8px; } .kg-timeline-control .session-button { font-size: 10px; padding: 8px; } .kg-canvas-hint { font-size: 8px; left: 8px; } .kg-footnote { flex-direction: column; line-height: 1.5; } }
 @media (prefers-reduced-motion: reduce) { .kg-shell *, .kg-shell *::before, .kg-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 @media (max-width: 600px) {
   .kg-canvas { grid-template-rows: auto minmax(0, 1fr) 96px; }

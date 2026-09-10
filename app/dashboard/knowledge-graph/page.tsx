@@ -2,7 +2,7 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Copy, GitBranch, Network, Search, SlidersHorizontal } from "lucide-react";
+import { Check, Copy, Download, GitBranch, Network, Search, SlidersHorizontal } from "lucide-react";
 import { DashboardTopbar, AccessTokenForm } from "../PageChrome";
 import { SessionEmpty } from "../sessions/SessionChrome";
 import { InspectorFrame } from "../sessions/SessionInspector";
@@ -15,6 +15,7 @@ import type { GraphOrigin, GraphSelection, KnowledgeEdge, KnowledgeNode } from "
 import { formatDateTime } from "../../lib/formatting";
 import { projectName, sourceName } from "../../lib/transcript-display";
 import { copyText } from "../../lib/clipboard";
+import { downloadKnowledgeGraphExport } from "../../lib/knowledge-graph-export";
 import { DetailSkeleton } from "../../components/loading/Loading";
 
 const GraphCanvas = lazy(() => import("./GraphCanvas"));
@@ -43,7 +44,7 @@ export default function KnowledgeGraphPage() {
   const sessionsKey = params.getAll("session").sort().join(","), source = params.get("source") || "";
   const filters = useMemo(() => ({ sessions: sessionsKey ? sessionsKey.split(",") : [], source }), [sessionsKey, source]);
   const data = useGraphProject(access.token && supported ? access.token : null, project, catalog.runs, filters, catalog.revision, access.onError);
-  const [listMode, setListMode] = useState(false), [canvasFailed, setCanvasFailed] = useState(false), [copied, setCopied] = useState(false);
+  const [listMode, setListMode] = useState(false), [canvasFailed, setCanvasFailed] = useState(false), [copied, setCopied] = useState(false), [exported, setExported] = useState(false);
   const query = params.get("q") || "", edgeQuery = params.get("edge_q") || "", relationship = params.get("relationship") || "";
   const [searchInput, setSearchInput] = useState(query), [edgeInput, setEdgeInput] = useState(edgeQuery);
   const modeParam = params.get("mode"), atParam = params.get("at"), fromParam = params.get("from"), toParam = params.get("to");
@@ -89,15 +90,34 @@ export default function KnowledgeGraphPage() {
     gl?.getExtension("WEBGL_lose_context")?.loseContext();
   }, [project]);
   useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 2000); return () => clearTimeout(timer); }, [copied]);
+  useEffect(() => { if (!exported) return; const timer = setTimeout(() => setExported(false), 2000); return () => clearTimeout(timer); }, [exported]);
   const select = (id: string) => update({ node: id });
   const selectLatest = () => update({ mode: "latest", at: "", from: "", to: "", node: "" });
   const selectAll = () => update({ mode: "all", at: "", from: "", to: "", node: "" });
   const selectRange = (from: number, to: number) => update({ mode: "range", from: new Date(Math.min(from, to)).toISOString(), to: new Date(Math.max(from, to)).toISOString(), at: "", node: "" }, true);
+  const selectedProjectName = project === ALL_PROJECTS ? "All projects" : projectName(projects.find(([id]) => id === project)?.[1] || project);
+  const exportGraph = () => {
+    if (!data.graph) return;
+    downloadKnowledgeGraphExport({
+      nodes: view.nodes,
+      edges: view.edges,
+      selection,
+      skipped: data.graph.skipped,
+      project: { id: project, label: selectedProjectName },
+      source: { value: source, label: source ? sourceName(source) : "All sources" },
+      sessions: filters.sessions.map(id => ({ id, label: sessions.find(([sessionId]) => sessionId === id)?.[1] || id })),
+      relationship,
+      edgeQuery,
+      entityQuery: query,
+      currentUrl: window.location.href.replace(/#.*/, ""),
+    });
+    setExported(true);
+  };
   const fallback = <GraphList nodes={matches} edges={view.edges} selected={selected?.id} onSelect={select} reason={canvasFailed ? "The interactive canvas is unavailable. Explore the same knowledge below." : undefined} />;
   return <main className="dashboard-shell kg-shell">
     <DashboardTopbar theme={theme} onThemeToggle={toggleTheme} onLogout={access.token ? access.logout : undefined} onRefresh={access.token && supported ? catalog.refresh : undefined} backHref="/dashboard" backLabel="Dashboard" />
     {!access.initialized ? <DetailSkeleton /> : !access.token ? <section className="token-gate"><div className="token-gate-copy"><p className="eyebrow">Your knowledge</p><h1>See the connections.</h1><p>Sign in to explore what your projects have learned.</p></div><AccessTokenForm desktop={desktop} loading={false} value={access.tokenInput} onChange={access.setTokenInput} error={access.authError} onSubmit={access.signIn} /></section> : !supported ? <SessionEmpty title="A new way to see your work." description="Update & restart in App settings to explore knowledge graphs." icon="refresh" /> : catalog.error ? <GraphError error={catalog.error} retry={catalog.refresh} /> : !catalog.runs ? <div className="session-main"><DetailSkeleton /><p role="status">Finding your knowledge graphs…</p></div> : !projects.length ? null : requestedProject && requestedProject !== ALL_PROJECTS && !projects.some(([id]) => id === project) ? <SessionEmpty title="This project is unavailable." description="Choose an accessible project to explore its knowledge." action={<button className="session-button" onClick={() => update({ project: ALL_PROJECTS, session: [], source: "", mode: "all", at: "", from: "", to: "", node: "" })}>Choose another project</button>} /> : <div className="kg-main">
-      <header className="kg-heading"><div><p className="eyebrow"><Network size={14} /> KNOWLEDGE GRAPH</p><h1>Ideas become connections.</h1><p>Explore the knowledge your projects have gathered, one discovery at a time.</p></div><button className="session-button" onClick={async () => { const url = new URL(window.location.href); url.hash = ""; if (project === ALL_PROJECTS) url.searchParams.delete("project"); else url.searchParams.set("project", project); await copyText(url.toString()); setCopied(true); }}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? "Copied" : "Copy link"}</button></header>
+      <header className="kg-heading"><div><p className="eyebrow"><Network size={14} /> KNOWLEDGE GRAPH</p><h1>Ideas become connections.</h1><p>Explore the knowledge your projects have gathered, one discovery at a time.</p></div><div className="kg-heading-actions">{data.graph ? <button className="session-button" onClick={exportGraph}>{exported ? <Check size={14} /> : <Download size={14} />}{exported ? "Exported" : "Export CSV"}</button> : null}<button className="session-button" onClick={async () => { const url = new URL(window.location.href); url.hash = ""; if (project === ALL_PROJECTS) url.searchParams.delete("project"); else url.searchParams.set("project", project); await copyText(url.toString()); setCopied(true); }}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? "Copied" : "Copy link"}</button></div></header>
       <div className="kg-toolbar">
         <label>Project<select aria-label="Project" value={project} onChange={event => update({ project: event.target.value, session: [], source: "", mode: "all", at: "", from: "", to: "", node: "", q: "", edge_q: "", relationship: "" })}><option value={ALL_PROJECTS}>All projects</option>{projects.map(([id, name]) => <option key={id} value={id}>{projectName(name)}</option>)}</select></label>
         <label>Source<select aria-label="Source" value={source} onChange={event => update({ source: event.target.value, mode: "all", at: "", from: "", to: "", node: "" })}><option value="">All sources</option>{sources.map(item => <option key={item} value={item}>{sourceName(item)}</option>)}</select></label>

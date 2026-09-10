@@ -1,7 +1,23 @@
+import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { setup } from './fixtures.mjs';
 import { setupGraphs, graphRuns, projectId, graphResponse, communityResponse, multiProjectResponse } from './graph-fixtures.mjs';
 import { canvasState, expectReadyCanvas, chooseCanvasEntity, timelineColors } from './graph-canvas-helpers.mjs';
+
+function readStoreZip(bytes) {
+  const entries = {};
+  let offset = 0;
+  while (offset + 4 <= bytes.length && bytes.readUInt32LE(offset) === 0x04034b50) {
+    const flags = bytes.readUInt16LE(offset + 6), method = bytes.readUInt16LE(offset + 8), size = bytes.readUInt32LE(offset + 18);
+    const nameLength = bytes.readUInt16LE(offset + 26), extraLength = bytes.readUInt16LE(offset + 28);
+    expect(flags).toBe(0x800); expect(method).toBe(0);
+    const name = bytes.subarray(offset + 30, offset + 30 + nameLength).toString('utf8'), start = offset + 30 + nameLength + extraLength;
+    entries[name] = bytes.subarray(start, start + size).toString('utf8');
+    offset = start + size;
+  }
+  expect(bytes.readUInt32LE(offset)).toBe(0x02014b50);
+  return entries;
+}
 
 test('empty accounts hide all graph navigation and direct entry returns to Dashboard', async ({ page }) => {
   await setup(page, { token: 'fixture-token' });
@@ -34,6 +50,21 @@ test('all-time default, latest, provenance, filters and URL navigation', async (
   await expect(page.getByRole('button', { name: 'Dashboard 2 connections' })).toHaveCount(0);
   await page.getByLabel('Search entities').fill('Knowledge');
   await expect(page.getByLabel('Matching entities')).toContainText('1 matches');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export CSV', exact: true }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^knowledge-graph-current-view-\d{8}T\d{6}Z\.zip$/);
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  const archive = readStoreZip(fs.readFileSync(downloadPath));
+  expect(Object.keys(archive).sort()).toEqual(['README.md', 'knowledge-graph-relationships.csv']);
+  expect(archive['README.md']).toContain('Source: Codex (codex-openai)');
+  expect(archive['README.md']).toContain('Entity search: Knowledge (highlight only; not applied to CSV rows)');
+  expect(archive['README.md']).toContain('Visible relationships: 1');
+  expect(archive['knowledge-graph-relationships.csv']).toContain('"stores"');
+  expect(archive['knowledge-graph-relationships.csv']).toContain('"Knowledge"');
+  expect(archive['knowledge-graph-relationships.csv']).not.toContain('"Dashboard"');
   await page.getByRole('button', { name: 'Copy link', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__copied.at(-1))).not.toContain('project=');
   expect(requests.filter(request => request.path.startsWith('/v2/user-read/knowledge-graphs?')).every(request => request.path.includes('current_only=false'))).toBe(true);

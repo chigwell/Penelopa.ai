@@ -10,9 +10,13 @@ export function knowledgeRuntime(): Plugin {
   const moduleId = "virtual:knowledge-runtime", resolvedId = `\0${moduleId}`;
   let development = false;
   let assets: { name: string; bytes: Buffer; type: string }[] | undefined;
+  const workerBytes = () => Buffer.from(
+    readFileSync(require.resolve("@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js"), "utf8")
+      .replace(/\n\/\/# sourceMappingURL=duckdb-browser-mvp\.worker\.js\.map\s*$/, "\n"),
+  );
   const files = () => assets ||= [
     { name: "duckdb-mvp.wasm.gz", bytes: gzipSync(readFileSync(require.resolve("@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm")), { level: 9 }), type: "application/octet-stream" },
-    { name: "duckdb-browser-mvp.worker.js", bytes: readFileSync(require.resolve("@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js")), type: "text/javascript" },
+    { name: "duckdb-browser-mvp.worker.js", bytes: workerBytes(), type: "text/javascript" },
   ];
   return {
     name: "knowledge-runtime",

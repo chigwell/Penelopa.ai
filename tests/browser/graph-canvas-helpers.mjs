@@ -40,7 +40,7 @@ export async function canvasState(page, fixedLayout = false) {
     const highlightEdges = element.parentElement?.querySelectorAll('[data-edge-highlight-id]').length ?? 0;
     return {
       camera: { zoom: graph.getZoomLevel(), origin: graph.spaceToScreenPosition([0, 0]) }, focused: graph.focusedPointIndex,
-      linkStyle: { color: config.linkDefaultColor, width: config.linkDefaultWidth, opacity: config.linkOpacity, greyoutOpacity: config.linkGreyoutOpacity },
+      linkStyle: { color: config.linkDefaultColor, width: config.linkDefaultWidth, opacity: config.linkOpacity, greyoutOpacity: config.linkGreyoutOpacity, arrows: config.linkDefaultArrows },
       highlightEdges,
       selectedLinks: selectedLinks ?? null, selectedPoints: selectedPoints ?? null,
       points: points.map(p => {

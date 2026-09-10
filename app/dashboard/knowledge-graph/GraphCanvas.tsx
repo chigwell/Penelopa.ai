@@ -15,8 +15,6 @@ type Props = {
   selected?: string; matches: string[]; onSelect: (id: string) => void; onTimelineRange: (from: number, to: number) => void;
   onFailure: () => void;
 };
-type HighlightLink = { id: string; source: number; target: number };
-type HighlightSegment = HighlightLink & { x1: number; y1: number; x2: number; y2: number; loop: boolean };
 const day = 86_400_000, minute = 60_000;
 const dateMode = "date" as NonNullable<CosmographTimelineConfig["mode"]>;
 const toMs = (value: number | Date) => value instanceof Date ? value.getTime() : value;
@@ -42,14 +40,6 @@ function sameSelection(left: [Date, Date] | undefined, right: [Date, Date] | und
   if (!left || !right) return left === right;
   return Math.abs(left[0].getTime() - right[0].getTime()) < 2 && Math.abs(left[1].getTime() - right[1].getTime()) < 2;
 }
-function sameSegments(left: HighlightSegment[], right: HighlightSegment[]) {
-  if (left.length !== right.length) return false;
-  return left.every((item, index) => {
-    const other = right[index];
-    return item.id === other?.id && Math.abs(item.x1 - other.x1) < 0.5 && Math.abs(item.y1 - other.y1) < 0.5 &&
-      Math.abs(item.x2 - other.x2) < 0.5 && Math.abs(item.y2 - other.y2) < 0.5 && item.loop === other.loop;
-  });
-}
 function formatTimelineTick(value: number | Date) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(toMs(value)));
 }
@@ -60,8 +50,6 @@ export default function GraphCanvas(props: Props) {
   const [connection, setConnection] = useState<WasmDuckDBConnection>(), [mounted, setMounted] = useState<CosmographRef>();
   const [timeline, setTimeline] = useState<CosmographTimelineRef>();
   const [ready, setReady] = useState(false), [settled, setSettled] = useState(false), [revision, setRevision] = useState(0);
-  const [highlightLinks, setHighlightLinks] = useState<HighlightLink[]>([]);
-  const [highlightSegments, setHighlightSegments] = useState<HighlightSegment[]>([]);
   const latest = useRef(props); latest.current = props;
   const live = useRef(false), interacted = useRef(false), pendingFit = useRef(false);
   const framedNode = useRef<string | undefined>(undefined);
@@ -81,9 +69,9 @@ export default function GraphCanvas(props: Props) {
     const theme = latest.current.theme, selected = Boolean(latest.current.selected);
     return { backgroundColor: color("--canvas"), pointDefaultColor: color("--muted"),
       pointColorByMap: Object.fromEntries((presentation?.nodes || []).map(node => [node.communityId ?? "__isolated", node.color[theme]])),
-      linkDefaultColor: selected ? color("--chart-messages") : theme === "dark" ? "#a5afbd" : "#66768c",
-      linkDefaultWidth: selected ? 2.8 : 1.4, linkOpacity: selected ? 0.95 : 0.65, linkGreyoutOpacity: selected ? 0.025 : 0.07,
-      hoveredLinkWidthIncrease: selected ? 2.2 : 1.5, pointLabelColor: color("--text"),
+      linkDefaultColor: selected ? (theme === "dark" ? "#91a6c4" : "#48668c") : theme === "dark" ? "#a5afbd" : "#66768c",
+      linkDefaultWidth: selected ? 1.8 : 1.4, linkOpacity: selected ? 0.8 : 0.65, linkGreyoutOpacity: selected ? 0.06 : 0.12,
+      hoveredLinkWidthIncrease: 1.2, pointLabelColor: color("--text"),
       hoveredPointLabelColor: color("--text"), focusedPointRingColor: color("--ink"), hoveredPointRingColor: color("--ink") };
   };
   useEffect(() => {
@@ -132,7 +120,7 @@ export default function GraphCanvas(props: Props) {
         pointDefaultSize: 7, pointSizeStrategy: "auto", pointSizeRange: [7, 20], scalePointsOnZoom: false,
         // Explicit categorical mapping keeps neutral isolates out of the community palette.
         pointColorStrategy: "map", pointGreyoutOpacity: 0.22,
-        linkColorStrategy: "single", linkWidthStrategy: "single", linkDefaultArrows: true, linkVisibilityMinTransparency: 0.65,
+        linkColorStrategy: "single", linkWidthStrategy: "single", linkDefaultArrows: false, curvedLinks: false, linkVisibilityMinTransparency: 0.65,
         showLabels: true, showDynamicLabels: true, pointLabelClassName: "kg-point-label", hoveredPointLabelClassName: "kg-point-label",
         selectPointOnClick: false, selectPointOnLabelClick: false, focusPointOnClick: false, focusPointOnLabelClick: false, resetSelectionOnEmptyCanvasClick: false, renderLinks: true, fitViewOnInit: false,
         simulationDecay: 240, simulationCluster: 0.06, simulationCollision: 0.7, simulationCollisionPadding: 2, randomSeed: "penelopa-knowledge", disableLogging: true,
@@ -164,7 +152,6 @@ export default function GraphCanvas(props: Props) {
       if (!active || !live.current) return;
       const index = indices?.[0];
       if (!props.selected || index === undefined) {
-        setHighlightLinks([]);
         mounted.unselectAll();
         if (indices?.length) mounted.selectPoints(indices, false, false);
         return;
@@ -174,13 +161,13 @@ export default function GraphCanvas(props: Props) {
       const links = props.edges.length ? await mounted.getLinksByPointIndices([index]).catch(() => undefined) : undefined;
       if (!active || !live.current) return;
       const rendered = await mounted.getConfig();
+      if (!active || !live.current) return;
       const linkRows = links?.toArray().map(row => ({
         rowid: Number(row.rowid),
         source: Number(row[rendered.linkSourceIndexBy!]),
         target: Number(row[rendered.linkTargetIndexBy!]),
       })).filter(row => Number.isFinite(row.rowid) && Number.isFinite(row.source) && Number.isFinite(row.target) && (row.source === index || row.target === index)) || [];
       const linkIndices = linkRows.map(row => row.rowid);
-      setHighlightLinks(linkRows.map(row => ({ id: String(row.rowid), source: row.source, target: row.target })));
       mounted.unselectAll();
       mounted.selectPoints(neighborhood, false, false);
       if (linkIndices.length) mounted.selectLinks(linkIndices, true, false);
@@ -192,28 +179,6 @@ export default function GraphCanvas(props: Props) {
     })().catch(() => { if (active && live.current) latest.current.onFailure(); });
     return () => { active = false; };
   }, [props.selected, matchesKey, mounted, ready, revision, settled, connection]);
-  useEffect(() => {
-    if (!mounted || !ready || !props.selected || !highlightLinks.length) {
-      setHighlightSegments([]);
-      return;
-    }
-    let frame = 0, active = true;
-    const update = () => {
-      if (!active || !live.current) return;
-      const next = highlightLinks.map(link => {
-        const source = mounted.getPointPositionByIndex(link.source);
-        const target = mounted.getPointPositionByIndex(link.target);
-        const from = source ? mounted.spaceToScreenPosition(source) : undefined;
-        const to = target ? mounted.spaceToScreenPosition(target) : undefined;
-        if (!from || !to || !Number.isFinite(from[0]) || !Number.isFinite(from[1]) || !Number.isFinite(to[0]) || !Number.isFinite(to[1])) return undefined;
-        return { ...link, x1: from[0], y1: from[1], x2: to[0], y2: to[1], loop: link.source === link.target };
-      }).filter((item): item is HighlightSegment => Boolean(item));
-      setHighlightSegments(previous => sameSegments(previous, next) ? previous : next);
-      frame = requestAnimationFrame(update);
-    };
-    frame = requestAnimationFrame(update);
-    return () => { active = false; cancelAnimationFrame(frame); };
-  }, [mounted, ready, props.selected, highlightLinks]);
   const datesKey = props.dates.join(",");
   useEffect(() => {
     if (!timeline || !ready) return;
@@ -237,7 +202,6 @@ export default function GraphCanvas(props: Props) {
     <CommunityLegend presentation={presentation} theme={props.theme} groupBy={props.groupBy} />
     <div className="kg-canvas-main" ref={canvasHost} onPointerDown={() => { interacted.current = true; }} onWheel={() => { interacted.current = true; }}>
       {connection ? <Cosmograph className="kg-cosmograph" ref={graph} duckDBConnection={connection} disableLogging onMount={instance => { ownedGraph.current = instance; setMounted(instance); }} /> : null}
-      <EdgeHighlightOverlay segments={highlightSegments} />
       {!ready || !presentation ? <div className="kg-canvas-loading" role="status">{presentation ? "Preparing the interactive canvas…" : "Finding graph communities…"}</div> : null}
       <button className="session-button kg-fit" disabled={!ready} onClick={() => { interacted.current = false; fit(); }}><Maximize2 size={14} />Fit graph</button>
       <span className="kg-canvas-hint">Scroll to zoom · drag to explore · select an entity</span>
@@ -249,21 +213,6 @@ export default function GraphCanvas(props: Props) {
       if (next) latest.current.onTimelineRange(next[0].getTime(), next[1].getTime());
     }} /> : null}
   </div></CosmographProvider>;
-}
-
-function EdgeHighlightOverlay({ segments }: { segments: HighlightSegment[] }) {
-  if (!segments.length) return null;
-  return <svg className="kg-edge-highlight-overlay" aria-hidden="true">
-    <defs>
-      <marker id="kg-edge-highlight-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="3" markerHeight="3" orient="auto" markerUnits="strokeWidth">
-        <path d="M 0 0 L 10 5 L 0 10 z" />
-      </marker>
-    </defs>
-    <g className="kg-edge-highlight-halo">{segments.map(segment => segment.loop ? <circle key={segment.id} cx={segment.x1} cy={segment.y1} r={22} /> :
-      <line key={segment.id} x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} />)}</g>
-    <g className="kg-edge-highlight-core">{segments.map(segment => segment.loop ? <circle key={segment.id} data-edge-highlight-id={segment.id} cx={segment.x1} cy={segment.y1} r={22} /> :
-      <line key={segment.id} data-edge-highlight-id={segment.id} x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} markerEnd="url(#kg-edge-highlight-arrow)" />)}</g>
-  </svg>;
 }
 
 function CommunityLegend({ presentation, theme, groupBy }: { presentation?: GraphPresentation; theme: Theme; groupBy: GraphPresentationGrouping }) {

@@ -26,11 +26,7 @@
 .kg-stage { min-width: 0; min-height: 460px; height: min(58vh, 700px); position: relative; overflow: hidden; background: var(--canvas); }
 .kg-canvas, .kg-canvas-main, .kg-cosmograph { width: 100%; height: 100%; min-height: 0; }
 .kg-canvas { display: grid; grid-template-rows: auto minmax(0, 1fr) 112px; position: relative; }
-.kg-canvas-main { position: relative; }
-.kg-edge-highlight-overlay { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; overflow: visible; color: var(--chart-messages); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--chart-messages) 48%, transparent)); }
-.kg-edge-highlight-overlay path { fill: currentColor; }
-.kg-edge-highlight-halo line, .kg-edge-highlight-halo circle { fill: none; stroke: var(--canvas); stroke-width: 9px; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
-.kg-edge-highlight-core line, .kg-edge-highlight-core circle { fill: none; stroke: currentColor; stroke-width: 4px; stroke-linecap: round; stroke-linejoin: round; opacity: .98; }
+.kg-canvas-main { position: relative; overflow: hidden; isolation: isolate; }
 .kg-community-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 12px 16px; background: var(--surface-raised); border-bottom: 1px solid var(--border); font-size: 11px; }
 .kg-legend-title { font-weight: 600; color: var(--text); }
 .kg-community-legend ul { display: flex; flex-wrap: wrap; gap: 7px 16px; list-style: none; padding: 0; margin: 0; min-width: 0; }

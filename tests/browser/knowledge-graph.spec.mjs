@@ -211,6 +211,7 @@ test('communities, node size, exact incident highlights and neighborhood camera 
     const state = await canvasState(page);
     const incident = state.links.filter(l => l.source === hub.index || l.target === hub.index);
     expect(state.selectedLinks?.slice().sort((a, b) => a - b)).toEqual(incident.map(l => l.index).sort((a, b) => a - b));
+    expect(state.highlightEdges).toBe(incident.length);
     const neighbors = [...new Set([hub.index, ...incident.flatMap(l => [l.source, l.target])])];
     expect(state.selectedPoints?.slice().sort((a, b) => a - b)).toEqual(neighbors.sort((a, b) => a - b));
     expect(state.focused).toBe(hub.index);
@@ -234,7 +235,7 @@ test('communities, node size, exact incident highlights and neighborhood camera 
   await page.getByRole('button', { name: 'Close details' }).click();
   await expect.poll(async () => (await canvasState(page)).selectedLinks).toBeNull();
   const cleared = await canvasState(page);
-  expect(cleared.selectedPoints).toBeNull(); expect(cleared.focused).toBeUndefined();
+  expect(cleared.selectedPoints).toBeNull(); expect(cleared.focused).toBeUndefined(); expect(cleared.highlightEdges).toBe(0);
   expect(cleared.linkStyle.color).not.toEqual(selectedDarkState.linkStyle.color);
   expect(cleared.linkStyle.width).toBeLessThan(selectedDarkState.linkStyle.width);
   expect(cleared.linkStyle.greyoutOpacity).toBeGreaterThan(selectedDarkState.linkStyle.greyoutOpacity);
@@ -250,10 +251,12 @@ test('communities, node size, exact incident highlights and neighborhood camera 
   await page.mouse.click(canvas.x + research.screen[0], canvas.y + research.screen[1]);
   await expect.poll(async () => (await canvasState(page)).focused).toBe(research.index);
   await expect.poll(async () => (await canvasState(page)).selectedLinks?.length).toBe(5);
+  await expect.poll(async () => (await canvasState(page)).highlightEdges).toBe(5);
   await page.getByRole('button', { name: 'Close details' }).click();
   await chooseCanvasEntity(page, 'Unconnected');
   await expect.poll(async () => (await canvasState(page)).selectedPoints?.length).toBe(1);
-  expect((await canvasState(page)).selectedLinks || []).toEqual([]);
+  const unconnected = await canvasState(page);
+  expect(unconnected.selectedLinks || []).toEqual([]); expect(unconnected.highlightEdges).toBe(0);
 });
 
 test('late community worker replies cannot restore a stale filtered graph; search does not recluster', async ({ page }) => {

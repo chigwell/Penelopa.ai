@@ -37,9 +37,11 @@ export async function canvasState(page, fixedLayout = false) {
     const links = config.links ? (await graph.getLinksData()).toArray() : [];
     const sizes = graph.getPointSizes(), colors = graph.getPointColors();
     const selectedLinks = graph.getSelectedLinkIndices(), selectedPoints = graph.getSelectedPointIndices();
+    const highlightEdges = element.parentElement?.querySelectorAll('[data-edge-highlight-id]').length ?? 0;
     return {
       camera: { zoom: graph.getZoomLevel(), origin: graph.spaceToScreenPosition([0, 0]) }, focused: graph.focusedPointIndex,
       linkStyle: { color: config.linkDefaultColor, width: config.linkDefaultWidth, opacity: config.linkOpacity, greyoutOpacity: config.linkGreyoutOpacity },
+      highlightEdges,
       selectedLinks: selectedLinks ?? null, selectedPoints: selectedPoints ?? null,
       points: points.map(p => {
         const index = Number(p[config.pointIndexBy]), position = graph.getPointPositionByIndex(index);

@@ -43,6 +43,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
     await expect(page.locator('.kg-stage')).toHaveScreenshot(`community-canvas-${theme}-${width}.png`);
     await chooseCanvasEntity(page, 'Platform');
     await expect(page.getByLabel('Knowledge detail')).toBeVisible();
+    await expect.poll(async () => (await canvasState(page)).highlightEdges).toBe(8);
     await expect(page.locator('.kg-workspace')).toHaveScreenshot(`community-focus-${theme}-${width}.png`);
   });
 }

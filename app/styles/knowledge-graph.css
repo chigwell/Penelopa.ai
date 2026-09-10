@@ -23,9 +23,16 @@
 .kg-search-results button[aria-pressed="true"] { background: var(--inverse); color: var(--inverse-text); }
 .kg-workspace { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--border); border-top: 0; }
 .kg-workspace.has-selection { grid-template-columns: minmax(0, 1fr) 340px; }
-.kg-stage { min-width: 0; min-height: 480px; height: min(66vh, 760px); position: relative; overflow: hidden; background: var(--canvas); }
-.kg-canvas, .kg-cosmograph { width: 100%; height: 100%; min-height: 0; }
-.kg-canvas { position: relative; }
+.kg-stage { min-width: 0; min-height: 460px; height: min(58vh, 700px); position: relative; overflow: hidden; background: var(--canvas); }
+.kg-canvas, .kg-canvas-main, .kg-cosmograph { width: 100%; height: 100%; min-height: 0; }
+.kg-canvas { display: grid; grid-template-rows: minmax(0, 1fr) 112px; position: relative; }
+.kg-canvas-main { position: relative; }
+.kg-native-timeline { min-height: 112px; padding: 10px 14px 12px; background: var(--surface-raised); border-top: 1px solid var(--border);
+  --cosmograph-ui-background: var(--surface-raised); --cosmograph-ui-text: var(--muted);
+  --cosmograph-ui-element-color: color-mix(in srgb, var(--text) 28%, transparent);
+  --cosmograph-ui-highlighted-element-color: var(--chart-messages);
+  --cosmograph-ui-selection-control-color: color-mix(in srgb, var(--chart-messages) 52%, transparent);
+  --cosmograph-ui-font-family: var(--font-main); --cosmograph-ui-tick-font-size: 11px; }
 .kg-canvas .kg-point-label { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); box-shadow: 0 2px 6px #0001; }
 .kg-fit { position: absolute; top: 16px; right: 16px; z-index: 2; background: var(--surface-raised); }
 .kg-canvas-hint { position: absolute; bottom: 16px; left: 20px; font: 10px var(--font-mono); color: var(--muted); pointer-events: none; padding: 7px 9px; background: var(--canvas); border-radius: 5px; }
@@ -35,7 +42,7 @@
 .kg-loading h2 { font: 28px var(--font-display); color: var(--text); margin: 0; }
 .kg-loading p { margin: 0; font: 12px var(--font-mono); }
 .kg-loading progress { width: min(320px, 100%); accent-color: var(--chart-messages); height: 5px; }
-.kg-workspace > .session-inspector { max-height: min(66vh, 760px); height: 100%; min-height: 480px; overflow: auto; border-left: 1px solid var(--border); border-radius: 0; }
+.kg-workspace > .session-inspector { max-height: min(58vh, 700px); height: 100%; min-height: 460px; overflow: auto; border-left: 1px solid var(--border); border-radius: 0; }
 .kg-inspector { padding: 22px; overflow-wrap: anywhere; }
 .kg-inspector h2 { margin: 8px 0 12px; font: 28px var(--font-display); }
 .kg-inspector > p { font-size: 12px; color: var(--muted); }
@@ -63,12 +70,11 @@
 .kg-timeline > div:first-child { display: grid; gap: 9px; }
 .kg-timeline strong { font-size: 15px; font-weight: 500; }
 .kg-timeline > div > span:last-child { font-size: 11px; color: var(--muted); }
-.kg-timeline-control input { width: 100%; accent-color: var(--chart-messages); margin: 7px 0 20px; }
 .kg-timeline-control > div { display: flex; align-items: center; gap: 10px; }
 .kg-timeline-control > div > span { margin: 0 auto; white-space: nowrap; font: 10px var(--font-mono); color: var(--muted); }
 .kg-footnote { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 10px; }
 .kg-shell button:disabled { cursor: default; opacity: .5; }
 @media (max-width: 1100px) { .kg-main { padding: 28px 24px; } .kg-toolbar { flex-wrap: wrap; gap: 12px; } .kg-count { width: 100%; padding: 0; } .kg-timeline { grid-template-columns: 1fr; gap: 16px; } }
 @media (max-width: 959px) { .kg-workspace.has-selection { grid-template-columns: minmax(0, 1fr); } .kg-workspace > .inspector-dialog { height: 100dvh; max-height: 100dvh; min-height: 0; } }
-@media (max-width: 600px) { .kg-main { padding: 24px 16px; } .kg-heading { align-items: start; flex-wrap: wrap; gap: 16px; } .kg-heading h1 { font-size: 32px; } .kg-heading p:last-child { font-size: 12px; line-height: 1.6; } .kg-toolbar > label:first-child { width: 100%; } .kg-toolbar select { max-width: 100%; } .kg-session-filter > div { left: -100px; } .kg-searchbar label { flex-basis: 100%; } .kg-searchbar select { min-width: 0; flex: 1; } .kg-stage { min-height: 400px; height: 58vh; } .kg-timeline { padding: 18px 14px; } .kg-timeline-control > div { flex-wrap: wrap; gap: 8px; } .kg-timeline-control .session-button { font-size: 10px; padding: 8px; } .kg-canvas-hint { font-size: 8px; left: 8px; } .kg-footnote { flex-direction: column; line-height: 1.5; } }
+@media (max-width: 600px) { .kg-main { padding: 24px 16px; } .kg-heading { align-items: start; flex-wrap: wrap; gap: 16px; } .kg-heading h1 { font-size: 32px; } .kg-heading p:last-child { font-size: 12px; line-height: 1.6; } .kg-toolbar > label:first-child { width: 100%; } .kg-toolbar select { max-width: 100%; } .kg-session-filter > div { left: -100px; } .kg-searchbar label { flex-basis: 100%; } .kg-searchbar select { min-width: 0; flex: 1; } .kg-stage { min-height: 460px; height: 64vh; } .kg-canvas { grid-template-rows: minmax(0, 1fr) 96px; } .kg-native-timeline { min-height: 96px; padding: 8px 10px; } .kg-timeline { padding: 18px 14px; } .kg-timeline-control > div { flex-wrap: wrap; gap: 8px; } .kg-timeline-control .session-button { font-size: 10px; padding: 8px; } .kg-canvas-hint { font-size: 8px; left: 8px; } .kg-footnote { flex-direction: column; line-height: 1.5; } }
 @media (prefers-reduced-motion: reduce) { .kg-shell *, .kg-shell *::before, .kg-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

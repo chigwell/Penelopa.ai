@@ -1,5 +1,5 @@
 import { caseFold } from "unicode-case-folding";
-import type { GraphFilters, GraphOrigin, GraphRecord, GraphSnapshot, KnowledgeEdge, KnowledgeGraph, KnowledgeNode } from "./knowledge-graph-types";
+import type { GraphFilters, GraphOrigin, GraphRecord, GraphSelection, GraphSnapshot, KnowledgeEdge, KnowledgeGraph, KnowledgeNode } from "./knowledge-graph-types";
 
 // Python str.split() whitespace, deliberately not JS \s (which also includes BOM).
 export function normalizeGraphText(text: string): string {
@@ -29,7 +29,7 @@ export function mergeKnowledgeGraphs(snapshots: GraphSnapshot[], filters: GraphF
       local.set(name, id);
       const existing = nodes.get(id);
       if (existing) { existing.origins.push(origin(raw, label)); existing.search += ` ${searchable(raw)}`; }
-      else { nodes.set(id, { id, label, firstSeen: at, origins: [origin(raw, label)], search: searchable(raw) }); dates.add(at); }
+      else { nodes.set(id, { id, label, firstSeen: at, observedAt: at, origins: [origin(raw, label)], search: searchable(raw) }); dates.add(at); }
     }
     for (const raw of rawEdges) {
       const source = local.get(normalizeGraphText(text(raw.from))), target = local.get(normalizeGraphText(text(raw.to)));
@@ -38,17 +38,31 @@ export function mergeKnowledgeGraphs(snapshots: GraphSnapshot[], filters: GraphF
       const id = JSON.stringify([source, kind, target]);
       const existing = edges.get(id);
       if (existing) { existing.origins.push(origin(raw, relationship)); existing.search += ` ${searchable(raw)}`; }
-      else { edges.set(id, { id, source, target, relationship, firstSeen: at, origins: [origin(raw, relationship)], search: searchable(raw) }); dates.add(at); }
+      else { edges.set(id, { id, source, target, relationship, firstSeen: at, observedAt: at, origins: [origin(raw, relationship)], search: searchable(raw) }); dates.add(at); }
     }
   }
   return { nodes: [...nodes.values()], edges: [...edges.values()], dates: [...dates].sort((a, b) => a - b), skipped };
 }
-export function graphAtDate(graph: KnowledgeGraph, at: number, edgeQuery = "", relationship = "") {
+function originsForSelection(origins: GraphOrigin[], selection: GraphSelection) {
+  if (selection.mode === "all") return origins;
+  if (selection.mode === "latest") return origins.filter(origin => origin.at === selection.at);
+  const from = Math.min(selection.from, selection.to), to = Math.max(selection.from, selection.to);
+  return origins.filter(origin => origin.at >= from && origin.at <= to);
+}
+export function graphForSelection(graph: KnowledgeGraph, selection: GraphSelection, edgeQuery = "", relationship = "") {
   const query = normalizeGraphText(edgeQuery), kind = normalizeGraphText(relationship);
-  const edges = graph.edges.filter(edge => edge.firstSeen <= at && (!query || edge.origins.some(origin => origin.at <= at && origin.search.includes(query))) && (!kind || normalizeGraphText(edge.relationship) === kind))
-    .map(edge => ({ ...edge, origins: edge.origins.filter(item => item.at <= at) }));
+  const edges = graph.edges.map(edge => {
+      const origins = originsForSelection(edge.origins, selection);
+      return { edge, origins };
+    })
+    .filter(({ edge, origins }) => origins.length && (!query || origins.some(origin => origin.search.includes(query))) && (!kind || normalizeGraphText(edge.relationship) === kind))
+    .map(({ edge, origins }) => ({ ...edge, relationship: origins[0].label, firstSeen: origins[0].at, observedAt: origins[0].at, origins, search: origins.map(origin => origin.search).join(" ") }));
   const ids = query || kind ? new Set(edges.flatMap(edge => [edge.source, edge.target])) : null;
-  const nodes = graph.nodes.filter(node => node.firstSeen <= at && (!ids || ids.has(node.id)))
-    .map(node => { const origins = node.origins.filter(item => item.at <= at); return { ...node, origins, search: origins.map(origin => origin.search).join(" ") }; });
+  const nodes = graph.nodes.map(node => {
+      const origins = originsForSelection(node.origins, selection);
+      return { node, origins };
+    })
+    .filter(({ node, origins }) => origins.length && (!ids || ids.has(node.id)))
+    .map(({ node, origins }) => ({ ...node, label: origins[0].label, firstSeen: origins[0].at, observedAt: origins[0].at, origins, search: origins.map(origin => origin.search).join(" ") }));
   return { nodes, edges };
 }

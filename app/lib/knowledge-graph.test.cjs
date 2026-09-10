@@ -7,7 +7,7 @@ function load(file) {
   const source = buildSync({ entryPoints: [path.join(__dirname, file)], bundle: true, platform: 'node', format: 'cjs', write: false, external: ['react'] }).outputFiles[0].text;
   const module = { exports: {} }; vm.runInNewContext(source, { module, exports: module.exports, require, URLSearchParams, AbortController, DOMException, setTimeout }); return module.exports;
 }
-const { normalizeGraphText, mergeKnowledgeGraphs, graphAtDate } = load('knowledge-graph-model.ts');
+const { normalizeGraphText, mergeKnowledgeGraphs, graphForSelection } = load('knowledge-graph-model.ts');
 const { createGraphClient, graphAvailable, graphCatalog, GraphProjectLoader } = load('knowledge-graph-client.ts');
 const json = value => JSON.parse(JSON.stringify(value));
 const run = (id, day, extra = {}) => ({ id, project_id: 'p', session_id: id, session_key: id, source: 'codex', graph_created_at: `2026-09-0${day}T00:00:00Z`, graph_finished_at: null, node_count: 2, ...extra });
@@ -20,24 +20,28 @@ test('normalization matches Python casefold and whitespace semantics', () => {
   assert.equal(normalizeGraphText('İ ﬃ'), 'i\u0307 ffi');
   assert.equal(normalizeGraphText('\ufeffNode'), '\ufeffnode');
 });
-test('cumulative graph retains superseded edges, merges names, distinguishes directions and relationships', () => {
+test('selection graph merges names, distinguishes directions and does not accumulate in latest', () => {
   const graph = mergeKnowledgeGraphs([
     snapshot('a', 1, [{ from: 'Straße', relationship: 'uses', to: 'API' }]),
     snapshot('b', 2, [{ from: 'STRASSE', relationship: 'USES', to: 'api' }, { from: 'api', relationship: 'uses', to: 'strasse' }, { from: 'api', relationship: 'builds', to: 'strasse' }]),
     snapshot('c', 3, [{ from: 'Project', relationship: 'uses', to: 'API' }]),
   ], noFilters);
-  assert.equal(graph.nodes.length, 3); assert.equal(graph.edges.length, 4);
+  assert.equal(graphForSelection(graph, { mode: 'all' }).nodes.length, 3); assert.equal(graphForSelection(graph, { mode: 'all' }).edges.length, 4);
   assert.equal(graph.edges[0].origins.length, 2);
-  const historical = graphAtDate(graph, before);
-  assert.equal(historical.nodes.length, 2); assert.equal(historical.edges.length, 1);
-  assert.equal(historical.nodes[0].origins.length, 1); assert.equal(historical.edges[0].origins.length, 1);
+  const latest = graphForSelection(graph, { mode: 'latest', at: Date.parse('2026-09-03T00:00:00Z') });
+  assert.deepEqual(json(latest.nodes.map(node => node.label).sort()), ['API', 'Project']);
+  assert.equal(latest.edges.length, 1);
+  const range = graphForSelection(graph, { mode: 'range', from: Date.parse('2026-09-02T00:00:00Z'), to: Date.parse('2026-09-02T23:59:59Z') });
+  assert.equal(range.nodes.length, 2); assert.equal(range.edges.length, 3);
+  assert.equal(range.edges[0].origins.length, 1);
 });
-test('source/session filtering happens before first-seen computation; later repeated observations remain on timeline', () => {
+test('source/session filtering happens before latest selection; repeated observations remain on timeline', () => {
   const inputs = [snapshot('a', 1, [{ from: 'A', relationship: 'uses', to: 'B' }]), snapshot('b', 2, [{ from: 'A', relationship: 'uses', to: 'B' }], { source: 'claude' })];
   assert.equal(mergeKnowledgeGraphs(inputs, noFilters).dates.length, 2);
   const graph = mergeKnowledgeGraphs(inputs, { sessions: ['b'], source: 'claude' });
   assert.equal(graph.nodes[0].firstSeen, Date.parse('2026-09-02T00:00:00Z'));
-  assert.equal(graphAtDate(graph, before).nodes.length, 0);
+  assert.equal(graphForSelection(graph, { mode: 'latest', at: before }).nodes.length, 0);
+  assert.equal(graphForSelection(graph, { mode: 'latest', at: Date.parse('2026-09-02T00:00:00Z') }).nodes.length, 2);
 });
 test('invalid elements are counted, endpoints resolve by labels and no future search attributes leak', () => {
   const first = snapshot('a', 1, [{ from: 'A', relationship: 'uses', to: 'B' }]);
@@ -47,9 +51,18 @@ test('invalid elements are counted, endpoints resolve by labels and no future se
   later.nodes[0].description = 'FutureWord';
   const graph = mergeKnowledgeGraphs([first, later], noFilters);
   assert.equal(graph.skipped, 2); assert.equal(graph.edges.length, 1);
-  assert.equal(graphAtDate(graph, before, 'futureword').edges.length, 0);
-  assert.equal(graphAtDate(graph, before).nodes[0].search.includes('futureword'), false);
-  assert.equal(graphAtDate(graph, Infinity, '', 'USES').edges.length, 1);
+  assert.equal(graphForSelection(graph, { mode: 'latest', at: Date.parse('2026-09-01T00:00:00Z') }, 'futureword').edges.length, 0);
+  assert.equal(graphForSelection(graph, { mode: 'latest', at: Date.parse('2026-09-01T00:00:00Z') }).nodes[0].search.includes('futureword'), false);
+  assert.equal(graphForSelection(graph, { mode: 'all' }, '', 'USES').edges.length, 1);
+});
+test('entities and edges disappear from latest when absent from the newest timestamp', () => {
+  const graph = mergeKnowledgeGraphs([
+    snapshot('a', 1, [{ from: 'Old', relationship: 'uses', to: 'API' }]),
+    snapshot('b', 2, [{ from: 'New', relationship: 'renders', to: 'Timeline' }]),
+  ], noFilters);
+  assert.equal(graphForSelection(graph, { mode: 'latest', at: Date.parse('2026-09-02T00:00:00Z') }).nodes.some(node => node.label === 'Old'), false);
+  assert.equal(graphForSelection(graph, { mode: 'latest', at: Date.parse('2026-09-02T00:00:00Z') }).edges.length, 1);
+  assert.equal(graphForSelection(graph, { mode: 'all' }).nodes.length, 4);
 });
 test('dates use finished time, are sorted and deduplicated independent of API ordering', () => {
   const edge = [{ from: 'A', relationship: 'uses', to: 'B' }];

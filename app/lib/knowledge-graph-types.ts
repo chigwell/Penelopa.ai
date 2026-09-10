@@ -22,10 +22,14 @@ export type GraphOrigin = {
   originalId: string | null; label: string; transcriptStart: string; transcriptEnd: string;
   search: string;
 };
-export type KnowledgeNode = { id: string; label: string; firstSeen: number; origins: GraphOrigin[]; search: string };
-export type KnowledgeEdge = { id: string; source: string; target: string; relationship: string; firstSeen: number; origins: GraphOrigin[]; search: string };
+export type KnowledgeNode = { id: string; label: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
+export type KnowledgeEdge = { id: string; source: string; target: string; relationship: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
 export type KnowledgeGraph = { nodes: KnowledgeNode[]; edges: KnowledgeEdge[]; dates: number[]; skipped: number };
 export type GraphFilters = { sessions: string[]; source: string };
+export type GraphSelection =
+  | { mode: "latest"; at: number }
+  | { mode: "range"; from: number; to: number }
+  | { mode: "all" };
 export type GraphWorkerRequest =
   | { type: "load"; id: number; snapshots: GraphSnapshot[]; filters: GraphFilters }
   | { type: "filter"; id: number; filters: GraphFilters };

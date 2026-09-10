@@ -9,23 +9,21 @@ test('empty accounts hide all graph navigation and direct entry returns to Dashb
   await expect(page.getByRole('link', { name: 'Knowledge Graph', exact: true })).toHaveCount(0);
   await expect(page.locator('.kg-canvas')).toHaveCount(0);
 });
-test('cumulative history, provenance, filters and URL navigation', async ({ page }) => {
+test('latest, all-time, provenance, filters and URL navigation', async ({ page }) => {
   const { requests } = await setupGraphs(page);
   await page.goto('/dashboard/knowledge-graph');
-  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
-  await expect(page.getByRole('heading', { name: 'Entities & connections' })).toBeVisible();
-  await page.getByRole('button', { name: 'Dashboard 2 connections' }).click();
-  await expect(page.getByLabel('Knowledge detail')).toBeVisible();
-  await expect(page.getByLabel('Knowledge detail').getByText('uses', { exact: false }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Close details' }).click();
-  await page.getByRole('button', { name: 'Previous discovery' }).click();
-  await expect(page.locator('.kg-count')).toHaveText('3 entities · 2 connections');
-  await page.getByRole('button', { name: 'Previous discovery' }).click();
   await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
-  await expect(page.getByRole('button', { name: 'Previous discovery' })).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Entities & connections' })).toBeVisible();
+  await page.getByRole('button', { name: 'API 1 connections' }).click();
+  await expect(page.getByLabel('Knowledge detail')).toBeVisible();
+  await expect(page.getByLabel('Knowledge detail').getByText('stores', { exact: false }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Close details' }).click();
+  await page.getByRole('button', { name: 'View all time' }).click();
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
+  await expect(page).toHaveURL(/mode=all/);
   await page.goBack();
-  await expect(page.locator('.kg-count')).toHaveText('3 entities · 2 connections');
-  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
+  await page.getByRole('button', { name: 'View all time' }).click();
   await page.getByLabel('Relationship', { exact: true }).selectOption('uses');
   await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
   await page.getByLabel('Relationship', { exact: true }).selectOption('');
@@ -57,7 +55,7 @@ test('transient failures remain distinguishable from empty graphs and retry succ
   await expect(page.locator('.kg-canvas')).toHaveCount(0);
   failing = false;
   await page.getByRole('button', { name: 'Retry loading' }).click();
-  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
+  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
 });
 test('older desktop bridge cannot request graphs or use browser credentials', async ({ page }) => {
   const { requests } = await setupGraphs(page);
@@ -86,6 +84,7 @@ test('real Cosmograph uses local WASM and renders in both themes', async ({ page
   await page.goto('/dashboard/knowledge-graph');
   await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
   await expect(page.locator('.kg-canvas canvas').first()).toBeVisible();
+  await expect(page.locator('.kg-native-timeline')).toBeVisible();
   await expect(page.locator('.kg-canvas')).toHaveAttribute('data-settled', 'true', { timeout: 30_000 });
   await page.getByRole('button', { name: 'Fit graph', exact: true }).click();
   await expect(async () => {
@@ -99,8 +98,18 @@ test('real Cosmograph uses local WASM and renders in both themes', async ({ page
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true');
   await page.screenshot({ path: testInfo.outputPath('graph-dark.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Previous discovery' }).click();
-  await expect(page.locator('.kg-count')).toHaveText('3 entities · 2 connections');
+  await page.locator('.kg-native-timeline').scrollIntoViewIfNeeded();
+  const timeline = await page.locator('.kg-native-timeline').boundingBox();
+  await page.mouse.move(timeline.x + timeline.width * 0.2, timeline.y + timeline.height * 0.65);
+  await page.mouse.down();
+  await page.mouse.move(timeline.x + timeline.width * 0.75, timeline.y + timeline.height * 0.65);
+  await page.mouse.up();
+  await expect(page).toHaveURL(/mode=range/);
+  await expect(page).toHaveURL(/from=.*to=/);
+  await page.getByRole('button', { name: 'View all time' }).click();
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
   await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true');
   expect(failures).toEqual([]);
 });
@@ -112,7 +121,7 @@ test('session entry appears only when its own graph is available', async ({ page
   const link = page.locator('.session-workspace-toolbar').getByRole('link', { name: 'Knowledge Graph' });
   await expect(link).toBeVisible(); await link.click();
   await expect(page).toHaveURL(new RegExp(`session=${session.id}`));
-  await expect(page.locator('.kg-count')).toHaveText('3 entities · 2 connections');
+  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
 });
 
 test('desktop graph IPC uses only bounded paths and never sends renderer credentials', async ({ page }) => {
@@ -124,7 +133,7 @@ test('desktop graph IPC uses only bounded paths and never sends renderer credent
   });
   await page.addInitScript(() => { window.penelopaDesktop = { version: 1, capabilities: { transcriptRead: true, knowledgeGraphRead: true }, auth: { state: async () => ({ authenticated: true }), signOut: async () => {} }, request: request => window.fixtureGraphRequest(request) }; });
   await page.goto('/dashboard/knowledge-graph');
-  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
+  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
   await page.getByRole('button', { name: 'Log out', exact: true }).click();
   await expect(page.locator('.kg-stage')).toHaveCount(0);
 });

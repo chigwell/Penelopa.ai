@@ -152,4 +152,5 @@ vite.config.ts.timestamp-*
 
 # Browser characterization reports (reviewed baselines live in tests/browser)
 test-results/
+test-results-production/
 playwright-report/

@@ -2,7 +2,7 @@ export type DesktopAuthState = { authenticated: boolean; signedOut: boolean; err
 export type DesktopApiRequest = { path: string; method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown };
 export type DesktopBridge = {
   version: 1;
-  capabilities?: { transcriptRead?: boolean };
+  capabilities?: { transcriptRead?: boolean; knowledgeGraphRead?: boolean };
   auth: { state(): Promise<DesktopAuthState>; signOut(): Promise<void> };
   request(request: DesktopApiRequest): Promise<{ status: number; data: unknown }>;
   openConnection(): Promise<void>;

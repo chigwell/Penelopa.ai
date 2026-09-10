@@ -15,7 +15,19 @@ const eventFilters = {
 };
 const session = `/v2/user-read/sessions/${uuid}`;
 const event = `/v2/user-read/events/${uuid}`;
+const graphQueries = {
+  node_limit: integer(1, 500), edge_limit: integer(1, 500), node_cursor: cursor, edge_cursor: cursor,
+  node_query: text(512), edge_query: text(512), relationship: text(128),
+};
 const routes = [
+  [/^\/v2\/user-read\/knowledge-graphs$/, {
+    project_id: isUuid, project_key: text(512), session_id: isUuid, session_key: text(128),
+    external_session_id: text(512), source: text(64), current_only: value => ["true", "false"].includes(value),
+    created_after: date, created_before: date, finished_after: date, finished_before: date,
+    transcript_after: date, transcript_before: date, limit: integer(1, 100), cursor,
+  }],
+  [new RegExp(`^/v2/user-read/knowledge-graphs/${uuid}$`), graphQueries],
+  [new RegExp(`^${session}/knowledge-graph$`), graphQueries],
   [/^\/v2\/user-read\/projects$/, { query: text(512), cursor, limit: integer(1, 50) }],
   [/^\/v2\/user-read\/sessions$/, {
     project_id: isUuid, project_key: text(512), source: text(64),

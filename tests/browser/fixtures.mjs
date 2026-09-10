@@ -61,6 +61,7 @@ export async function setup(page, options = {}) {
       if (response) return route.fulfill(response);
     }
     if (url.pathname === '/v2/user-read/sessions') return route.fulfill({ json: { items: [], next_cursor: null, truncated: false } });
+    if (url.pathname === '/v2/user-read/knowledge-graphs') return route.fulfill({ json: { schema_version: 'user-read-v1', items: [], next_cursor: null, truncated: false } });
     if (url.pathname.endsWith('/stats/summary')) return route.fulfill({ json: summary });
     if (url.pathname.endsWith('/daily-activity')) return route.fulfill({ json: activity });
     if (url.pathname === '/v1/hermes/recommendations') {

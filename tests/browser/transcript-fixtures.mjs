@@ -30,6 +30,7 @@ export const tail = { items: events.slice(-100), tail_cursor: 'tail-1', history_
 export const sectionFor = event => ({ id: 'block-1', kind: event.actor_type === 'TOOL' ? 'tool_output' : event.tool_call_id ? 'tool_input' : 'message', format: event.tool_call_id ? 'text' : 'markdown', label: event.actor_type === 'TOOL' ? 'Output' : event.tool_call_id ? 'Input' : 'Message', preview: event.content_text, total_chars: event.content_text.length, tool_call_id: event.tool_call_id, tool_name: event.tool_name });
 export function transcriptResponse(entry) {
   const url = new URL(entry.path, 'https://api.penelopa.ai'), path = url.pathname;
+  if (path === '/v2/user-read/knowledge-graphs') return { json: { schema_version: 'user-read-v1', items: [], next_cursor: null, truncated: false } };
   if (path === '/v2/user-read/projects') return { json: { items: [{ id: session.project_id, project_key: session.project_key }], next_cursor: null } };
   if (path === '/v2/user-read/sessions') {
     if (url.searchParams.has('project_key') && url.searchParams.get('project_key') !== session.project_key) return { json: { items: [], next_cursor: null } };

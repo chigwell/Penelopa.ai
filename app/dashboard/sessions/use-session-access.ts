@@ -28,8 +28,10 @@ export function useSessionAccess() {
     initialize();
     window.addEventListener("hashchange", initialize);
     const storage = (event: StorageEvent) => { if (event.key === "penelopa-api-token") initialize(); };
+    const cleared = () => { pendingToken.current = null; resourceCache.clear(); cacheOwner = null; setToken(null); setTokenInput(""); };
     window.addEventListener("storage", storage);
-    return () => { window.removeEventListener("hashchange", initialize); window.removeEventListener("storage", storage); };
+    window.addEventListener("penelopa-auth-clear", cleared);
+    return () => { window.removeEventListener("hashchange", initialize); window.removeEventListener("storage", storage); window.removeEventListener("penelopa-auth-clear", cleared); };
   }, []);
   const logout = useCallback(() => {
     pendingToken.current = null; resourceCache.clear(); cacheOwner = null; clearStoredToken(); setToken(null); setTokenInput(""); setAuthError("");

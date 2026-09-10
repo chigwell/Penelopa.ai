@@ -12,6 +12,7 @@ import { CursorPagination } from "../SessionList";
 import { EventInspector, InspectorFrame, StepInspector } from "../SessionInspector";
 import { useSessionAccess, useTranscriptResource } from "../use-session-access";
 import { useLiveEvents } from "../use-live-events";
+import { SessionGraphLink } from "../../knowledge-graph/GraphLinks";
 
 type Location = { cursor: string; direction: string; at: string };
 
@@ -104,6 +105,7 @@ export default function SessionPage() {
     {!access.initialized || session.loading && !sessionData ? <DetailSkeleton /> : session.error && !sessionData ? <SessionError error={session.error} retry={session.reload} /> : sessionData ? <>
       <header className="session-detail-heading"><div className="session-detail-kicker"><span className={`session-source-chip ${/claude/i.test(sessionData.source) ? "is-claude" : ""}`}><Terminal size={13} />{sourceName(sessionData.source)}</span><span title={sessionData.project_key}>{projectName(sessionData.project_key)}</span></div><h1>{sessionTitle(sessionData)}</h1><div className="session-detail-meta"><span><Clock3 size={13} />{formatDateTime(sessionData.first_seen_at)}</span><span><MessageSquare size={13} />{formatMetric(sessionData.event_count)} events</span><span>{sessionData.storage_state === "HOT" ? "Saved transcript" : sessionData.storage_state.toLowerCase()}</span></div></header>
       <div className="session-workspace-toolbar" ref={timelineTop}><div className="session-view-tabs" aria-label="Session view"><button aria-pressed={view === "events"} onClick={() => update({ view: "", step: "", after_step: "" })}><List size={15} />Events</button><button aria-pressed={view === "process"} onClick={() => { setFollow(false); update({ view: "process", event: "", section: "", step: "" }); }}><GitBranch size={15} />Process{sessionData.analysis_run_id ? <span className="process-ready-dot" /> : null}</button></div>
+        <SessionGraphLink token={access.token} project={sessionData.project_id} session={id} />
         {sessionData.storage_state === "HOT" ? <div className="session-live-controls"><span className={`session-live-state ${live.error || live.paused ? "is-paused" : ""}`}><i />{live.paused ? "Paused" : live.error ? "Reconnecting" : "Live updates"}</span><button className={`session-button ${follow ? "is-active" : ""}`} aria-pressed={follow} disabled={latestLoading} onClick={() => follow ? setFollow(false) : latest(true)}>{follow ? <Pause size={13} /> : <Play size={13} />}{latestLoading ? "Loading…" : follow ? "Following" : "Follow"}</button></div> : null}
       </div>
       {notice ? <div className="session-notice" role="status"><Sparkles size={14} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Dismiss update"><X size={13} /></button></div> : null}

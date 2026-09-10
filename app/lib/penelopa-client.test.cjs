@@ -177,3 +177,16 @@ test("updated desktop sends only v2 read paths and never renderer credentials", 
   ]) await assert.rejects(client.apiV2Get(path, 'never-send', init), error => error.status === 400);
   assert.equal(requests.length, 1);
 });
+
+test("knowledge graph capability is additive and cannot fall back to a browser token", async () => {
+  let calls = 0;
+  const old = clientFor({ bridge: { version: 1, capabilities: { transcriptRead: true }, request: async () => { calls++; } } });
+  for (const route of ['/user-read/knowledge-graphs', '/user-read/knowledge-graphs?limit=100', '/user-read/knowledge-graphs/run-id', '/user-read/sessions/session-id/knowledge-graph']) {
+    await assert.rejects(old.client.apiV2Get(route, 'never-send'), error => error.status === 426);
+  }
+  assert.equal(calls, 0);
+  const requests = [];
+  const updated = clientFor({ bridge: { version: 1, capabilities: { transcriptRead: true, knowledgeGraphRead: true }, request: async request => { requests.push(request); return { status: 200, data: { items: [] } }; } } });
+  await updated.client.apiV2Get('/user-read/knowledge-graphs?current_only=false', 'never-send');
+  assert.deepEqual(requests.map(request => ({ ...request })), [{ path: '/v2/user-read/knowledge-graphs?current_only=false', method: 'GET' }]);
+});

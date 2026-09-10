@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, LogOut, Moon, RefreshCw, Sun } from "lucide-reac
 import type { FormEvent } from "react";
 import type { Theme } from "../lib/use-theme";
 import { DesktopSignIn } from "./DesktopSignIn";
+import { GraphNavigation } from "./knowledge-graph/GraphLinks";
 
 export function DashboardTopbar({
   theme,
@@ -62,6 +63,7 @@ export function DashboardTopbar({
       <nav className="dashboard-section-nav" aria-label="Dashboard sections">
         <Link href="/dashboard" aria-current={pathname === "/dashboard" ? "page" : undefined}>Overview</Link>
         <Link href="/dashboard/sessions" aria-current={pathname?.startsWith("/dashboard/sessions") ? "page" : undefined}>Sessions<span className="nav-new-dot" aria-hidden="true" /></Link>
+        <GraphNavigation active={pathname === "/dashboard/knowledge-graph"} />
         <Link href="/dashboard/notifications" aria-current={pathname === "/dashboard/notifications" ? "page" : undefined}>Notifications</Link>
       </nav>
     </header>

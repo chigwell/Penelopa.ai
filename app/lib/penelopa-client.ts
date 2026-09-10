@@ -21,6 +21,9 @@ export function isDesktop() { return typeof window !== "undefined" && window.pen
 export function hasTranscriptSupport() {
   return !isDesktop() || window.penelopaDesktop?.capabilities?.transcriptRead === true;
 }
+export function hasKnowledgeGraphSupport() {
+  return !isDesktop() || window.penelopaDesktop?.capabilities?.knowledgeGraphRead === true;
+}
 export function useDesktop() {
   const [desktop, setDesktop] = useState(false);
   useEffect(() => { setDesktop(isDesktop()); }, []);
@@ -33,8 +36,10 @@ export function readStoredToken(): string | null {
 export function storeToken(value: string) {
   if (isDesktop()) return;
   try { window.localStorage.setItem(TOKEN_STORAGE_KEY, value); } catch { /* session remains usable */ }
+  window.dispatchEvent?.(new Event("penelopa-auth-change"));
 }
 export function clearStoredToken() {
+  window.dispatchEvent?.(new Event("penelopa-auth-clear"));
   if (isDesktop()) { void window.penelopaDesktop!.auth.signOut().catch(() => {}); return; }
   try { window.localStorage.removeItem(TOKEN_STORAGE_KEY); } catch { /* UI still locks */ }
 }
@@ -83,6 +88,9 @@ export function apiV2Get<T>(path: string, token: string, init: RequestInit = {})
   }
   if (!hasTranscriptSupport()) {
     return Promise.reject(Object.assign(new Error("Update the app to explore your transcripts."), { status: 426, code: "desktop_update_required" }));
+  }
+  if (/^\/user-read\/(knowledge-graphs(?:\/|\?|$)|sessions\/[^/]+\/knowledge-graph(?:\?|$))/.test(path) && !hasKnowledgeGraphSupport()) {
+    return Promise.reject(Object.assign(new Error("Update the app to explore knowledge graphs."), { status: 426, code: "desktop_update_required" }));
   }
   return versionedRequest<T>("v2", path, token, { ...init, method: "GET" });
 }

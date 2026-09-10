@@ -160,7 +160,7 @@ test('Telegram unavailable pending setup does not poll and auth expiry locks the
     respond: () => expired ? { status: 403, json: {} } : null });
   await page.goto('/dashboard/notifications');
   await expect(page.getByRole('button', { name: 'Generate new link' })).toBeDisabled();
-  await page.clock.runFor(10_000); expect(requests).toHaveLength(1);
+  await page.clock.runFor(10_000); expect(requests.filter(entry => entry.path === '/v1/user/telegram-notifications')).toHaveLength(1);
   expired = true; await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(page.getByText('Your access token has expired. Enter it again.')).toBeVisible(); await expectToken(page, null);
 });

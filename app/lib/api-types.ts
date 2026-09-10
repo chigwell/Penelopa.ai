@@ -96,3 +96,21 @@ export type TelegramSetupLinkResponse = {
   status: "PENDING";
 };
 
+export type RecommendationWebhookNotificationType = "recommendation_approved";
+
+export type RecommendationWebhookState = {
+  enabled: boolean;
+  url: string | null;
+  secret_configured: boolean;
+  notification_types: RecommendationWebhookNotificationType[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecommendationWebhookUpdate = {
+  enabled: boolean;
+  url: string | null;
+  secret: string | null;
+  clear_secret: boolean;
+  notification_types: RecommendationWebhookNotificationType[];
+};

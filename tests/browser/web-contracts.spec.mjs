@@ -5,6 +5,7 @@ test('dashboard loads the same endpoints, paginates, expands, copies and signs o
   const { requests } = await setup(page);
   await signIn(page);
   await expect(page.getByRole('heading', { name: 'Your activity.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Webhook delivery' })).toBeVisible();
   await expectToken(page, 'fixture-token');
   expect(requests.slice(0, 3).map(r => r.path).sort()).toEqual([
     '/v1/admin/stats/daily-activity?days=30', '/v1/admin/stats/summary', '/v1/hermes/recommendations?page=1&page_size=10',
@@ -125,6 +126,75 @@ test('Telegram saves before generating links and keeps two-step disconnect', asy
   expect(fixture.requests.filter(r => r.method === 'DELETE')).toHaveLength(1);
 });
 
+test('Webhook settings preserve, replace, clear and disconnect secrets', async ({ page }) => {
+  const fixture = await setup(page, {
+    token: 'fixture-token',
+    webhook: {
+      enabled: false,
+      url: 'https://client.example.com/old',
+      secret_configured: true,
+    },
+  });
+  await page.goto('/dashboard/notifications');
+  await expect(page.getByRole('heading', { name: 'Notification settings.', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Webhook delivery', exact: true })).toBeVisible();
+
+  await page.getByLabel('Enable webhook delivery').check();
+  await page.getByLabel(/Webhook URL/).fill('https://client.example.com/webhooks/recommendations');
+  await page.getByRole('button', { name: 'Save webhook', exact: true }).click();
+  await expect(page.getByText('Webhook settings saved.')).toBeVisible();
+  const webhookWrites = () => fixture.requests.filter(r => r.path === '/v1/user/recommendation-webhook' && r.method === 'PATCH');
+  expect(webhookWrites().at(-1).body).toEqual({
+    clear_secret: false,
+    enabled: true,
+    notification_types: ['recommendation_approved'],
+    secret: null,
+    url: 'https://client.example.com/webhooks/recommendations',
+  });
+
+  await page.getByLabel(/Signing secret/).fill('shared-secret');
+  await page.getByRole('button', { name: 'Save webhook', exact: true }).click();
+  await expect(page.getByText('Webhook settings saved.')).toBeVisible();
+  expect(webhookWrites().at(-1).body).toEqual({
+    clear_secret: false,
+    enabled: true,
+    notification_types: ['recommendation_approved'],
+    secret: 'shared-secret',
+    url: 'https://client.example.com/webhooks/recommendations',
+  });
+
+  await page.getByLabel('Clear signing secret').check();
+  await page.getByRole('button', { name: 'Save webhook', exact: true }).click();
+  await expect(page.getByText('Webhook settings saved.')).toBeVisible();
+  expect(webhookWrites().at(-1).body).toEqual({
+    clear_secret: true,
+    enabled: true,
+    notification_types: ['recommendation_approved'],
+    secret: null,
+    url: 'https://client.example.com/webhooks/recommendations',
+  });
+
+  await page.getByRole('button', { name: 'Disconnect webhook', exact: true }).click();
+  expect(fixture.requests.filter(r => r.path === '/v1/user/recommendation-webhook' && r.method === 'DELETE')).toHaveLength(0);
+  await page.getByRole('button', { name: 'Confirm disconnect webhook' }).click();
+  await expect(page.getByText('Webhook disconnected.')).toBeVisible();
+  expect(fixture.requests.filter(r => r.path === '/v1/user/recommendation-webhook' && r.method === 'DELETE')).toHaveLength(1);
+});
+
+test('Webhook URL validation blocks unsafe endpoints before save', async ({ page }) => {
+  const { requests } = await setup(page, { token: 'fixture-token' });
+  await page.goto('/dashboard/notifications');
+  await page.getByLabel('Enable webhook delivery').check();
+  await page.getByLabel(/Webhook URL/).fill('https://user:pass@example.com/recommendations');
+  await page.getByRole('button', { name: 'Save webhook', exact: true }).click();
+  await expect(page.getByText('Webhook URL must not include username or password.')).toBeVisible();
+
+  await page.getByLabel(/Webhook URL/).fill('https://example.com/recommendations#fragment');
+  await page.getByRole('button', { name: 'Save webhook', exact: true }).click();
+  await expect(page.getByText('Webhook URL must not include a fragment.')).toBeVisible();
+  expect(requests.filter(r => r.path === '/v1/user/recommendation-webhook' && r.method === 'PATCH')).toHaveLength(0);
+});
+
 test('pending Telegram polls immediately and every two seconds, stopping at expiry', async ({ page }) => {
   await page.clock.install({ time: NOW });
   const { requests } = await setup(page, { fixedTime: false, token: 'fixture-token', telegram: { status: 'PENDING', enabled: true, link_expires_at: new Date(NOW.getTime() + 6000).toISOString() } });
@@ -161,6 +231,16 @@ test('Telegram unavailable pending setup does not poll and auth expiry locks the
   await page.goto('/dashboard/notifications');
   await expect(page.getByRole('button', { name: 'Generate new link' })).toBeDisabled();
   await page.clock.runFor(10_000); expect(requests.filter(entry => entry.path === '/v1/user/telegram-notifications')).toHaveLength(1);
-  expired = true; await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  expired = true; await page.locator('section[aria-labelledby="notification-settings-title"]').getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(page.getByText('Your access token has expired. Enter it again.')).toBeVisible(); await expectToken(page, null);
+});
+
+test('Webhook auth expiry locks the notifications route', async ({ page }) => {
+  await setup(page, {
+    token: 'fixture-token',
+    respond: entry => entry.path === '/v1/user/recommendation-webhook' ? { status: 403, json: {} } : null,
+  });
+  await page.goto('/dashboard/notifications');
+  await expect(page.getByText('Your access token has expired. Enter it again.')).toBeVisible();
+  await expectToken(page, null);
 });

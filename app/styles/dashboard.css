@@ -241,6 +241,17 @@
   padding-top: 24px;
 }
 
+.notification-channel-grid {
+  display: grid;
+  gap: 34px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 72px;
+}
+
+.notification-channel-grid .notifications-panel {
+  margin-top: 0;
+}
+
 .panel-topline {
   align-items: end;
   display: flex;
@@ -253,4 +264,3 @@
   line-height: 0.88;
   margin: 13px 0 0 -2px;
 }
-

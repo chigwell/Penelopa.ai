@@ -110,7 +110,7 @@ test('recommendation and notification loading keep their page context visible', 
   detail.resolve();
   await expect(page.getByRole('heading', { name: recommendation.title })).toBeVisible();
   await page.goto('/dashboard/notifications');
-  await expect(page.getByRole('heading', { name: 'Telegram notifications.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Notification settings.' })).toBeVisible();
   await expect(page.getByLabel('Loading notification settings', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Access token')).toHaveCount(0);
   notifications.resolve();
@@ -133,6 +133,7 @@ test('a late desktop IPC response cannot restore a signed-out dashboard', async 
         if (path.includes('/daily-activity')) return { status: 200, data: [] };
         if (path.startsWith('/v1/hermes/recommendations?')) return { status: 200, data: { items: [recommendation], page: 1, page_size: 10, total: 1 } };
         if (path === '/v1/user/telegram-notifications') return { status: 200, data: { status: 'DISABLED', enabled: false, notification_types: [], language: 'en' } };
+        if (path === '/v1/user/recommendation-webhook') return { status: 200, data: { enabled: false, url: null, secret_configured: false, notification_types: ['recommendation_approved'], created_at: '2026-09-06T12:00:00Z', updated_at: '2026-09-06T12:00:00Z' } };
         return { status: 404, data: {} };
       },
     };

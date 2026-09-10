@@ -13,6 +13,7 @@ import { CHART_SERIES, DashboardSummaryView, DashboardActivityView, DashboardRec
 import { useDashboardData } from "./use-dashboard-data";
 import { useRecommendationReports } from "./use-recommendation-reports";
 import { TelegramNotificationsSettings } from "./TelegramNotifications";
+import { WebhookNotificationsSettings } from "./WebhookNotifications";
 import { RecentSessions } from "./sessions/RecentSessions";
 
 export default function DashboardPage() {
@@ -114,12 +115,20 @@ export default function DashboardPage() {
 
         <RecentSessions token={token} onAuthExpired={handleAuthExpired} refreshKey={updatedAt} />
 
-        <TelegramNotificationsSettings
-          mode="compact"
-          key={token}
-          token={token}
-          onAuthExpired={handleAuthExpired}
-        />
+        <div className="notification-channel-grid">
+          <TelegramNotificationsSettings
+            mode="compact"
+            key={token}
+            token={token}
+            onAuthExpired={handleAuthExpired}
+          />
+          <WebhookNotificationsSettings
+            mode="compact"
+            key={`${token}-webhook`}
+            token={token}
+            onAuthExpired={handleAuthExpired}
+          />
+        </div>
 
         <DashboardActivityView chartData={chartData} activeSeries={activeSeries} toggleSeries={toggleSeries} />
 

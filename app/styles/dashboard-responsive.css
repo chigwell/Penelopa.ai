@@ -103,6 +103,11 @@
     margin-top: 55px;
   }
 
+  .notification-channel-grid {
+    grid-template-columns: 1fr;
+    margin-top: 55px;
+  }
+
   .panel-topline {
     align-items: start;
     flex-direction: column;

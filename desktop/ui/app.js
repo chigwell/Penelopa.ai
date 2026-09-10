@@ -125,7 +125,7 @@ function render(state) {
     {
       dashboard: "Overview",
       sessions: "Sessions",
-      notifications: "Telegram alerts",
+      notifications: "Notifications",
       connection: "Connection",
       settings: "App settings",
       offline: "Connection unavailable",

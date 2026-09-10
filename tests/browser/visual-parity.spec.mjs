@@ -7,7 +7,7 @@ for (const theme of ['light', 'dark']) {
       ['home', '/', 'Continuous improvement for AI agents.'],
       ['dashboard', '/dashboard', 'Your activity.'],
       ['report', '/dashboard/recommendations/rec-1', 'Keep verification repeatable'],
-      ['telegram', '/dashboard/notifications', 'Telegram notifications.'],
+      ['telegram', '/dashboard/notifications', 'Notification settings.'],
       ['mcp', '/mcp', 'Recommendations MCP.'],
       ['privacy', '/privacy', 'Privacy Policy'],
       ['terms', '/terms', 'Terms of Service'],
@@ -18,7 +18,10 @@ for (const theme of ['light', 'dark']) {
         await page.goto(route);
         await expect(page.getByRole('heading', { name: ready, exact: true })).toBeVisible();
         if (name === 'dashboard') await expect(page.getByText('Loading notification settings...')).toHaveCount(0);
-        if (name === 'telegram') await expect(page.getByRole('button', { name: 'Save preferences' })).toBeVisible();
+        if (name === 'telegram') {
+          await expect(page.getByRole('button', { name: 'Save preferences' })).toBeVisible();
+          await expect(page.getByRole('button', { name: 'Save webhook' })).toBeVisible();
+        }
         if (name === 'home') await expect(page.getByLabel('Public usage totals')).toContainText('150K');
         // A resolved route heading alone can still coexist with an image-fetch
         // development overlay. Never record that transient failure as a baseline.

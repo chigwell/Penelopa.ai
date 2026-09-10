@@ -23,13 +23,13 @@ export function renderTelegramCompactSettings(state: TelegramSettings) {
   return (
     <section
       className="notifications-panel notifications-panel--compact"
-      aria-labelledby="notifications-title"
+      aria-labelledby="telegram-notifications-title"
       aria-busy={isLoading}
     >
       <div className="panel-topline notifications-topline">
         <div>
           <p className="eyebrow">Alerts</p>
-          <h2 id="notifications-title">Telegram notifications</h2>
+          <h2 id="telegram-notifications-title">Telegram notifications</h2>
         </div>
         <a className="notification-manage-link" href="/dashboard/notifications">
           Manage

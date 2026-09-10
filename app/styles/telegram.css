@@ -375,6 +375,11 @@
   gap: 10px;
 }
 
+.notification-input-stack {
+  display: grid;
+  gap: 12px;
+}
+
 .notification-checkbox-row {
   align-items: start;
   border: 1px solid var(--border);
@@ -383,6 +388,10 @@
   gap: 12px;
   grid-template-columns: auto minmax(0, 1fr);
   padding: 14px;
+}
+
+.notification-checkbox-row--compact {
+  padding: 12px 14px;
 }
 
 .notification-checkbox-row:hover {
@@ -407,6 +416,52 @@
 .notification-checkbox-row small {
   display: block;
   margin-top: 4px;
+}
+
+.notification-input-field {
+  display: grid;
+  gap: 7px;
+}
+
+.notification-input-field > span {
+  color: var(--ink);
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.notification-input-field small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.notification-text-input {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  min-height: 44px;
+  min-width: 0;
+  outline: 0;
+  padding: 0 13px;
+  width: 100%;
+}
+
+.notification-text-input::placeholder {
+  color: var(--muted);
+}
+
+.notification-text-input:focus {
+  border-color: var(--ink);
+}
+
+.notification-text-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.54;
 }
 
 .notification-action-bar,
@@ -448,9 +503,12 @@
   margin: 16px 0 0;
 }
 
+.webhook-detail-panel {
+  margin-top: 66px;
+}
+
 @keyframes notification-spin {
   to {
     transform: rotate(360deg);
   }
 }
-

@@ -21,6 +21,9 @@ function validateRequest(request) {
     ['PATCH', /^\/v1\/user\/telegram-notifications$/],
     ['POST', /^\/v1\/user\/telegram-notifications\/link$/],
     ['DELETE', /^\/v1\/user\/telegram-notifications\/connection$/],
+    ['GET', /^\/v1\/user\/recommendation-webhook$/],
+    ['PATCH', /^\/v1\/user\/recommendation-webhook$/],
+    ['DELETE', /^\/v1\/user\/recommendation-webhook$/],
   ];
   if (!routes.some(([verb, pattern]) => verb === method && pattern.test(url.pathname))) throw new Error('This API operation is not available to the desktop client.');
   const keys = url.pathname.endsWith('daily-activity') ? ['days'] : url.pathname === '/v1/hermes/recommendations' ? ['page', 'page_size'] : [];
@@ -28,14 +31,37 @@ function validateRequest(request) {
     if (!keys.includes(key) || !/^\d{1,6}$/.test(value) || Number(value) < 1 || (key === 'page_size' && Number(value) > 100)) throw new Error('Invalid API query.');
   }
   if (request.body !== undefined) {
-    if (method !== 'PATCH' || JSON.stringify(request.body).length > 4096) throw new Error('Invalid API body.');
-    const body = request.body;
-    if (!body || Array.isArray(body) || typeof body !== 'object' || Object.keys(body).some(key => !['enabled', 'language', 'notification_types'].includes(key))) throw new Error('Invalid notification settings.');
-    if ('enabled' in body && typeof body.enabled !== 'boolean') throw new Error('Invalid notification settings.');
-    if ('language' in body && !['en', 'ru'].includes(body.language)) throw new Error('Invalid notification language.');
-    if ('notification_types' in body && (!Array.isArray(body.notification_types) || body.notification_types.some(type => !['recommendation_created', 'recommendation_approved'].includes(type)))) throw new Error('Invalid notification types.');
+    if (method !== 'PATCH' || JSON.stringify(request.body).length > 8192) throw new Error('Invalid API body.');
+    if (url.pathname === '/v1/user/telegram-notifications') validateTelegramSettingsBody(request.body);
+    else if (url.pathname === '/v1/user/recommendation-webhook') validateWebhookSettingsBody(request.body);
+    else throw new Error('Invalid API body.');
   }
   return { url: url.href, method, body: request.body };
+}
+function validateObject(value, keys, message) {
+  if (!value || Array.isArray(value) || typeof value !== 'object' || Object.keys(value).some(key => !keys.includes(key))) throw new Error(message);
+}
+function validateNotificationTypes(value, allowed) {
+  return Array.isArray(value) && value.length > 0 && value.length <= 10 && value.every(type => allowed.includes(type));
+}
+function validateTelegramSettingsBody(body) {
+  validateObject(body, ['enabled', 'language', 'notification_types'], 'Invalid notification settings.');
+  if ('enabled' in body && typeof body.enabled !== 'boolean') throw new Error('Invalid notification settings.');
+  if ('language' in body && !['en', 'ru'].includes(body.language)) throw new Error('Invalid notification language.');
+  if ('notification_types' in body && !validateNotificationTypes(body.notification_types, ['recommendation_created', 'recommendation_approved'])) throw new Error('Invalid notification types.');
+}
+function validateWebhookSettingsBody(body) {
+  validateObject(body, ['enabled', 'url', 'secret', 'clear_secret', 'notification_types'], 'Invalid webhook settings.');
+  if ('enabled' in body && typeof body.enabled !== 'boolean') throw new Error('Invalid webhook settings.');
+  if ('clear_secret' in body && typeof body.clear_secret !== 'boolean') throw new Error('Invalid webhook settings.');
+  if ('secret' in body && body.secret !== null && (typeof body.secret !== 'string' || body.secret.length > 2048)) throw new Error('Invalid webhook secret.');
+  if ('notification_types' in body && !validateNotificationTypes(body.notification_types, ['recommendation_approved'])) throw new Error('Invalid webhook notification types.');
+  if ('url' in body && body.url !== null) {
+    if (typeof body.url !== 'string' || body.url.length > 2048) throw new Error('Invalid webhook URL.');
+    let parsed;
+    try { parsed = new URL(body.url); } catch { throw new Error('Invalid webhook URL.'); }
+    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password || parsed.hash) throw new Error('Invalid webhook URL.');
+  }
 }
 function trustedFrame(frame, contents, local = false) {
   if (!frame || frame !== contents.mainFrame || frame.isDestroyed()) return false;

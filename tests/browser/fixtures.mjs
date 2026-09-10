@@ -21,10 +21,26 @@ export const disabledTelegram = {
   enabled: false, status: 'DISABLED', language: 'en', notification_types: ['recommendation_created'],
   setup_available: true, telegram_username: null, telegram_chat_id: null, link_expires_at: null,
 };
+export const disabledWebhook = {
+  enabled: false, url: null, secret_configured: false, notification_types: ['recommendation_approved'],
+  created_at: NOW.toISOString(), updated_at: NOW.toISOString(),
+};
+
+function patchWebhook(current, body = {}) {
+  const next = { ...current };
+  if ('enabled' in body) next.enabled = body.enabled;
+  if ('url' in body && body.url !== null) next.url = body.url;
+  if ('notification_types' in body) next.notification_types = body.notification_types;
+  if (body.clear_secret) next.secret_configured = false;
+  if (typeof body.secret === 'string' && body.secret.trim()) next.secret_configured = true;
+  next.updated_at = NOW.toISOString();
+  return next;
+}
 
 export async function setup(page, options = {}) {
   const requests = [];
   let telegram = { ...disabledTelegram, ...options.telegram };
+  let webhook = { ...disabledWebhook, ...options.webhook };
   if (options.fixedTime !== false) await page.clock.setFixedTime(NOW);
   await page.addInitScript(({ token, theme }) => {
     if (token) localStorage.setItem('penelopa-api-token', token);
@@ -69,6 +85,11 @@ export async function setup(page, options = {}) {
       return route.fulfill({ json: { items: [{ ...recommendation, id: `rec-${number}`, title: number === 1 ? recommendation.title : 'Second recommendation' }], page: number, page_size: 10, total: 11 } });
     }
     if (url.pathname.startsWith('/v1/hermes/recommendations/')) return route.fulfill({ json: recommendation });
+    if (url.pathname === '/v1/user/recommendation-webhook') {
+      if (entry.method === 'PATCH') webhook = patchWebhook(webhook, entry.body);
+      if (entry.method === 'DELETE') webhook = { ...disabledWebhook };
+      return route.fulfill({ json: webhook });
+    }
     if (url.pathname === '/v1/user/telegram-notifications') {
       if (entry.method === 'PATCH') telegram = { ...telegram, ...entry.body };
       return route.fulfill({ json: telegram });
@@ -83,7 +104,11 @@ export async function setup(page, options = {}) {
     }
     throw new Error(`Unexpected fixture request: ${entry.method} ${entry.path}`);
   });
-  return { requests, setTelegram: value => { telegram = { ...telegram, ...value }; } };
+  return {
+    requests,
+    setTelegram: value => { telegram = { ...telegram, ...value }; },
+    setWebhook: value => { webhook = { ...webhook, ...value }; },
+  };
 }
 
 export async function signIn(page, route = '/dashboard') {

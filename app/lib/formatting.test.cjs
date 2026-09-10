@@ -15,6 +15,7 @@ function sharedHelpers(relativePath, globals = {}) {
 const dashboard = sharedHelpers("formatting.ts");
 const home = { ...dashboard, formatMetric: dashboard.formatPublicMetric };
 const telegram = sharedHelpers("../dashboard/telegram/helpers.ts");
+const webhook = sharedHelpers("../dashboard/webhook/helpers.ts", { URL });
 
 test("homepage and dashboard preserve distinct placeholders and metric thresholds", () => {
   assert.equal(home.formatMetric(undefined), "...");
@@ -50,6 +51,22 @@ test("Telegram event normalization uses the configured order and removes duplica
     ["recommendation_created", "recommendation_approved"]);
   assert.equal(telegram.getTypeSummary([]), "No event types selected");
   assert.equal(telegram.getTypeSummary(["recommendation_approved", "recommendation_created"]), "New recommendations, Approved recommendations");
+});
+
+test("Webhook labels, fixed event type and URL validation match the user contract", () => {
+  const disabled = { enabled: false, url: null, secret_configured: false, notification_types: ["recommendation_approved"], updated_at: null };
+  const enabled = { ...disabled, enabled: true, url: "https://example.com/hook", secret_configured: true };
+  assert.deepEqual(Array.from(webhook.normalizeWebhookNotificationTypes(null)), ["recommendation_approved"]);
+  assert.deepEqual(Array.from(webhook.normalizeWebhookNotificationTypes(["recommendation_approved"])), ["recommendation_approved"]);
+  assert.equal(webhook.getWebhookStatusTone(disabled), "is-disabled");
+  assert.equal(webhook.getWebhookStatusTone(enabled), "is-connected");
+  assert.equal(webhook.getWebhookDeliveryLabel(disabled), "No webhook URL configured");
+  assert.equal(webhook.getWebhookSecretLabel(enabled), "Configured");
+  assert.equal(webhook.validateWebhookUrl("", true), "Webhook URL is required when webhook delivery is enabled.");
+  assert.equal(webhook.validateWebhookUrl("ftp://example.com/hook", true), "Webhook URL must be an absolute http or https URL.");
+  assert.equal(webhook.validateWebhookUrl("https://user:pass@example.com/hook", true), "Webhook URL must not include username or password.");
+  assert.equal(webhook.validateWebhookUrl("https://example.com/hook#frag", true), "Webhook URL must not include a fragment.");
+  assert.equal(webhook.validateWebhookUrl("https://example.com/hook", true), "");
 });
 
 test("Telegram status copy distinguishes connection, pause, pending, and unavailable setup", () => {

@@ -8,6 +8,7 @@ import { DashboardTopbar, AccessTokenForm } from "../PageChrome";
 
 import { useCallback, useEffect, useState } from "react";
 import { TelegramNotificationsSettings } from "../TelegramNotifications";
+import { WebhookNotificationsSettings } from "../WebhookNotifications";
 
 type ScreenState = "locked" | "loading" | "ready";
 
@@ -98,7 +99,7 @@ export default function TelegramNotificationsPage() {
         <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} />
         <section className="token-gate" aria-labelledby="token-title">
           <div className="token-gate-copy">
-            <p className="eyebrow">Telegram notifications</p>
+            <p className="eyebrow">Notifications</p>
             <h1 id="token-title">Your alerts.</h1>
             <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
           </div>
@@ -125,8 +126,8 @@ export default function TelegramNotificationsPage() {
       <article className="notification-page-main">
         <header className="notification-page-heading">
           <p className="eyebrow">Personal dashboard</p>
-          <h1>Telegram notifications.</h1>
-          <p>Choose the alerts Penelopa sends to your Telegram account.</p>
+          <h1>Notification settings.</h1>
+          <p>Choose how Penelopa sends recommendation alerts.</p>
         </header>
         <TelegramNotificationsSettings
           mode="full"
@@ -134,8 +135,13 @@ export default function TelegramNotificationsPage() {
           token={token}
           onAuthExpired={handleAuthExpired}
         />
+        <WebhookNotificationsSettings
+          mode="full"
+          key={`${token}-webhook`}
+          token={token}
+          onAuthExpired={handleAuthExpired}
+        />
       </article>
     </main>
   );
 }
-

@@ -39,12 +39,17 @@ test('hook changes preserve unrelated settings and are idempotent', () => {
 test('API bridge only permits current dashboard operations', () => {
   assert.equal(validateRequest({ path: '/v1/admin/stats/summary' }).method, 'GET');
   assert.equal(validateRequest({ path: '/v1/user/telegram-notifications/connection', method: 'DELETE' }).method, 'DELETE');
+  assert.equal(validateRequest({ path: '/v1/user/recommendation-webhook', method: 'DELETE' }).method, 'DELETE');
   assert.doesNotThrow(() => validateRequest({ path: '/v1/user/telegram-notifications', method: 'PATCH', body: { enabled: true, language: 'en', notification_types: ['recommendation_created'] } }));
+  assert.doesNotThrow(() => validateRequest({ path: '/v1/user/recommendation-webhook', method: 'PATCH', body: { enabled: true, url: 'https://client.example.com/hook', secret: null, clear_secret: false, notification_types: ['recommendation_approved'] } }));
   for (const request of [
     { path: 'https://evil.example/v1/admin/stats/summary' }, { path: '//evil.example/v1/admin/stats/summary' },
     { path: '/v1/admin/stats/summary', method: 'POST' }, { path: '/v1/auth/bootstrap-token', method: 'POST' },
     { path: '/v1/hermes/recommendations/../admin' }, { path: '/v1/hermes/recommendations?redirect=https://evil.example' },
     { path: '/v1/user/telegram-notifications', method: 'PATCH', body: { command: 'execute' } },
+    { path: '/v1/user/recommendation-webhook', method: 'PATCH', body: { command: 'execute' } },
+    { path: '/v1/user/recommendation-webhook', method: 'PATCH', body: { enabled: true, url: 'https://user:pass@example.com/hook', secret: null, clear_secret: false, notification_types: ['recommendation_approved'] } },
+    { path: '/v1/user/recommendation-webhook', method: 'PATCH', body: { enabled: true, url: 'https://client.example.com/hook', secret: null, clear_secret: false, notification_types: ['recommendation_created'] } },
   ]) assert.throws(() => validateRequest(request));
   assert.equal(externalUrl('file:///etc/passwd'), false); assert.equal(externalUrl('javascript:alert(1)'), false); assert.equal(externalUrl('https://t.me/penelopa'), true);
 });

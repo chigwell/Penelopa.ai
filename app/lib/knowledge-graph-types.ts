@@ -25,6 +25,14 @@ export type GraphOrigin = {
 export type KnowledgeNode = { id: string; label: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
 export type KnowledgeEdge = { id: string; source: string; target: string; relationship: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
 export type KnowledgeGraph = { nodes: KnowledgeNode[]; edges: KnowledgeEdge[]; dates: number[]; skipped: number };
+export type GraphColor = { light: string; dark: string };
+export type PresentedNode = {
+  id: string; label: string; degree: number; communityId: string | null; communityLabel: string; color: GraphColor;
+};
+export type GraphCommunity = { id: string; label: string; count: number; color: GraphColor };
+export type GraphPresentation = { nodes: PresentedNode[]; communities: GraphCommunity[]; isolatedCount: number };
+export type PresentationRequest = { id: number; nodes: Pick<KnowledgeNode, "id" | "label">[]; edges: Pick<KnowledgeEdge, "id" | "source" | "target">[] };
+export type PresentationResponse = { id: number; presentation: GraphPresentation } | { id: number; error: string };
 export type GraphFilters = { sessions: string[]; source: string };
 export type GraphSelection =
   | { mode: "latest"; at: number }

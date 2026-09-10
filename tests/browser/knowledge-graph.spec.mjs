@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { setup } from './fixtures.mjs';
-import { setupGraphs, graphRuns, projectId, graphResponse } from './graph-fixtures.mjs';
+import { setupGraphs, graphRuns, projectId, graphResponse, communityResponse } from './graph-fixtures.mjs';
+import { canvasState, expectReadyCanvas, chooseCanvasEntity, timelineColors } from './graph-canvas-helpers.mjs';
 
 test('empty accounts hide all graph navigation and direct entry returns to Dashboard', async ({ page }) => {
   await setup(page, { token: 'fixture-token' });
@@ -110,7 +111,7 @@ test('real Cosmograph uses local WASM and renders in both themes', async ({ page
   await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
   await page.getByRole('button', { name: 'Latest', exact: true }).click();
   await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
-  await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true');
+  await expectReadyCanvas(page);
   expect(failures).toEqual([]);
 });
 
@@ -161,4 +162,95 @@ test('real canvas handles an isolated node and a larger disconnected graph', asy
   await page.getByLabel('Search entities').fill('Entity 1199');
   await page.getByLabel('Matching entities').getByRole('button', { name: 'Entity 1199', exact: true }).click();
   await expect(page.getByLabel('Knowledge detail')).toBeVisible();
+});
+
+test('communities, node size, exact incident highlights and neighborhood camera use the real renderer', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await setupGraphs(page, { fallback: false, respond: communityResponse });
+  await page.goto('/dashboard/knowledge-graph?mode=all');
+  await expectReadyCanvas(page);
+  const initial = await canvasState(page);
+  const hub = initial.points.find(p => p.label === 'Platform'), leaf = initial.points.find(p => p.label === 'Satellite');
+  expect(hub.degree).toBe(8); expect(hub.size).toBeGreaterThan(leaf.size);
+  expect(Math.min(...initial.points.map(p => p.size))).toBeGreaterThanOrEqual(7);
+  expect(Math.max(...initial.points.map(p => p.size))).toBeLessThanOrEqual(20);
+  expect(new Set(initial.points.map(p => p.community)).size).toBeGreaterThanOrEqual(4);
+  expect(await timelineColors(page)).toEqual({ background: 'rgb(255, 254, 250)', text: '#4e4942', selection: '#2459c4' });
+  // A label click uses the same path as a point click and must preserve all incident directions.
+  await page.locator('.kg-point-label').filter({ hasText: /^Platform$/ }).first().click();
+  await expect(page.getByLabel('Knowledge detail')).toBeVisible();
+  await expect(async () => {
+    const state = await canvasState(page);
+    const incident = state.links.filter(l => l.source === hub.index || l.target === hub.index);
+    expect(state.selectedLinks?.slice().sort((a, b) => a - b)).toEqual(incident.map(l => l.index).sort((a, b) => a - b));
+    const neighbors = [...new Set([hub.index, ...incident.flatMap(l => [l.source, l.target])])];
+    expect(state.selectedPoints?.slice().sort((a, b) => a - b)).toEqual(neighbors.sort((a, b) => a - b));
+    expect(state.focused).toBe(hub.index);
+    const box = await page.locator('.kg-canvas-main').boundingBox();
+    for (const point of state.points.filter(p => neighbors.includes(p.index))) {
+      expect(point.screen[0]).toBeGreaterThanOrEqual(0); expect(point.screen[0]).toBeLessThanOrEqual(box.width);
+      expect(point.screen[1]).toBeGreaterThanOrEqual(0); expect(point.screen[1]).toBeLessThanOrEqual(box.height);
+    }
+  }).toPass();
+  const selectedState = await canvasState(page);
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  await expect.poll(async () => (await canvasState(page)).points.find(p => p.label === 'Platform').color).not.toEqual(hub.color);
+  expect((await canvasState(page)).camera).toEqual(selectedState.camera);
+  expect(await timelineColors(page)).toEqual({ background: 'rgb(36, 33, 29)', text: '#ded7cb', selection: '#70acff' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expect((await canvasState(page)).camera.zoom).toEqual(selectedState.camera.zoom);
+  await page.getByRole('button', { name: 'Close details' }).click();
+  await expect.poll(async () => (await canvasState(page)).selectedLinks).toBeNull();
+  const cleared = await canvasState(page);
+  expect(cleared.selectedPoints).toBeNull(); expect(cleared.focused).toBeUndefined();
+  // The viewport changes when the inspector closes, but the user camera must not be fitted again.
+  expect(cleared.camera.zoom).toEqual(selectedState.camera.zoom);
+  await page.goBack();
+  await expect(page.getByLabel('Knowledge detail')).toBeVisible();
+  await expect.poll(async () => (await canvasState(page)).selectedLinks?.length).toBe(8);
+  await page.goForward();
+  await expect(page.getByLabel('Knowledge detail')).toHaveCount(0);
+  const beforeClick = await canvasState(page), research = beforeClick.points.find(p => p.label === 'Research');
+  const canvas = await page.locator('.kg-canvas-main').boundingBox();
+  await page.mouse.click(canvas.x + research.screen[0], canvas.y + research.screen[1]);
+  await expect.poll(async () => (await canvasState(page)).focused).toBe(research.index);
+  await expect.poll(async () => (await canvasState(page)).selectedLinks?.length).toBe(5);
+  await page.getByRole('button', { name: 'Close details' }).click();
+  await chooseCanvasEntity(page, 'Unconnected');
+  await expect.poll(async () => (await canvasState(page)).selectedPoints?.length).toBe(1);
+  expect((await canvasState(page)).selectedLinks || []).toEqual([]);
+});
+
+test('late community worker replies cannot restore a stale filtered graph; search does not recluster', async ({ page }) => {
+  test.setTimeout(90_000);
+  await setupGraphs(page, { fallback: false, respond: communityResponse });
+  await page.addInitScript(() => {
+    const OriginalWorker = window.Worker;
+    window.__presentationReplies = 0;
+    window.Worker = class extends OriginalWorker {
+      constructor(url, options) {
+        super(url, options);
+        if (!String(url).includes('presentation.worker')) return;
+        let listener;
+        Object.defineProperty(this, 'onmessage', { get: () => listener, set: value => { listener = value; } });
+        this.addEventListener('message', event => {
+          window.__presentationReplies++;
+          if (window.__presentationReplies === 1) window.__deliverOldPresentation = () => listener?.(event);
+          else listener?.(event);
+        });
+      }
+    };
+  });
+  await page.goto('/dashboard/knowledge-graph?mode=all');
+  await expect.poll(() => page.evaluate(() => window.__presentationReplies), { timeout: 60_000 }).toBe(1);
+  await page.getByLabel('Relationship', { exact: true }).selectOption('guides');
+  await expectReadyCanvas(page);
+  expect((await canvasState(page)).points.map(p => p.label).sort()).toEqual(['Design', 'Platform']);
+  await page.evaluate(() => window.__deliverOldPresentation());
+  await page.getByLabel('Search entities').fill('Design');
+  await expect(page.getByLabel('Matching entities')).toContainText('1 matches');
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  expect(await page.evaluate(() => window.__presentationReplies)).toBe(2);
+  expect((await canvasState(page)).points.map(p => p.label).sort()).toEqual(['Design', 'Platform']);
 });

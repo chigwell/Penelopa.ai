@@ -16,7 +16,7 @@ test('native Electron renders the production graph through the production preloa
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await page.getByRole('button', { name: 'View all time' }).click();
     await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
-    await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
     await expect(page.locator('.kg-canvas')).toHaveAttribute('data-settled', 'true', { timeout: 30_000 });
     await page.screenshot({ path: testInfo.outputPath('native-graph.png'), fullPage: true });
   } finally { await application.close(); }

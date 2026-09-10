@@ -25,14 +25,34 @@
 .kg-workspace.has-selection { grid-template-columns: minmax(0, 1fr) 340px; }
 .kg-stage { min-width: 0; min-height: 460px; height: min(58vh, 700px); position: relative; overflow: hidden; background: var(--canvas); }
 .kg-canvas, .kg-canvas-main, .kg-cosmograph { width: 100%; height: 100%; min-height: 0; }
-.kg-canvas { display: grid; grid-template-rows: minmax(0, 1fr) 112px; position: relative; }
+.kg-canvas { display: grid; grid-template-rows: auto minmax(0, 1fr) 112px; position: relative; }
 .kg-canvas-main { position: relative; }
+.kg-community-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 12px 16px; background: var(--surface-raised); border-bottom: 1px solid var(--border); font-size: 11px; }
+.kg-legend-title { font-weight: 600; color: var(--text); }
+.kg-community-legend ul { display: flex; flex-wrap: wrap; gap: 7px 16px; list-style: none; padding: 0; margin: 0; min-width: 0; }
+.kg-community-legend li { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text); }
+.kg-community-legend li > span { max-width: 145px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kg-community-legend i { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: var(--community-color); }
+.kg-community-legend small, .kg-community-legend .kg-legend-more, .kg-size-key { color: var(--muted); font-size: 10px; }
+.kg-size-key { margin-left: auto; }
+.kg-legend-toggle { display: none; }
 .kg-native-timeline { min-height: 112px; padding: 10px 14px 12px; background: var(--surface-raised); border-top: 1px solid var(--border);
   --cosmograph-ui-background: var(--surface-raised); --cosmograph-ui-text: var(--muted);
   --cosmograph-ui-element-color: color-mix(in srgb, var(--text) 28%, transparent);
   --cosmograph-ui-highlighted-element-color: var(--chart-messages);
   --cosmograph-ui-selection-control-color: color-mix(in srgb, var(--chart-messages) 52%, transparent);
-  --cosmograph-ui-font-family: var(--font-main); --cosmograph-ui-tick-font-size: 11px; }
+  --cosmograph-ui-font-family: var(--font-main); --cosmograph-ui-tick-font-size: 11px;
+  /* Library aliases are resolved at :root before inheritance. Override the actual component tokens here. */
+  --cosmograph-timeline-background: var(--surface-raised);
+  --cosmograph-timeline-text-color: #4e4942; --cosmograph-timeline-axis-color: #4e4942;
+  --cosmograph-timeline-bar-color: #8094af; --cosmograph-timeline-highlighted-bar-color: #2459c4;
+  --cosmograph-timeline-selection-color: #2459c4; --cosmograph-timeline-selection-opacity: 0.18;
+  --cosmograph-timeline-font-family: var(--font-main); --cosmograph-timeline-font-size: 11px; }
+:root[data-theme="dark"] .kg-native-timeline {
+  --cosmograph-timeline-background: var(--surface-raised);
+  --cosmograph-timeline-text-color: #ded7cb; --cosmograph-timeline-axis-color: #ded7cb;
+  --cosmograph-timeline-bar-color: #8194ae; --cosmograph-timeline-highlighted-bar-color: #70acff;
+  --cosmograph-timeline-selection-color: #70acff; --cosmograph-timeline-selection-opacity: 0.24; }
 .kg-canvas .kg-point-label { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); box-shadow: 0 2px 6px #0001; }
 .kg-fit { position: absolute; top: 16px; right: 16px; z-index: 2; background: var(--surface-raised); }
 .kg-canvas-hint { position: absolute; bottom: 16px; left: 20px; font: 10px var(--font-mono); color: var(--muted); pointer-events: none; padding: 7px 9px; background: var(--canvas); border-radius: 5px; }
@@ -78,3 +98,13 @@
 @media (max-width: 959px) { .kg-workspace.has-selection { grid-template-columns: minmax(0, 1fr); } .kg-workspace > .inspector-dialog { height: 100dvh; max-height: 100dvh; min-height: 0; } }
 @media (max-width: 600px) { .kg-main { padding: 24px 16px; } .kg-heading { align-items: start; flex-wrap: wrap; gap: 16px; } .kg-heading h1 { font-size: 32px; } .kg-heading p:last-child { font-size: 12px; line-height: 1.6; } .kg-toolbar > label:first-child { width: 100%; } .kg-toolbar select { max-width: 100%; } .kg-session-filter > div { left: -100px; } .kg-searchbar label { flex-basis: 100%; } .kg-searchbar select { min-width: 0; flex: 1; } .kg-stage { min-height: 460px; height: 64vh; } .kg-canvas { grid-template-rows: minmax(0, 1fr) 96px; } .kg-native-timeline { min-height: 96px; padding: 8px 10px; } .kg-timeline { padding: 18px 14px; } .kg-timeline-control > div { flex-wrap: wrap; gap: 8px; } .kg-timeline-control .session-button { font-size: 10px; padding: 8px; } .kg-canvas-hint { font-size: 8px; left: 8px; } .kg-footnote { flex-direction: column; line-height: 1.5; } }
 @media (prefers-reduced-motion: reduce) { .kg-shell *, .kg-shell *::before, .kg-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+@media (max-width: 600px) {
+  .kg-canvas { grid-template-rows: auto minmax(0, 1fr) 96px; }
+  .kg-community-legend { padding: 9px 12px; gap: 10px; }
+  .kg-legend-title { display: none; }
+  .kg-legend-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0; background: transparent; font-size: 11px; }
+  .kg-legend-toggle small { margin-left: 6px; }
+  .kg-community-legend:not(.is-expanded) ul, .kg-community-legend:not(.is-expanded) .kg-size-key { display: none; }
+  .kg-community-legend ul { max-height: 70px; overflow: auto; }
+  .kg-size-key { margin-left: 0; }
+}

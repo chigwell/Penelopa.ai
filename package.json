@@ -8,6 +8,8 @@
     "@cosmograph/react": "2.5.1",
     "@duckdb/duckdb-wasm": "1.32.0",
     "@vinext/cloudflare": "latest",
+    "graphology": "0.26.0",
+    "graphology-communities-louvain": "2.0.2",
     "lucide-react": "^1.39.0",
     "react": "latest",
     "react-dom": "latest",

@@ -1,12 +1,13 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Cosmograph, CosmographProvider, CosmographTimeline, type CosmographRef, type CosmographConfig, type CosmographTimelineConfig, type CosmographTimelineRef } from "@cosmograph/react";
 import { prepareCosmographDataInDuckDB, type WasmDuckDBConnection } from "@cosmograph/cosmograph";
 import { AsyncDuckDB, VoidLogger } from "@duckdb/duckdb-wasm";
 import { wasmUrl, workerUrl } from "virtual:knowledge-runtime";
-import { Maximize2 } from "lucide-react";
-import type { GraphSelection, KnowledgeEdge, KnowledgeNode } from "../../lib/knowledge-graph-types";
+import { ChevronDown, Maximize2 } from "lucide-react";
+import type { GraphPresentation, GraphSelection, KnowledgeEdge, KnowledgeNode } from "../../lib/knowledge-graph-types";
 import type { Theme } from "../../lib/use-theme";
+import { useGraphPresentation } from "./use-graph-presentation";
 
 type Props = {
   nodes: KnowledgeNode[]; edges: KnowledgeEdge[]; dates: number[]; selection: GraphSelection; theme: Theme;
@@ -42,27 +43,33 @@ function formatTimelineTick(value: number | Date) {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(toMs(value)));
 }
 export default function GraphCanvas(props: Props) {
-  const host = useRef<HTMLDivElement>(null), graph = useRef<CosmographRef>(undefined);
+  const host = useRef<HTMLDivElement>(null), canvasHost = useRef<HTMLDivElement>(null), graph = useRef<CosmographRef>(undefined);
+  const presentation = useGraphPresentation(props.nodes, props.edges, props.onFailure);
   const ownedGraph = useRef<CosmographRef>(undefined);
   const [connection, setConnection] = useState<WasmDuckDBConnection>(), [mounted, setMounted] = useState<CosmographRef>();
   const [timeline, setTimeline] = useState<CosmographTimelineRef>();
   const [ready, setReady] = useState(false), [settled, setSettled] = useState(false), [revision, setRevision] = useState(0);
   const latest = useRef(props); latest.current = props;
   const live = useRef(false), interacted = useRef(false), pendingFit = useRef(false);
+  const framedNode = useRef<string | undefined>(undefined);
   const syncingTimeline = useRef(false), timelineInputEnabled = useRef(false);
   const config = useRef<CosmographConfig>({}), queue = useRef(Promise.resolve());
   const generation = useRef(0), prepared = useRef<{ release: () => Promise<void> } | undefined>(undefined);
   const bindTimeline = useCallback((instance: CosmographTimelineRef | null) => setTimeline(instance || undefined), []);
   const duration = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
   const fit = () => {
-    const bounds = host.current?.getBoundingClientRect();
+    const bounds = canvasHost.current?.getBoundingClientRect();
     // Keep above-node labels inside the viewport as well as the points themselves.
     const padding = bounds ? Math.max(0.05, 64 / Math.max(1, Math.min(bounds.width, bounds.height))) : 0.1;
     graph.current?.fitView(duration(), padding);
   };
   const palette = () => {
     const css = getComputedStyle(document.documentElement), color = (name: string) => css.getPropertyValue(name).trim();
-    return { backgroundColor: color("--canvas"), pointDefaultColor: color("--chart-messages"), pointColorPalette: [color("--chart-messages"), color("--chart-recommendations")], linkDefaultColor: color("--border-strong"), pointLabelColor: color("--text"), hoveredPointLabelColor: color("--text"), focusedPointRingColor: color("--chart-recommendations") };
+    const theme = latest.current.theme;
+    return { backgroundColor: color("--canvas"), pointDefaultColor: color("--muted"),
+      pointColorByMap: Object.fromEntries((presentation?.nodes || []).map(node => [node.communityId ?? "__isolated", node.color[theme]])),
+      linkDefaultColor: theme === "dark" ? "#a5afbd" : "#66768c", pointLabelColor: color("--text"),
+      hoveredPointLabelColor: color("--text"), focusedPointRingColor: color("--ink"), hoveredPointRingColor: color("--ink") };
   };
   useEffect(() => {
     live.current = true; let disposed = false;
@@ -88,39 +95,47 @@ export default function GraphCanvas(props: Props) {
     return () => { disposed = true; live.current = false; abort.abort(); if (blob) URL.revokeObjectURL(blob); void queue.current.finally(async () => { await ownedGraph.current?.destroy().catch(() => {}); await database?.terminate().catch(() => {}); worker?.terminate(); }); };
   }, []);
   useEffect(() => {
-    if (!mounted || !connection) return;
+    if (!mounted || !connection || !presentation) return;
     const current = ++generation.current; let cancelled = false;
-    interacted.current = false; pendingFit.current = true; setReady(false); setSettled(false);
+    if (!latest.current.selected) interacted.current = false;
+    pendingFit.current = !latest.current.selected; setReady(false); setSettled(false);
     queue.current = queue.current.then(async () => {
       if (cancelled || !live.current) return;
       const next = await prepareCosmographDataInDuckDB({
         duckDBConnection: connection,
-        config: { points: { pointIdBy: "id", pointLabelBy: "label", pointIncludeColumns: ["observedAt"] }, ...(props.edges.length ? { links: { linkSourceBy: "source", linkTargetsBy: ["target"], createMissingPoints: false } } : {}) },
-        points: { tableName: `kg_points_${current}`, data: props.nodes.map(node => ({ id: node.id, label: node.label, observedAt: new Date(node.observedAt) })) },
+        config: { points: { pointIdBy: "id", pointLabelBy: "label", pointSizeBy: "degree", pointLabelWeightBy: "degree", pointColorBy: "community", pointClusterBy: "community", pointClusterStrengthBy: "clusterStrength", pointIncludeColumns: ["observedAt"] }, ...(props.edges.length ? { links: { linkSourceBy: "source", linkTargetsBy: ["target"], createMissingPoints: false } } : {}) },
+        points: { tableName: `kg_points_${current}`, data: (() => {
+          const byId = new Map(presentation.nodes.map(node => [node.id, node]));
+          return props.nodes.map(node => { const visual = byId.get(node.id)!; return { id: node.id, label: node.label, degree: visual.degree, community: visual.communityId ?? "__isolated", clusterStrength: visual.communityId === null ? 0 : 0.35, observedAt: new Date(node.observedAt) }; });
+        })() },
         ...(props.edges.length ? { links: { tableName: `kg_links_${current}`, data: props.edges.map(edge => ({ source: edge.source, target: edge.target, relationship: edge.relationship })) } } : {}),
       });
       const release = async () => { await next.dropViews(); await connection.connection!.query(`DROP TABLE IF EXISTS kg_points_${current}; DROP TABLE IF EXISTS kg_links_${current};`); };
       if (cancelled || !live.current || current !== generation.current) { await release(); return; }
       config.current = { ...next.cosmographConfig, ...palette(),
         enableSimulation: true, preservePointPositionsOnDataUpdate: true, spaceDimensions: 2,
-        pointDefaultSize: 8, pointSizeStrategy: "degree", pointSizeRange: [8, 15], scalePointsOnZoom: false,
-        pointColorStrategy: "degree", linkColorStrategy: "single", linkWidthStrategy: "single", linkDefaultWidth: 1.5, linkOpacity: 0.8, linkDefaultArrows: true,
+        pointDefaultSize: 7, pointSizeStrategy: "auto", pointSizeRange: [7, 20], scalePointsOnZoom: false,
+        // Explicit categorical mapping keeps neutral isolates out of the community palette.
+        pointColorStrategy: "map", pointGreyoutOpacity: 0.22,
+        linkColorStrategy: "single", linkWidthStrategy: "single", linkDefaultWidth: 1.4, linkOpacity: 0.65, linkGreyoutOpacity: 0.07, linkDefaultArrows: true,
+        linkVisibilityMinTransparency: 0.65, hoveredLinkWidthIncrease: 1.5,
         showLabels: true, showDynamicLabels: true, pointLabelClassName: "kg-point-label", hoveredPointLabelClassName: "kg-point-label",
-        selectPointOnClick: true, selectPointOnLabelClick: true, renderLinks: true, fitViewOnInit: false,
-        simulationDecay: 240, randomSeed: "penelopa-knowledge", disableLogging: true,
+        selectPointOnClick: false, selectPointOnLabelClick: false, focusPointOnClick: false, focusPointOnLabelClick: false, resetSelectionOnEmptyCanvasClick: false, renderLinks: true, fitViewOnInit: false,
+        simulationDecay: 240, simulationCluster: 0.06, simulationCollision: 0.7, simulationCollisionPadding: 2, randomSeed: "penelopa-knowledge", disableLogging: true,
         licenseKey: import.meta.env.VITE_COSMOGRAPH_LICENSE_KEY || undefined,
-        onPointClick: index => { void mounted.getPointIdsByIndices([index]).then(ids => { if (live.current && ids?.[0]) latest.current.onSelect(ids[0]); }).catch(() => {}); },
+        onPointClick: index => { void mounted.getPointIdsByIndices([index]).then(ids => { if (live.current && current === generation.current && ids?.[0]) latest.current.onSelect(ids[0]); }).catch(() => {}); },
         onLabelClick: (_index, id) => latest.current.onSelect(id),
+        onBackgroundClick: () => { if (latest.current.selected) latest.current.onSelect(""); },
         onSimulationEnd: () => { if (!live.current) return; if (pendingFit.current && !interacted.current) fit(); pendingFit.current = false; setSettled(true); },
       };
       await mounted.setConfig(config.current);
       await mounted.dataUploaded();
       const old = prepared.current; prepared.current = { release };
       if (old) await old.release();
-      if (!cancelled && live.current) { fit(); setReady(true); setRevision(value => value + 1); }
+      if (!cancelled && live.current) { if (!latest.current.selected) fit(); setReady(true); setRevision(value => value + 1); }
     }).catch(() => { if (live.current && !cancelled) latest.current.onFailure(); });
     return () => { cancelled = true; };
-  }, [mounted, connection, props.nodes, props.edges]);
+  }, [mounted, connection, props.nodes, props.edges, presentation]);
   useEffect(() => {
     if (!mounted || !ready) return;
     queue.current = queue.current.then(async () => { if (!live.current) return; config.current = { ...config.current, ...palette() }; await mounted.setConfig(config.current); }).catch(() => { if (live.current) latest.current.onFailure(); });
@@ -129,14 +144,36 @@ export default function GraphCanvas(props: Props) {
   useEffect(() => {
     if (!mounted || !ready) return;
     let active = true;
-    const ids = props.selected ? [props.selected] : props.matches;
-    void mounted.getPointIndicesByIds(ids).then(indices => {
+    if (!props.selected) framedNode.current = undefined;
+    void (async () => {
+      const indices = await mounted.getPointIndicesByIds(props.selected ? [props.selected] : props.matches);
       if (!active || !live.current) return;
-      mounted.selectPoints(indices || [], false, Boolean(props.selected));
-      if (props.selected && indices?.[0] !== undefined) { interacted.current = true; mounted.zoomToPoint(indices[0], duration(), 2, true); }
-    }).catch(() => {});
+      const index = indices?.[0];
+      if (!props.selected || index === undefined) {
+        mounted.unselectAll();
+        if (indices?.length) mounted.selectPoints(indices, false, false);
+        return;
+      }
+      const neighbors = mounted.getNeighboringPointIndices(index) || [];
+      const neighborhood = [...new Set([index, ...neighbors])];
+      // Use the renderer's own link rowids, never raw input order or the induced neighbor subgraph.
+      const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
+      const rendered = await mounted.getConfig();
+      const table = mounted.linksTableName?.split(".").map(quote).join(".");
+      const links = props.edges.length ? await connection!.connection!.query(`SELECT rowid FROM ${table} WHERE ${quote(rendered.linkSourceIndexBy!)} = ${index} OR ${quote(rendered.linkTargetIndexBy!)} = ${index}`) : undefined;
+      if (!active || !live.current) return;
+      const linkIndices = Array.from(links?.getChild("rowid")?.toArray() || [], Number);
+      mounted.unselectAll();
+      mounted.selectPoints(neighborhood, false, false);
+      if (linkIndices.length) mounted.selectLinks(linkIndices, true, false);
+      mounted.setFocusedPoint(index);
+      if (framedNode.current !== props.selected && settled) {
+        framedNode.current = props.selected; interacted.current = true; pendingFit.current = false;
+        mounted.fitViewByIndices(neighborhood, duration(), 0.15);
+      }
+    })().catch(() => { if (active && live.current) latest.current.onFailure(); });
     return () => { active = false; };
-  }, [props.selected, matchesKey, mounted, ready, revision]);
+  }, [props.selected, matchesKey, mounted, ready, revision, settled, connection]);
   const datesKey = props.dates.join(",");
   useEffect(() => {
     if (!timeline || !ready) return;
@@ -146,20 +183,21 @@ export default function GraphCanvas(props: Props) {
     queueMicrotask(() => { syncingTimeline.current = false; timelineInputEnabled.current = true; });
   }, [timeline, ready, props.selection, datesKey]);
   useEffect(() => {
-    const element = host.current;
+    const element = canvasHost.current;
     if (!element) return;
     let frame = 0;
-    const observer = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { if (ready) fit(); }); });
+    const observer = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { if (ready && !interacted.current && !latest.current.selected) fit(); }); });
     observer.observe(element);
     const lost = (event: Event) => { event.preventDefault(); latest.current.onFailure(); };
     element.addEventListener("webglcontextlost", lost, true);
     return () => { observer.disconnect(); cancelAnimationFrame(frame); element.removeEventListener("webglcontextlost", lost, true); };
   }, [ready]);
   const expectedSelection = timelineSelection(props.selection, props.dates);
-  return <CosmographProvider><div className="kg-canvas" ref={host} data-ready={ready} data-settled={settled}>
-    <div className="kg-canvas-main" onPointerDown={() => { interacted.current = true; }} onWheel={() => { interacted.current = true; }}>
+  return <CosmographProvider><div className="kg-canvas" ref={host} data-ready={ready && Boolean(presentation)} data-settled={settled && Boolean(presentation)}>
+    <CommunityLegend presentation={presentation} theme={props.theme} />
+    <div className="kg-canvas-main" ref={canvasHost} onPointerDown={() => { interacted.current = true; }} onWheel={() => { interacted.current = true; }}>
       {connection ? <Cosmograph className="kg-cosmograph" ref={graph} duckDBConnection={connection} disableLogging onMount={instance => { ownedGraph.current = instance; setMounted(instance); }} /> : null}
-      {!ready ? <div className="kg-canvas-loading" role="status">Preparing the interactive canvas…</div> : null}
+      {!ready || !presentation ? <div className="kg-canvas-loading" role="status">{presentation ? "Preparing the interactive canvas…" : "Finding graph communities…"}</div> : null}
       <button className="session-button kg-fit" disabled={!ready} onClick={() => { interacted.current = false; fit(); }}><Maximize2 size={14} />Fit graph</button>
       <span className="kg-canvas-hint">Scroll to zoom · drag to explore · select an entity</span>
     </div>
@@ -170,4 +208,15 @@ export default function GraphCanvas(props: Props) {
       if (next) latest.current.onTimelineRange(next[0].getTime(), next[1].getTime());
     }} /> : null}
   </div></CosmographProvider>;
+}
+
+function CommunityLegend({ presentation, theme }: { presentation?: GraphPresentation; theme: Theme }) {
+  const [expanded, setExpanded] = useState(false);
+  const communities = presentation?.communities || [];
+  return <div className={`kg-community-legend${expanded ? " is-expanded" : ""}`}>
+    <button className="kg-legend-toggle" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}><span>Communities <small>{communities.length}</small></span><ChevronDown size={14} /></button>
+    <span className="kg-legend-title">Communities</span>
+    <ul aria-label="Graph communities">{communities.slice(0, 5).map(community => <li key={community.id} title={`${community.label} · ${community.count} entities`}><i style={{ "--community-color": community.color[theme] } as CSSProperties} /><span>{community.label}</span><small>{community.count}</small></li>)}{communities.length > 5 ? <li className="kg-legend-more">+{communities.length - 5} more</li> : null}{presentation?.isolatedCount ? <li className="kg-legend-more">{presentation.isolatedCount} unconnected</li> : null}</ul>
+    <span className="kg-size-key">Larger nodes have more connections</span>
+  </div>;
 }

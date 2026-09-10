@@ -10,6 +10,10 @@ Choose a project, sources and sessions, then inspect graph observations by analy
 
 Entity search highlights matches without removing their graph context. Connection search and relationship filters restrict edges and their endpoints. Selection, filters and dates survive copied links and browser navigation. Session links open the retained session explorer. A responsive inspector becomes a keyboard-accessible modal below 960 px. When WebGL is unavailable, the same searchable entities, relationships and provenance are accessible through a paged list.
 
+The canvas colors structural communities within the selected project and time/filter view. A separate lazy worker uses pinned Graphology 0.26.0 and Louvain 2.0.2, sorted input and non-random traversal. Directed relationships contribute weights to undirected pairs for clustering; the displayed edges retain their directions. Each community is named after its highest-degree entity. Unconnected nodes remain neutral and exert no cluster attraction. The compact legend lists the five largest communities and expands on mobile.
+
+Node sizes use visible incoming plus outgoing relationship counts (a self-loop counts twice), mapped through Cosmograph's symlog scale to 7–20 px. Clicking an entity highlights its neighbors and exactly its incident edges, then fits that neighborhood after layout with 15% padding. Closing the inspector, resizing or changing theme preserves the user's zoom. Search highlights matches without recomputing communities. Explicit timeline component tokens keep its background, axis, bars and range brush consistent with both themes.
+
 ## Data and runtime
 
 - Public requests use `https://api.penelopa.ai/v2/user-read`; the backend's `/api` mounting prefix is not repeated. Browser requests use the existing bearer-token transport. Desktop renderer requests carry only an allowlisted path and method; the main process adds credentials.
@@ -17,7 +21,7 @@ Entity search highlights matches without removing their graph context. Connectio
 - A dedicated Web Worker merges entities by project plus Unicode casefolded, whitespace-normalized name, matching backend semantics. Edge endpoints contain labels, not IDs; they resolve against the run's nodes. Direction and normalized relationship form the edge key. Invalid elements are counted and skipped. Original IDs, labels, timestamps and run/session references are retained.
 - Only the active project's raw data and merged graph remain in memory. Logout, account/project changes and navigation dispose requests and workers; late IPC replies cannot repopulate the view. There is no persistent graph cache.
 - `@cosmograph/react` and `@cosmograph/cosmograph` are pinned to 2.5.1. The canvas uses `CosmographTimeline` with an `observedAt` point column and app-owned filtering for latest/range/all-time dedup views. A Vite plugin emits the pinned DuckDB 1.32.0 worker and gzip-compressed WASM with the application. The 8.3 MiB compressed WASM stays below the host's asset-size limit; the browser decompresses it before initialization. Graph content is not sent to an external data service. The library's own license/usage services remain subject to its license terms.
-- Graph modules load only when needed. Light/dark colors come from existing tokens. Fitting occurs after layout and viewport changes, with enough padding for labels. Manual interaction suppresses a pending simulation-completion camera reset. Matching node IDs preserve positions across data changes. Reduced motion disables camera animation.
+- Graph modules load only when needed. Theme-specific community palettes retain hue identity with at least 3:1 contrast against the canvas. Fitting occurs after layout and, before manual interaction, viewport changes, with enough padding for labels. Manual interaction suppresses a pending simulation-completion camera reset. Matching node IDs preserve positions across data changes. Reduced motion disables camera animation.
 
 ## Desktop and release
 
@@ -49,7 +53,15 @@ Production tests exercise the compiled worker and local WASM through Wrangler, i
 
 Screenshot fixtures cover both themes at 390, 768, 1024 and 1440 px for latest, range, all-time and inspector states. Graph correctness tests cover selection history, name normalization, provenance, source filters, pagination, cancellation, retries, access errors and old desktop compatibility. Native packaging and actual production account checks are separate from mocked API tests.
 
-### Local verification — 2026-09-10
+Community screenshots additionally exercise real WebGL at 390 and 1440 px, including hub sizes, community colors and selected incoming/outgoing relationships. Only screenshot fixtures use fixed coordinates to avoid GPU force-layout drift; behavioral tests use the live simulation. Browser assertions inspect the actual renderer's selected point/link indices, neighborhood bounds, camera preservation, computed timeline colors and delayed worker replies.
+
+### Visual refresh verification — 2026-09-10
+
+- Typecheck, all 55 web unit tests and the production build passed. The production output includes the separate presentation worker and local DuckDB WASM.
+- All 12 browser scenarios and 12 visual scenarios passed, including the real WebGL community snapshots in both themes and the existing four-width timeline coverage.
+- All 13 production preview scenarios passed, including native Electron 44.2.0 through the production preload, exact incident-link selection, camera preservation and rejection of stale worker results. These checks use synthetic graph data.
+
+### Previous native timeline verification — 2026-09-10
 
 - Typecheck, production build and Wrangler deployment dry-run passed.
 - All 50 web unit tests and 58 desktop tests passed (desktop tests used pinned Node 24.20.0).

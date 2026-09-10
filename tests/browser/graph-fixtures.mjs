@@ -36,3 +36,16 @@ export async function setupGraphs(page, options = {}) {
   });
   return setup(page, { token: 'fixture-token', theme: options.theme || 'light', fixedTime: false, respond: async entry => (options.respond && await options.respond(entry)) || graphResponse(entry) });
 }
+
+export const communityLabels = ['Platform', 'API', 'Auth', 'Queue', 'Storage', 'Research', 'Evidence', 'Search', 'Papers', 'Notes', 'Design', 'Canvas', 'Typography', 'Color', 'Layout', 'Satellite', 'Unconnected'];
+export const communityEdges = [];
+for (const group of [communityLabels.slice(0, 5), communityLabels.slice(5, 10), communityLabels.slice(10, 15)]) {
+  for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) communityEdges.push({ from: group[i], relationship: 'uses', to: group[j] });
+}
+communityEdges.push({ from: 'Research', relationship: 'informs', to: 'Platform' }, { from: 'Platform', relationship: 'guides', to: 'Design' }, { from: 'Platform', relationship: 'supports', to: 'Satellite' }, { from: 'API', relationship: 'calls', to: 'Platform' });
+export function communityResponse(entry) {
+  const path = new URL(entry.path, 'https://fixture').pathname;
+  const run = { ...graphRuns[0], node_count: communityLabels.length, edge_count: communityEdges.length };
+  if (path === '/v2/user-read/knowledge-graphs') return { json: { items: [run], next_cursor: null } };
+  if (path === `/v2/user-read/knowledge-graphs/${run.id}`) return { json: { ...run, nodes: communityLabels.map((label, i) => ({ id: `entity-${i}`, label })), edges: communityEdges, node_total: communityLabels.length, edge_total: communityEdges.length, node_next_cursor: null, edge_next_cursor: null, nodes_truncated: false, edges_truncated: false } };
+}

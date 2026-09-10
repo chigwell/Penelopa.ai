@@ -18,12 +18,12 @@ export type GraphChunk = GraphRun & {
 };
 export type GraphSnapshot = { run: GraphRun; nodes: GraphRecord[]; edges: GraphRecord[] };
 export type GraphOrigin = {
-  runId: string; sessionId: string; sessionKey: string; source: string; at: number;
+  runId: string; projectId: string; projectKey: string; sessionId: string; sessionKey: string; source: string; at: number;
   originalId: string | null; label: string; transcriptStart: string; transcriptEnd: string;
   search: string;
 };
-export type KnowledgeNode = { id: string; label: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
-export type KnowledgeEdge = { id: string; source: string; target: string; relationship: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
+export type KnowledgeNode = { id: string; projectId: string; projectKey: string; label: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
+export type KnowledgeEdge = { id: string; projectId: string; projectKey: string; source: string; target: string; relationship: string; firstSeen: number; observedAt: number; origins: GraphOrigin[]; search: string };
 export type KnowledgeGraph = { nodes: KnowledgeNode[]; edges: KnowledgeEdge[]; dates: number[]; skipped: number };
 export type GraphColor = { light: string; dark: string };
 export type PresentedNode = {
@@ -31,7 +31,12 @@ export type PresentedNode = {
 };
 export type GraphCommunity = { id: string; label: string; count: number; color: GraphColor };
 export type GraphPresentation = { nodes: PresentedNode[]; communities: GraphCommunity[]; isolatedCount: number };
-export type PresentationRequest = { id: number; nodes: Pick<KnowledgeNode, "id" | "label">[]; edges: Pick<KnowledgeEdge, "id" | "source" | "target">[] };
+export type GraphPresentationGrouping = "community" | "project";
+export type PresentationRequest = {
+  id: number; groupBy: GraphPresentationGrouping;
+  nodes: Pick<KnowledgeNode, "id" | "label" | "projectId" | "projectKey">[];
+  edges: Pick<KnowledgeEdge, "id" | "source" | "target">[];
+};
 export type PresentationResponse = { id: number; presentation: GraphPresentation } | { id: number; error: string };
 export type GraphFilters = { sessions: string[]; source: string };
 export type GraphSelection =

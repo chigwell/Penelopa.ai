@@ -10,12 +10,12 @@ test('native Electron renders the production graph through the production preloa
     const page = await application.firstWindow();
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await page.goto(`${testInfo.project.use.baseURL}/dashboard/knowledge-graph`);
-    await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
+    await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
     await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
     expect(await page.evaluate(() => ({ isolated: typeof window.require === 'undefined' && typeof window.process === 'undefined', capable: window.penelopaDesktop.capabilities.knowledgeGraphRead }))).toEqual({ isolated: true, capable: true });
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
-    await page.getByRole('button', { name: 'View all time' }).click();
-    await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
+    await page.getByRole('button', { name: 'Latest', exact: true }).click();
+    await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
     await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
     await expect(page.locator('.kg-canvas')).toHaveAttribute('data-settled', 'true', { timeout: 30_000 });
     await page.screenshot({ path: testInfo.outputPath('native-graph.png'), fullPage: true });

@@ -12,17 +12,24 @@ export const communityColors: GraphColor[] = [
 ];
 export const isolatedColor: GraphColor = { light: "#777169", dark: "#aaa397" };
 const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
+function displayProjectName(value?: string) {
+  return value?.replace(/\\/g, "/").replace(/\/$/, "").split("/").filter(Boolean).pop() || value || "No project";
+}
 
-export function prepareGraphPresentation({ nodes, edges }: Pick<PresentationRequest, "nodes" | "edges">): GraphPresentation {
+export function prepareGraphPresentation({ nodes, edges, groupBy = "community" }: Pick<PresentationRequest, "nodes" | "edges"> & Partial<Pick<PresentationRequest, "groupBy">>): GraphPresentation {
   const ordered = [...nodes].sort((a, b) => compare(a.id, b.id));
   const degrees = new Map(ordered.map(node => [node.id, 0]));
+  for (const edge of [...edges].sort((a, b) => compare(a.id, b.id))) {
+    if (!degrees.has(edge.source) || !degrees.has(edge.target)) continue;
+    degrees.set(edge.source, degrees.get(edge.source)! + 1);
+    degrees.set(edge.target, degrees.get(edge.target)! + 1); // A self-loop contributes one in + one out.
+  }
+  if (groupBy === "project") return projectPresentation(ordered, degrees);
   const graph = new UndirectedGraph({ allowSelfLoops: true });
   for (const node of ordered) graph.addNode(node.id);
   // Directed relationships remain distinct in degree, but contribute weight to one undirected pair.
   for (const edge of [...edges].sort((a, b) => compare(a.id, b.id))) {
     if (!degrees.has(edge.source) || !degrees.has(edge.target)) continue;
-    degrees.set(edge.source, degrees.get(edge.source)! + 1);
-    degrees.set(edge.target, degrees.get(edge.target)! + 1); // A self-loop contributes one in + one out.
     const [source, target] = [edge.source, edge.target].sort(compare);
     const key = JSON.stringify([source, target]);
     if (graph.hasEdge(key)) graph.updateEdgeAttribute(key, "weight", weight => weight + 1);
@@ -49,5 +56,30 @@ export function prepareGraphPresentation({ nodes, edges }: Pick<PresentationRequ
     }),
     communities,
     isolatedCount: ordered.length - membership.size,
+  };
+}
+
+function projectPresentation(ordered: PresentationRequest["nodes"], degrees: Map<string, number>): GraphPresentation {
+  const groups = new Map<string, PresentationRequest["nodes"]>();
+  for (const node of ordered) {
+    const key = node.projectId || "__unknown";
+    const members = groups.get(key) || [];
+    members.push(node);
+    groups.set(key, members);
+  }
+  const membership = new Map<string, GraphCommunity>();
+  const communities = [...groups.entries()].sort(([left], [right]) => compare(left, right)).map(([id, members], index) => {
+    const projectKey = members.find(node => node.projectKey)?.projectKey || "";
+    const community = { id, label: displayProjectName(projectKey), count: members.length, color: communityColors[index % communityColors.length] };
+    for (const node of members) membership.set(node.id, community);
+    return community;
+  }).sort((a, b) => b.count - a.count || compare(a.id, b.id));
+  return {
+    nodes: ordered.map(node => {
+      const community = membership.get(node.id);
+      return { ...node, degree: degrees.get(node.id)!, communityId: community?.id ?? null, communityLabel: community?.label ?? "No project", color: community?.color ?? isolatedColor };
+    }),
+    communities,
+    isolatedCount: ordered.filter(node => !degrees.get(node.id)).length,
   };
 }

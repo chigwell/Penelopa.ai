@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { GraphPresentation, KnowledgeEdge, KnowledgeNode, PresentationRequest, PresentationResponse } from "../../lib/knowledge-graph-types";
+import type { GraphPresentation, GraphPresentationGrouping, KnowledgeEdge, KnowledgeNode, PresentationRequest, PresentationResponse } from "../../lib/knowledge-graph-types";
 
-export function useGraphPresentation(nodes: KnowledgeNode[], edges: KnowledgeEdge[], onFailure: () => void) {
+export function useGraphPresentation(nodes: KnowledgeNode[], edges: KnowledgeEdge[], groupBy: GraphPresentationGrouping, onFailure: () => void) {
   const worker = useRef<Worker | null>(null), revision = useRef(0);
-  const latest = useRef({ nodes, edges, onFailure }); latest.current = { nodes, edges, onFailure };
-  const [result, setResult] = useState<{ nodes: KnowledgeNode[]; edges: KnowledgeEdge[]; presentation: GraphPresentation }>();
+  const latest = useRef({ nodes, edges, groupBy, onFailure }); latest.current = { nodes, edges, groupBy, onFailure };
+  const [result, setResult] = useState<{ nodes: KnowledgeNode[]; edges: KnowledgeEdge[]; groupBy: GraphPresentationGrouping; presentation: GraphPresentation }>();
   useEffect(() => {
     const instance = new Worker(new URL("./presentation.worker.ts", import.meta.url), { type: "module" });
     worker.current = instance;
@@ -17,12 +17,12 @@ export function useGraphPresentation(nodes: KnowledgeNode[], edges: KnowledgeEdg
     if (!instance) return;
     const id = ++revision.current;
     instance.onmessage = (event: MessageEvent<PresentationResponse>) => {
-      if (event.data.id !== revision.current || latest.current.nodes !== nodes || latest.current.edges !== edges) return;
+      if (event.data.id !== revision.current || latest.current.nodes !== nodes || latest.current.edges !== edges || latest.current.groupBy !== groupBy) return;
       if ("error" in event.data) latest.current.onFailure();
-      else setResult({ nodes, edges, presentation: event.data.presentation });
+      else setResult({ nodes, edges, groupBy, presentation: event.data.presentation });
     };
-    instance.postMessage({ id, nodes: nodes.map(({ id, label }) => ({ id, label })), edges: edges.map(({ id, source, target }) => ({ id, source, target })) } satisfies PresentationRequest);
+    instance.postMessage({ id, groupBy, nodes: nodes.map(({ id, label, projectId, projectKey }) => ({ id, label, projectId, projectKey })), edges: edges.map(({ id, source, target }) => ({ id, source, target })) } satisfies PresentationRequest);
     return () => { revision.current++; };
-  }, [nodes, edges]);
-  return result?.nodes === nodes && result.edges === edges ? result.presentation : undefined;
+  }, [nodes, edges, groupBy]);
+  return result?.nodes === nodes && result.edges === edges && result.groupBy === groupBy ? result.presentation : undefined;
 }

@@ -9,6 +9,7 @@ function load(file) {
 const { prepareGraphPresentation, communityColors } = load('knowledge-graph-presentation.ts');
 const { mergeKnowledgeGraphs, graphForSelection } = load('knowledge-graph-model.ts');
 const nodes = ids => ids.map(id => ({ id, label: id }));
+const projectNodes = values => values.map(([id, label, projectId, projectKey]) => ({ id, label, projectId, projectKey }));
 const edge = (source, target, id = `${source}-${target}`) => ({ id, source, target });
 const plain = value => JSON.parse(JSON.stringify(value));
 
@@ -38,6 +39,22 @@ test('empty graphs, isolates and self-loop-only graphs remain valid', () => {
   assert.equal(isolated.communities.length, 0); assert.equal(isolated.isolatedCount, 2);
   const loop = prepareGraphPresentation({ nodes: nodes(['A']), edges: [edge('A', 'A')] });
   assert.equal(loop.nodes[0].degree, 2); assert.equal(loop.communities.length, 1);
+});
+
+test('project grouping colors all-project views by project', () => {
+  const graph = prepareGraphPresentation({
+    groupBy: 'project',
+    nodes: projectNodes([
+      ['p1-a', 'Shared', 'p1', '/work/alpha'],
+      ['p1-b', 'API', 'p1', '/work/alpha'],
+      ['p2-a', 'Shared', 'p2', '/work/beta'],
+    ]),
+    edges: [edge('p1-a', 'p1-b')],
+  });
+  assert.deepEqual(plain(graph.communities.map(community => [community.id, community.label, community.count])), [['p1', 'alpha', 2], ['p2', 'beta', 1]]);
+  assert.equal(graph.nodes.find(node => node.id === 'p1-a').communityId, 'p1');
+  assert.equal(graph.nodes.find(node => node.id === 'p2-a').communityId, 'p2');
+  assert.equal(graph.isolatedCount, 1);
 });
 
 test('presentation follows the active time, source, session and relationship selection', () => {

@@ -39,6 +39,7 @@ export async function canvasState(page, fixedLayout = false) {
     const selectedLinks = graph.getSelectedLinkIndices(), selectedPoints = graph.getSelectedPointIndices();
     return {
       camera: { zoom: graph.getZoomLevel(), origin: graph.spaceToScreenPosition([0, 0]) }, focused: graph.focusedPointIndex,
+      linkStyle: { color: config.linkDefaultColor, width: config.linkDefaultWidth, opacity: config.linkOpacity, greyoutOpacity: config.linkGreyoutOpacity },
       selectedLinks: selectedLinks ?? null, selectedPoints: selectedPoints ?? null,
       points: points.map(p => {
         const index = Number(p[config.pointIndexBy]), position = graph.getPointPositionByIndex(index);

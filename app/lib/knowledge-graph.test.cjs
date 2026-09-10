@@ -7,7 +7,7 @@ function load(file) {
   const source = buildSync({ entryPoints: [path.join(__dirname, file)], bundle: true, platform: 'node', format: 'cjs', write: false, external: ['react'] }).outputFiles[0].text;
   const module = { exports: {} }; vm.runInNewContext(source, { module, exports: module.exports, require, URLSearchParams, AbortController, DOMException, setTimeout }); return module.exports;
 }
-const { normalizeGraphText, mergeKnowledgeGraphs, graphForSelection } = load('knowledge-graph-model.ts');
+const { normalizeGraphText, mergeKnowledgeGraphs, graphForSelection, resolveGraphSelection } = load('knowledge-graph-model.ts');
 const { createGraphClient, graphAvailable, graphCatalog, GraphProjectLoader } = load('knowledge-graph-client.ts');
 const json = value => JSON.parse(JSON.stringify(value));
 const run = (id, day, extra = {}) => ({ id, project_id: 'p', session_id: id, session_key: id, source: 'codex', graph_created_at: `2026-09-0${day}T00:00:00Z`, graph_finished_at: null, node_count: 2, ...extra });
@@ -34,6 +34,25 @@ test('selection graph merges names, distinguishes directions and does not accumu
   const range = graphForSelection(graph, { mode: 'range', from: Date.parse('2026-09-02T00:00:00Z'), to: Date.parse('2026-09-02T23:59:59Z') });
   assert.equal(range.nodes.length, 2); assert.equal(range.edges.length, 3);
   assert.equal(range.edges[0].origins.length, 1);
+});
+test('default URL selection is all time and old at links resolve as latest', () => {
+  const latest = Date.parse('2026-09-03T00:00:00Z');
+  assert.deepEqual(json(resolveGraphSelection({}, latest)), { mode: 'all' });
+  assert.deepEqual(json(resolveGraphSelection({ mode: 'all', at: '2026-09-01T00:00:00Z' }, latest)), { mode: 'all' });
+  assert.deepEqual(json(resolveGraphSelection({ mode: 'latest' }, latest)), { mode: 'latest', at: latest });
+  assert.deepEqual(json(resolveGraphSelection({ at: '2026-09-01T00:00:00Z' }, latest)), { mode: 'latest', at: Date.parse('2026-09-01T00:00:00Z') });
+  assert.deepEqual(json(resolveGraphSelection({ mode: 'range', from: '2026-09-01T00:00:00Z', to: '2026-09-02T00:00:00Z' }, latest)), { mode: 'range', from: Date.parse('2026-09-01T00:00:00Z'), to: Date.parse('2026-09-02T00:00:00Z') });
+});
+test('all-project graph keeps same labels separate across projects', () => {
+  const graph = mergeKnowledgeGraphs([
+    snapshot('a', 1, [{ from: 'Shared', relationship: 'uses', to: 'API' }], { project_id: 'p1', project_key: '/work/alpha' }),
+    snapshot('b', 1, [{ from: 'Shared', relationship: 'uses', to: 'API' }], { project_id: 'p2', project_key: '/work/beta' }),
+  ], noFilters);
+  const all = graphForSelection(graph, { mode: 'all' });
+  assert.equal(all.nodes.filter(node => node.label === 'Shared').length, 2);
+  assert.equal(all.nodes.filter(node => node.label === 'API').length, 2);
+  assert.equal(all.edges.length, 2);
+  assert.deepEqual([...new Set(all.nodes.map(node => node.projectId))].sort(), ['p1', 'p2']);
 });
 test('source/session filtering happens before latest selection; repeated observations remain on timeline', () => {
   const inputs = [snapshot('a', 1, [{ from: 'A', relationship: 'uses', to: 'B' }]), snapshot('b', 2, [{ from: 'A', relationship: 'uses', to: 'B' }], { source: 'claude' })];

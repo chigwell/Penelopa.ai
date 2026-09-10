@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { setup } from './fixtures.mjs';
-import { setupGraphs, graphRuns, projectId, graphResponse, communityResponse } from './graph-fixtures.mjs';
+import { setupGraphs, graphRuns, projectId, graphResponse, communityResponse, multiProjectResponse } from './graph-fixtures.mjs';
 import { canvasState, expectReadyCanvas, chooseCanvasEntity, timelineColors } from './graph-canvas-helpers.mjs';
 
 test('empty accounts hide all graph navigation and direct entry returns to Dashboard', async ({ page }) => {
@@ -10,21 +10,22 @@ test('empty accounts hide all graph navigation and direct entry returns to Dashb
   await expect(page.getByRole('link', { name: 'Knowledge Graph', exact: true })).toHaveCount(0);
   await expect(page.locator('.kg-canvas')).toHaveCount(0);
 });
-test('latest, all-time, provenance, filters and URL navigation', async ({ page }) => {
+test('all-time default, latest, provenance, filters and URL navigation', async ({ page }) => {
   const { requests } = await setupGraphs(page);
   await page.goto('/dashboard/knowledge-graph');
-  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
+  await expect(page.getByLabel('Project', { exact: true })).toHaveValue('all');
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
   await expect(page.getByRole('heading', { name: 'Entities & connections' })).toBeVisible();
-  await page.getByRole('button', { name: 'API 1 connections' }).click();
+  await page.getByRole('button', { name: 'API 2 connections' }).click();
   await expect(page.getByLabel('Knowledge detail')).toBeVisible();
   await expect(page.getByLabel('Knowledge detail').getByText('stores', { exact: false }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Close details' }).click();
-  await page.getByRole('button', { name: 'View all time' }).click();
-  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
-  await expect(page).toHaveURL(/mode=all/);
-  await page.goBack();
+  await expect(page).not.toHaveURL(/mode=all/);
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
   await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
-  await page.getByRole('button', { name: 'View all time' }).click();
+  await expect(page).toHaveURL(/mode=latest/);
+  await page.goBack();
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
   await page.getByLabel('Relationship', { exact: true }).selectOption('uses');
   await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
   await page.getByLabel('Relationship', { exact: true }).selectOption('');
@@ -34,8 +35,33 @@ test('latest, all-time, provenance, filters and URL navigation', async ({ page }
   await page.getByLabel('Search entities').fill('Knowledge');
   await expect(page.getByLabel('Matching entities')).toContainText('1 matches');
   await page.getByRole('button', { name: 'Copy link', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__copied.at(-1))).toContain(`project=${projectId}`);
+  await expect.poll(() => page.evaluate(() => window.__copied.at(-1))).not.toContain('project=');
   expect(requests.filter(request => request.path.startsWith('/v2/user-read/knowledge-graphs?')).every(request => request.path.includes('current_only=false'))).toBe(true);
+});
+test('all-project scope stays separate from single project scope', async ({ page }) => {
+  await setupGraphs(page, { respond: multiProjectResponse });
+  await page.goto('/dashboard/knowledge-graph');
+  await expect(page.getByLabel('Project', { exact: true })).toHaveValue('all');
+  await expect(page).not.toHaveURL(/project=/);
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 2 connections');
+  await expect(page.getByRole('button', { name: 'Shared 1 connections' })).toHaveCount(2);
+  await page.getByLabel('Project', { exact: true }).selectOption(projectId);
+  await expect(page).toHaveURL(new RegExp(`project=${projectId}`));
+  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
+  await page.getByLabel('Project', { exact: true }).selectOption('all');
+  await expect(page).not.toHaveURL(/project=/);
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 2 connections');
+});
+test('all-project real canvas groups visible nodes by project', async ({ page }) => {
+  test.setTimeout(90_000);
+  await setupGraphs(page, { fallback: false, respond: multiProjectResponse });
+  await page.goto('/dashboard/knowledge-graph');
+  await expectReadyCanvas(page);
+  await expect(page.getByLabel('Graph projects')).toBeVisible();
+  const state = await canvasState(page);
+  const shared = state.points.filter(point => point.label === 'Shared');
+  expect(shared).toHaveLength(2);
+  expect(new Set(shared.map(point => point.community)).size).toBe(2);
 });
 test('historical-only availability traverses empty cursor pages', async ({ page }) => {
   await setupGraphs(page, { respond: entry => {
@@ -56,7 +82,7 @@ test('transient failures remain distinguishable from empty graphs and retry succ
   await expect(page.locator('.kg-canvas')).toHaveCount(0);
   failing = false;
   await page.getByRole('button', { name: 'Retry loading' }).click();
-  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
 });
 test('older desktop bridge cannot request graphs or use browser credentials', async ({ page }) => {
   const { requests } = await setupGraphs(page);
@@ -122,7 +148,8 @@ test('session entry appears only when its own graph is available', async ({ page
   const link = page.locator('.session-workspace-toolbar').getByRole('link', { name: 'Knowledge Graph' });
   await expect(link).toBeVisible(); await link.click();
   await expect(page).toHaveURL(new RegExp(`session=${session.id}`));
-  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
+  await expect(page).toHaveURL(new RegExp(`project=${session.project_id}`));
+  await expect(page.locator('.kg-count')).toHaveText('3 entities · 2 connections');
 });
 
 test('desktop graph IPC uses only bounded paths and never sends renderer credentials', async ({ page }) => {
@@ -134,7 +161,7 @@ test('desktop graph IPC uses only bounded paths and never sends renderer credent
   });
   await page.addInitScript(() => { window.penelopaDesktop = { version: 1, capabilities: { transcriptRead: true, knowledgeGraphRead: true }, auth: { state: async () => ({ authenticated: true }), signOut: async () => {} }, request: request => window.fixtureGraphRequest(request) }; });
   await page.goto('/dashboard/knowledge-graph');
-  await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
+  await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
   await page.getByRole('button', { name: 'Log out', exact: true }).click();
   await expect(page.locator('.kg-stage')).toHaveCount(0);
 });
@@ -168,7 +195,7 @@ test('communities, node size, exact incident highlights and neighborhood camera 
   test.setTimeout(120_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await setupGraphs(page, { fallback: false, respond: communityResponse });
-  await page.goto('/dashboard/knowledge-graph?mode=all');
+  await page.goto(`/dashboard/knowledge-graph?project=${projectId}`);
   await expectReadyCanvas(page);
   const initial = await canvasState(page);
   const hub = initial.points.find(p => p.label === 'Platform'), leaf = initial.points.find(p => p.label === 'Satellite');
@@ -187,6 +214,9 @@ test('communities, node size, exact incident highlights and neighborhood camera 
     const neighbors = [...new Set([hub.index, ...incident.flatMap(l => [l.source, l.target])])];
     expect(state.selectedPoints?.slice().sort((a, b) => a - b)).toEqual(neighbors.sort((a, b) => a - b));
     expect(state.focused).toBe(hub.index);
+    expect(state.linkStyle.width).toBeGreaterThan(initial.linkStyle.width);
+    expect(state.linkStyle.greyoutOpacity).toBeLessThan(initial.linkStyle.greyoutOpacity);
+    expect(state.linkStyle.color).not.toEqual(initial.linkStyle.color);
     const box = await page.locator('.kg-canvas-main').boundingBox();
     for (const point of state.points.filter(p => neighbors.includes(p.index))) {
       expect(point.screen[0]).toBeGreaterThanOrEqual(0); expect(point.screen[0]).toBeLessThanOrEqual(box.width);
@@ -200,10 +230,14 @@ test('communities, node size, exact incident highlights and neighborhood camera 
   expect(await timelineColors(page)).toEqual({ background: 'rgb(36, 33, 29)', text: '#ded7cb', selection: '#70acff' });
   await page.setViewportSize({ width: 1440, height: 900 });
   expect((await canvasState(page)).camera.zoom).toEqual(selectedState.camera.zoom);
+  const selectedDarkState = await canvasState(page);
   await page.getByRole('button', { name: 'Close details' }).click();
   await expect.poll(async () => (await canvasState(page)).selectedLinks).toBeNull();
   const cleared = await canvasState(page);
   expect(cleared.selectedPoints).toBeNull(); expect(cleared.focused).toBeUndefined();
+  expect(cleared.linkStyle.color).not.toEqual(selectedDarkState.linkStyle.color);
+  expect(cleared.linkStyle.width).toBeLessThan(selectedDarkState.linkStyle.width);
+  expect(cleared.linkStyle.greyoutOpacity).toBeGreaterThan(selectedDarkState.linkStyle.greyoutOpacity);
   // The viewport changes when the inspector closes, but the user camera must not be fitted again.
   expect(cleared.camera.zoom).toEqual(selectedState.camera.zoom);
   await page.goBack();
@@ -242,7 +276,7 @@ test('late community worker replies cannot restore a stale filtered graph; searc
       }
     };
   });
-  await page.goto('/dashboard/knowledge-graph?mode=all');
+  await page.goto(`/dashboard/knowledge-graph?project=${projectId}`);
   await expect.poll(() => page.evaluate(() => window.__presentationReplies), { timeout: 60_000 }).toBe(1);
   await page.getByLabel('Relationship', { exact: true }).selectOption('guides');
   await expectReadyCanvas(page);

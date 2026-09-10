@@ -33,9 +33,10 @@ export function useGraphProject(token: string | null, project: string, runs: Gra
     if (loader.current?.key !== key) loader.current = { key, loader: new GraphProjectLoader() };
     const abort = new AbortController(); controller.current = abort;
     let live = true; let localWorker: Worker | null = null;
+    const scopedRuns = runs.filter(run => project === "all" || run.project_id === project);
     const update = (value: Partial<ProjectState>) => { if (live && activeKey.current === key) setState(previous => ({ ...previous, ...value, key })); };
-    update({ status: "loading", graph: undefined, error: undefined, done: 0, total: runs.filter(run => run.project_id === project && run.node_count > 0).length });
-    loader.current.loader.load(token, runs.filter(run => run.project_id === project), abort.signal, (done, total) => update({ done, total }))
+    update({ status: "loading", graph: undefined, error: undefined, done: 0, total: scopedRuns.filter(run => run.node_count > 0).length });
+    loader.current.loader.load(token, scopedRuns, abort.signal, (done, total) => update({ done, total }))
       .then(snapshots => {
         if (!live || activeKey.current !== key) return;
         update({ status: "preparing" });

@@ -115,6 +115,12 @@ export default function GraphCanvas(props: Props) {
       });
       const release = async () => { await next.dropViews(); await connection.connection!.query(`DROP TABLE IF EXISTS kg_points_${current}; DROP TABLE IF EXISTS kg_links_${current};`); };
       if (cancelled || !live.current || current !== generation.current) { await release(); return; }
+      const settleLayout = () => {
+        if (!live.current || current !== generation.current) return;
+        if (pendingFit.current && !interacted.current) fit();
+        pendingFit.current = false;
+        setSettled(true);
+      };
       config.current = { ...next.cosmographConfig, ...visualStyle(),
         enableSimulation: true, preservePointPositionsOnDataUpdate: true, spaceDimensions: 2,
         pointDefaultSize: 7, pointSizeStrategy: "auto", pointSizeRange: [7, 20], scalePointsOnZoom: false,
@@ -128,13 +134,18 @@ export default function GraphCanvas(props: Props) {
         onPointClick: index => { void mounted.getPointIdsByIndices([index]).then(ids => { if (live.current && current === generation.current && ids?.[0]) latest.current.onSelect(ids[0]); }).catch(() => {}); },
         onLabelClick: (_index, id) => latest.current.onSelect(id),
         onBackgroundClick: () => { if (latest.current.selected) latest.current.onSelect(""); },
-        onSimulationEnd: () => { if (!live.current) return; if (pendingFit.current && !interacted.current) fit(); pendingFit.current = false; setSettled(true); },
+        onSimulationEnd: settleLayout,
       };
       await mounted.setConfig(config.current);
       await mounted.dataUploaded();
       const old = prepared.current; prepared.current = { release };
       if (old) await old.release();
-      if (!cancelled && live.current) { if (!latest.current.selected) fit(); setReady(true); setRevision(value => value + 1); }
+      if (!cancelled && live.current) {
+        if (!latest.current.selected) fit();
+        setReady(true);
+        setRevision(value => value + 1);
+        window.setTimeout(settleLayout, 1500);
+      }
     }).catch(() => { if (live.current && !cancelled) latest.current.onFailure(); });
     return () => { cancelled = true; };
   }, [mounted, connection, props.nodes, props.edges, presentation]);

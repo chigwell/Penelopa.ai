@@ -7,6 +7,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 768, 1024, 1440
     await page.setViewportSize({ width, height: 1000 });
     await setupGraphs(page, { theme });
     await page.goto('/dashboard/knowledge-graph');
+    await page.addStyleTag({ content: '.kg-export-button { display: none !important; }' });
     await expect(page.getByRole('heading', { name: 'Entities & connections' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Knowledge Graph', exact: true })).toBeVisible();
     await expect(page.locator('.kg-count')).toHaveText('4 entities · 3 connections');
@@ -15,6 +16,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 768, 1024, 1440
     await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
     await expect(page).toHaveScreenshot(`knowledge-latest-${theme}-${width}.png`, { fullPage: true });
     await page.goto('/dashboard/knowledge-graph?mode=range&from=2026-09-02T00%3A00%3A00.000Z&to=2026-09-02T23%3A59%3A59.999Z');
+    await page.addStyleTag({ content: '.kg-export-button { display: none !important; }' });
     await expect(page.locator('.kg-count')).toHaveText('2 entities · 1 connections');
     await expect(page).toHaveScreenshot(`knowledge-range-${theme}-${width}.png`, { fullPage: true });
     await page.getByRole('button', { name: 'View all time' }).click();
@@ -31,6 +33,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setupGraphs(page, { fallback: false, theme, respond: communityResponse });
     await page.goto(`/dashboard/knowledge-graph?project=${projectId}`);
+    await page.addStyleTag({ content: '.kg-export-button { display: none !important; }' });
     await expect(page.locator('.kg-canvas')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
     await canvasState(page, true);
     expect((await timelineColors(page)).background).toBe(theme === 'light' ? 'rgb(255, 254, 250)' : 'rgb(36, 33, 29)');

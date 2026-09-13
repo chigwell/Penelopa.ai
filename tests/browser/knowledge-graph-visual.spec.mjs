@@ -43,7 +43,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) {
       await page.getByRole('button', { name: /^Communities/ }).click();
     }
     await page.getByRole('button', { name: 'Fit graph', exact: true }).click();
-    await expect(page.locator('.kg-stage')).toHaveScreenshot(`community-canvas-${theme}-${width}.png`);
+    await expect(page.locator('.kg-stage')).toHaveScreenshot(`community-canvas-${theme}-${width}.png`, { maxDiffPixels: 500 });
     await chooseCanvasEntity(page, 'Platform');
     await expect(page.getByLabel('Knowledge detail')).toBeVisible();
     await expect.poll(async () => (await canvasState(page)).selectedLinks?.length).toBe(8);

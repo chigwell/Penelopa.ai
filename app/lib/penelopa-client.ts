@@ -21,9 +21,6 @@ export function isDesktop() { return typeof window !== "undefined" && window.pen
 export function hasTranscriptSupport() {
   return !isDesktop() || window.penelopaDesktop?.capabilities?.transcriptRead === true;
 }
-export function hasKnowledgeGraphSupport() {
-  return !isDesktop() || window.penelopaDesktop?.capabilities?.knowledgeGraphRead === true;
-}
 export function useDesktop() {
   const [desktop, setDesktop] = useState(false);
   useEffect(() => { setDesktop(isDesktop()); }, []);
@@ -88,9 +85,6 @@ export function apiV2Get<T>(path: string, token: string, init: RequestInit = {})
   }
   if (!hasTranscriptSupport()) {
     return Promise.reject(Object.assign(new Error("Update the app to explore your transcripts."), { status: 426, code: "desktop_update_required" }));
-  }
-  if (/^\/user-read\/(knowledge-graphs(?:\/|\?|$)|sessions\/[^/]+\/knowledge-graph(?:\?|$))/.test(path) && !hasKnowledgeGraphSupport()) {
-    return Promise.reject(Object.assign(new Error("Update the app to explore knowledge graphs."), { status: 426, code: "desktop_update_required" }));
   }
   return versionedRequest<T>("v2", path, token, { ...init, method: "GET" });
 }

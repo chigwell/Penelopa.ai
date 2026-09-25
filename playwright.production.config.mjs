@@ -3,7 +3,7 @@ import base from './playwright.config.mjs';
 
 export default defineConfig({
   ...base,
-  testMatch: ['knowledge-graph.spec.mjs', 'knowledge-graph-native.spec.mjs'],
+  testMatch: ['web-contracts.spec.mjs', 'loading-experience.spec.mjs', 'sessions.spec.mjs'],
   outputDir: 'test-results-production',
   use: { ...base.use, baseURL: 'http://127.0.0.1:4174' },
   webServer: {

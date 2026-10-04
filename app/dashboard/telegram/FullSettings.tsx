@@ -8,9 +8,14 @@ import {
   Check,
   ExternalLink,
   Link2,
-  RefreshCw,
   Trash2,
 } from "lucide-react";
+import {
+  renderNotificationFeedback,
+  renderNotificationIndicator,
+  renderNotificationLoadError,
+  renderNotificationRefresh,
+} from "../notification-presentation";
 import {
   LANGUAGE_OPTIONS,
   NOTIFICATION_TYPE_OPTIONS,
@@ -49,39 +54,18 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
           <h2 id="notification-settings-title">Telegram setup</h2>
         </div>
         {settings ? (
-          <button
-            className="notification-secondary-button"
-            type="button"
-            onClick={() => void loadSettings({ reason: "manual" })}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? "Refreshing" : "Refresh"}
-            <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-          </button>
+          renderNotificationRefresh(isRefreshing, () => void loadSettings({ reason: "manual" }))
         ) : null}
       </div>
 
       {isLoading && !settings ? (
         <NotificationsSkeleton />
       ) : error && !settings ? (
-        <div className="notifications-load-error" role="alert">
-          <p>{error}</p>
-          <button
-            className="notification-secondary-button"
-            type="button"
-            onClick={() => void loadSettings({ reason: "initial" })}
-          >
-            Retry
-            <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-          </button>
-        </div>
+        renderNotificationLoadError(error, () => void loadSettings({ reason: "initial" }))
       ) : settings ? (
         <div className="notifications-settings-grid">
           <aside className="notifications-status-card">
-            <span
-              className={`notification-status-dot ${getStatusTone(settings)}`}
-              aria-hidden="true"
-            />
+            {renderNotificationIndicator(getStatusTone(settings))}
             <p className="eyebrow">{getStatusLabel(settings.status)}</p>
             <h3>{getStateHeading(settings)}</h3>
             <p>{getStatusCopy(settings)}</p>
@@ -95,14 +79,7 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
                 role="status"
                 aria-live="polite"
               >
-                {pendingLinkExpired || pendingSetupUnavailable ? (
-                  <span
-                    className="notification-status-dot is-disabled"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <span className="notification-spinner" aria-hidden="true" />
-                )}
+                {renderNotificationIndicator("is-disabled", !pendingLinkExpired && !pendingSetupUnavailable)}
                 <span>
                   <strong>
                     {pendingSetupUnavailable
@@ -307,17 +284,7 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
               </div>
             )}
 
-            {error ? (
-              <p className="notification-form-message is-error" role="alert">
-                {error}
-              </p>
-            ) : message ? (
-              <p className="notification-form-message">{message}</p>
-            ) : (
-              <p className="notification-form-message">
-                Selected events: {selectedTypesSummary}.
-              </p>
-            )}
+            {renderNotificationFeedback(error, message, <>Selected events: {selectedTypesSummary}.</>)}
           </div>
         </div>
       ) : null}

@@ -2,7 +2,13 @@
 
 import { NotificationsSkeleton } from "../../components/loading/Loading";
 
-import { Check, RefreshCw, Trash2 } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
+import {
+  renderNotificationFeedback,
+  renderNotificationIndicator,
+  renderNotificationLoadError,
+  renderNotificationRefresh,
+} from "../notification-presentation";
 import {
   WEBHOOK_EVENT_LABEL,
   formatWebhookDateTime,
@@ -38,39 +44,18 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
           <h2 id="webhook-settings-title">Webhook delivery</h2>
         </div>
         {settings ? (
-          <button
-            className="notification-secondary-button"
-            type="button"
-            onClick={() => void loadSettings({ reason: "manual" })}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? "Refreshing" : "Refresh"}
-            <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-          </button>
+          renderNotificationRefresh(isRefreshing, () => void loadSettings({ reason: "manual" }))
         ) : null}
       </div>
 
       {isLoading && !settings ? (
         <NotificationsSkeleton />
       ) : error && !settings ? (
-        <div className="notifications-load-error" role="alert">
-          <p>{error}</p>
-          <button
-            className="notification-secondary-button"
-            type="button"
-            onClick={() => void loadSettings({ reason: "initial" })}
-          >
-            Retry
-            <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-          </button>
-        </div>
+        renderNotificationLoadError(error, () => void loadSettings({ reason: "initial" }))
       ) : settings ? (
         <div className="notifications-settings-grid">
           <aside className="notifications-status-card">
-            <span
-              className={`notification-status-dot ${getWebhookStatusTone(settings)}`}
-              aria-hidden="true"
-            />
+            {renderNotificationIndicator(getWebhookStatusTone(settings))}
             <p className="eyebrow">{getWebhookStatusLabel(settings)}</p>
             <h3>{getWebhookStateHeading(settings)}</h3>
             <p>{getWebhookStatusCopy(settings)}</p>
@@ -205,17 +190,7 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
               </button>
             </div>
 
-            {error ? (
-              <p className="notification-form-message is-error" role="alert">
-                {error}
-              </p>
-            ) : message ? (
-              <p className="notification-form-message">{message}</p>
-            ) : (
-              <p className="notification-form-message">
-                Event: {WEBHOOK_EVENT_LABEL}.
-              </p>
-            )}
+            {renderNotificationFeedback(error, message, <>Event: {WEBHOOK_EVENT_LABEL}.</>)}
           </form>
         </div>
       ) : null}

@@ -2,7 +2,11 @@
 
 import { NotificationsSkeleton } from "../../components/loading/Loading";
 
-import { ArrowUpRight, RefreshCw } from "lucide-react";
+import {
+  renderNotificationIndicator,
+  renderNotificationLoadError,
+  renderNotificationManageLink,
+} from "../notification-presentation";
 import {
   WEBHOOK_EVENT_LABEL,
   getWebhookDeliveryLabel,
@@ -27,34 +31,18 @@ export function renderWebhookCompactSettings(state: WebhookSettings) {
           <p className="eyebrow">Webhooks</p>
           <h2 id="webhook-notifications-title">Webhook delivery</h2>
         </div>
-        <a className="notification-manage-link" href="/dashboard/notifications">
-          Manage
-          <ArrowUpRight aria-hidden="true" size={14} strokeWidth={1.8} />
-        </a>
+        {renderNotificationManageLink()}
       </div>
 
       <div className="notifications-compact-body">
         {isLoading && !settings ? (
           <NotificationsSkeleton compact />
         ) : error && !settings ? (
-          <div className="notifications-load-error" role="alert">
-            <p>{error}</p>
-            <button
-              className="notification-secondary-button"
-              type="button"
-              onClick={() => void loadSettings({ reason: "initial" })}
-            >
-              Retry
-              <RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />
-            </button>
-          </div>
+          renderNotificationLoadError(error, () => void loadSettings({ reason: "initial" }))
         ) : settings ? (
           <>
             <div className="notifications-status-line">
-              <span
-                className={`notification-status-dot ${getWebhookStatusTone(settings)}`}
-                aria-hidden="true"
-              />
+              {renderNotificationIndicator(getWebhookStatusTone(settings))}
               <strong>{getWebhookStatusLabel(settings)}</strong>
               <span>{getWebhookStatusCopy(settings)}</span>
             </div>

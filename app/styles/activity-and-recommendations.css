@@ -59,6 +59,8 @@
 }
 
 .recommendations-table-wrap {
+  /* Keep absolutely positioned column labels inside the scroll container. */
+  position: relative;
   margin-top: 24px;
   overflow-x: auto;
   max-width: 100%;
@@ -403,3 +405,5 @@
 }
 
 .recommendation-page-meta > span { min-width: 0; overflow-wrap: anywhere; }
+
+.recommendations-table-wrap:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }

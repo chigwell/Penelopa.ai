@@ -94,7 +94,7 @@
   }
 
   .total-card strong {
-    font-size: clamp(38px, 11vw, 56px);
+    font-size: clamp(32px, 8vw, 48px);
   }
 
   .activity-panel,
@@ -198,4 +198,8 @@
   .dashboard-topbar .icon-button, .copy-icon-button, .page-icon-link, .pagination button { width: 44px; height: 44px; }
   .dashboard-actions .back-link { display: inline-flex; justify-content: center; min-width: 44px; min-height: 44px; }
   .series-toggle { min-height: 44px; }
+}
+
+@media (max-width: 760px) {
+  .recommendations-table th:nth-child(5), .recommendations-table td:nth-child(5), .recommendations-table th:last-child, .recommendations-table td:last-child { width: 58px; }
 }

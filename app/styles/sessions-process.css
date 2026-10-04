@@ -13,7 +13,7 @@
   color: var(--ink);
 }
 .process-intro p {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
   margin: 0;
 }
@@ -46,7 +46,7 @@
 }
 .process-timeline small {
   display: block;
-  font: 9px var(--font-mono);
+  font: 12px var(--font-mono);
   color: var(--muted);
   margin-bottom: 8px;
 }
@@ -70,7 +70,7 @@
   display: flex;
   gap: 5px;
   align-items: center;
-  font: 9px var(--font-mono);
+  font: 12px var(--font-mono);
   color: var(--chart-recommendations);
 }
 .step-summary {
@@ -79,7 +79,7 @@
   margin: 0 0 25px;
 }
 .step-resources h3,.step-evidence h3 {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   margin: 0 0 12px;
 }
@@ -96,7 +96,7 @@
 }
 .step-resources small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
 }
@@ -117,7 +117,7 @@
   display: flex;
   gap: 5px;
   align-items: center;
-  font: 9px var(--font-mono);
+  font: 12px var(--font-mono);
   color: var(--muted);
 }
 .step-evidence>button>p {

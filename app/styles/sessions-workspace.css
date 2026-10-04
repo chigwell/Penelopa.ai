@@ -2,14 +2,14 @@
   padding-top: 28px;
 }
 .session-detail-heading {
-  padding-bottom: 36px;
+  padding-bottom: 24px;
 }
 .session-detail-kicker {
   display: flex;
   gap: 14px;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .session-source-chip {
@@ -27,18 +27,18 @@
 .session-detail-heading h1 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(33px,4vw,54px);
-  line-height: 1.08;
+  font-size: var(--admin-page-title);
+  line-height: 1.15;
   letter-spacing: -.025em;
   max-width: 1000px;
-  margin: 21px 0;
+  margin: 16px 0;
   overflow-wrap: anywhere;
 }
 .session-detail-meta {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .session-detail-meta>span {
@@ -50,11 +50,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
   padding: 13px 0;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   scroll-margin-top: 20px;
+  flex-wrap: wrap;
 }
 .session-view-tabs {
   display: flex;
@@ -90,14 +91,15 @@
 .session-live-controls {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .session-live-state {
   display: flex;
   gap: 6px;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
 }
 .session-live-state i {
@@ -157,14 +159,14 @@
   color: var(--text);
   min-width: 0;
   flex: 1;
-  font: 13px var(--font-main);
+  font: 14px var(--font-main);
 }
 .timeline-search:focus-within {
   border-color: var(--border-strong);
 }
 .timeline-search>span {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
 }
 .timeline-search button {
   display: flex;
@@ -178,7 +180,7 @@
   flex-wrap: wrap;
 }
 .timeline-filters select,.timeline-filters input {
-  font: 10px var(--font-main);
+  font: 12px var(--font-main);
   color: var(--muted);
   background: transparent;
   border: 1px solid var(--border);
@@ -192,7 +194,7 @@
 }
 .timeline-context {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   color: var(--muted);
   display: flex;
   justify-content: space-between;
@@ -206,7 +208,7 @@
   align-items: center;
   background: transparent;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 .event-timeline {
   list-style: none;
@@ -310,7 +312,7 @@
   text-overflow: ellipsis;
 }
 .event-row-heading time {
-  font: 9px var(--font-mono);
+  font: 12px var(--font-mono);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -330,7 +332,7 @@
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  font: 8px var(--font-mono);
+  font: 12px var(--font-mono);
   color: var(--muted);
 }
 .event-status {
@@ -351,7 +353,7 @@
   opacity: 1;
 }
 .timeline-inline-error {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
   padding: 12px;
@@ -376,6 +378,6 @@
   border-radius: 20px;
   background: var(--inverse);
   color: var(--inverse-text);
-  font-size: 11px;
+  font-size: 12px;
   box-shadow: 0 3px 10px #0002;
 }

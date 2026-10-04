@@ -24,8 +24,8 @@
   padding: 16px 18px;
 }
 .inspector-dialog .inspector-close {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
 }
 @keyframes session-enter {
   from {

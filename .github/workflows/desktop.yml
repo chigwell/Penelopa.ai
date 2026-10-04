@@ -38,6 +38,9 @@ jobs:
       - name: Verify web interactions
         if: runner.os == 'Linux'
         run: npm run test:web
+      - name: Verify production web interactions
+        if: runner.os == 'Linux'
+        run: npm run test:web:production
       - name: Package and verify native launch with the private runtime
         if: runner.os != 'Linux'
         run: npm run verify:desktop-build

@@ -66,6 +66,13 @@ test("stylesheet imports resolve once and preserve base, responsive and feature 
   before("activity-and-recommendations.css", "dashboard-responsive.css");
   before("dashboard-responsive.css", "loading.css");
   before("loading.css", "sessions.css");
+  before("sessions.css", "dashboard-chrome.css");
+  before("dashboard-chrome.css", "sessions-library.css");
+  before("sessions-library.css", "sessions-workspace.css");
+  before("sessions-workspace.css", "sessions-inspector.css");
+  before("sessions-inspector.css", "sessions-process.css");
+  before("sessions-process.css", "sessions-interactions.css");
+  before("sessions-interactions.css", "sessions-responsive.css");
   const remainingImports = [];
   stylesheet.walkAtRules("import", rule => remainingImports.push(rule.params));
   assert.ok(remainingImports.some(value => value.includes("fonts.googleapis.com") && value.includes("DM+Sans") && value.includes("DM+Mono") && value.includes("DM+Serif+Display")));

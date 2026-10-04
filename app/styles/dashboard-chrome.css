@@ -1,0 +1,29 @@
+/* The session explorer shares Penelopa's paper, ink and prism palette. */
+.dashboard-section-nav {
+  display: flex;
+  gap: 28px;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 0 32px;
+  height: 43px;
+  align-items: stretch;
+}
+.dashboard-section-nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+.dashboard-section-nav a[aria-current=page] {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.nav-new-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--accent-three);
+  border-radius: 50%;
+}

@@ -1,0 +1,226 @@
+@media(max-width:1100px) {
+  .session-row-status {
+    gap: 15px;
+  }
+  .session-workspace {
+    grid-template-columns: minmax(300px,.9fr) minmax(0,1.1fr);
+  }
+  .session-timeline-panel {
+    padding-right: 18px;
+  }
+  .timeline-search>span {
+    display: none;
+  }
+  .inspector-content,.inspector-heading {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .inspector-tabs {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+@media(max-width:959px) {
+  .session-workspace {
+    display: block;
+  }
+  .session-timeline-panel {
+    padding-right: 0;
+  }
+  .inspector-placeholder {
+    display: none;
+  }
+  .session-library-heading>p {
+    max-width: 240px;
+  }
+  .session-library-heading>p br {
+    display: none;
+  }
+  .session-row-status .session-badge {
+    display: none;
+  }
+  .session-row-status {
+    gap: 0;
+  }
+  .event-row>button {
+    padding-right: 15px;
+  }
+  .event-open {
+    opacity: 1;
+  }
+  .event-row:before {
+    left: 23px;
+  }
+  .session-inspector:not(.inspector-dialog) {
+    display: none;
+  }
+}
+@media(max-width:760px) {
+  .dashboard-section-nav {
+    padding: 0 18px;
+    gap: 25px;
+  }
+  .session-main {
+    padding: 36px 18px 56px;
+  }
+  .session-library-heading {
+    display: block;
+    margin-bottom: 31px;
+  }
+  .session-library-heading h1 {
+    font-size: clamp(49px,9vw,68px);
+  }
+  .session-library-heading>p {
+    max-width: none;
+    font-size: 12px;
+    line-height: 1.7;
+    margin-top: 23px;
+  }
+  .session-filter-label {
+    display: none;
+  }
+  .session-sort-label {
+    flex: 0 0 100%;
+    margin: 6px 0 0;
+  }
+  .session-filter-control {
+    font-size: 11px;
+    max-width: 190px;
+  }
+  .session-row {
+    gap: 13px;
+    min-height: 125px;
+    padding: 20px 0;
+  }
+  .session-agent-mark {
+    width: 35px;
+    height: 35px;
+    flex-basis: 35px;
+    border-radius: 9px;
+  }
+  .session-row h3 {
+    font-size: 15px;
+    margin: 7px 0 9px;
+  }
+  .session-row-meta {
+    font-size: 9px;
+  }
+  .session-row-foot {
+    font-size: 10px;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .session-row-status {
+    margin-left: auto;
+  }
+  .session-open-arrow {
+    width: 15px;
+  }
+  .session-row:hover {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .session-detail-main {
+    padding-top: 22px;
+  }
+  .session-breadcrumb {
+    margin-bottom: 26px;
+  }
+  .session-detail-heading h1 {
+    font-size: 33px;
+    line-height: 1.14;
+  }
+  .session-detail-meta {
+    gap: 10px 15px;
+    font-size: 10px;
+  }
+  .session-workspace-toolbar {
+    gap: 10px;
+  }
+  .session-view-tabs button {
+    font-size: 11px;
+    padding: 6px 9px;
+    gap: 5px;
+  }
+  .session-live-controls {
+    gap: 7px;
+  }
+  .session-live-state {
+    font-size: 8px;
+  }
+  .session-live-controls .session-button {
+    font-size: 10px;
+    gap: 5px;
+    padding: 7px 8px;
+  }
+  .session-detail-heading {
+    padding-bottom: 25px;
+  }
+  .session-workspace {
+    margin-top: 18px;
+  }
+  .session-pagination {
+    font-size: 9px;
+  }
+  .session-pagination .session-button {
+    font-size: 10px;
+    padding: 7px 9px;
+  }
+  .recent-sessions .panel-topline {
+    flex-direction: row;
+    align-items: end;
+    gap: 12px;
+  }
+  .recent-sessions .panel-topline h2 {
+    font-size: 43px;
+  }
+  .recent-sessions .session-text-link {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .session-empty {
+    padding: 45px 18px;
+  }
+  .session-empty h2 {
+    font-size: 29px;
+  }
+  .session-empty p {
+    font-size: 12px;
+  }
+  .content-pagination {
+    align-items: start;
+    flex-direction: column;
+  }
+  .inspector-content-heading {
+    flex-wrap: wrap;
+  }
+}
+@media(max-width:410px) {
+  .session-live-state {
+    font-size: 0;
+    gap: 0;
+  }
+  .session-live-state i {
+    width: 5px;
+    height: 5px;
+  }
+  .session-filter-control {
+    max-width: 165px;
+  }
+  .session-library-heading h1 {
+    font-size: 49px;
+  }
+  .session-pagination {
+    gap: 6px;
+  }
+  .session-row-foot>span {
+    font-size: 9px;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  .session-shell *,.session-shell *::before,.session-shell *::after {
+    animation: none!important;
+    transition: none!important;
+    scroll-behavior: auto!important;
+  }
+}

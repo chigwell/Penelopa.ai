@@ -1,0 +1,132 @@
+.process-intro {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 15px 5px 24px;
+  color: var(--muted);
+}
+.process-intro h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+.process-intro p {
+  font-size: 11px;
+  line-height: 1.65;
+  margin: 0;
+}
+.process-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.process-timeline li>button {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px 10px 20px 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+.process-timeline li>button[aria-current=true],.process-timeline li>button:hover {
+  background: var(--surface);
+}
+.process-step-number {
+  font: 12px var(--font-mono);
+  color: var(--muted);
+  padding-top: 3px;
+}
+.process-timeline li>button>span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.process-timeline small {
+  display: block;
+  font: 9px var(--font-mono);
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.process-timeline strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.process-timeline p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 8px 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.process-timeline em {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font: 9px var(--font-mono);
+  color: var(--chart-recommendations);
+}
+.step-summary {
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0 0 25px;
+}
+.step-resources h3,.step-evidence h3 {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0 0 12px;
+}
+.step-resources>div {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.step-resources small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.step-evidence {
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+  margin-top: 26px;
+}
+.step-evidence>button:not(.session-button) {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step-evidence>button>span {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font: 9px var(--font-mono);
+  color: var(--muted);
+}
+.step-evidence>button>p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text);
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.step-evidence .session-button {
+  margin-top: 12px;
+}

@@ -42,7 +42,7 @@
 
 .notification-manage-link:hover,
 .notification-secondary-button:hover:not(:disabled),
-.notification-danger-button:hover:not(:disabled) {
+.notification-danger-button:hover:not(:disabled):not(.is-confirming) {
   background: var(--surface);
   border-color: var(--border-strong);
 }

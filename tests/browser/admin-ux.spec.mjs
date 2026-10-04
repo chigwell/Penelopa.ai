@@ -58,6 +58,7 @@ for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width: 390, height: 900 });
     await setup(page, { token: 'fixture-token', theme,
       telegram: { enabled: true, status: 'CONNECTED', telegram_username: 'a'.repeat(32), telegram_chat_id: 123 },
+      webhook: { enabled: true, url: 'https://client.example.com/original' },
       respond: entry => entry.path === '/v1/user/recommendation-webhook' && entry.method === 'PATCH' ? { status: 422, json: { detail: message } } : undefined,
     });
     await page.goto('/dashboard/notifications');
@@ -74,6 +75,14 @@ for (const theme of ['light', 'dark']) {
     const surfaceColors = await body.evaluate(el => ({ foreground: getComputedStyle(el).color, background: getComputedStyle(el.closest('.notification-telegram-box')).backgroundColor }));
     expect(contrast(surfaceColors.foreground, surfaceColors.background)).toBeGreaterThanOrEqual(4.5);
     for (const button of await page.locator('.notification-segmented-control button').all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    for (const panel of [page.locator('.notifications-detail-panel').first(), webhook]) {
+      await panel.getByRole('button', { name: /^Disconnect/ }).click();
+      const confirmation = panel.getByRole('button', { name: /^Confirm disconnect/ });
+      await confirmation.hover();
+      await confirmation.evaluate(async el => { await new Promise(requestAnimationFrame); await Promise.all(el.getAnimations().map(animation => animation.finished)); });
+      const confirmationColors = await confirmation.evaluate(el => ({ foreground: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
+      expect(contrast(confirmationColors.foreground, confirmationColors.background)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 }
 

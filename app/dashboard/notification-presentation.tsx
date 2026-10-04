@@ -50,10 +50,16 @@ export function renderNotificationIndicator(tone: string, spinning = false) {
   );
 }
 
-export function renderNotificationFeedback(error: string, message: string, summary: ReactNode) {
-  return error ? (
-    <p className="notification-form-message is-error" role="alert">{error}</p>
-  ) : (
-    <p className="notification-form-message">{message || summary}</p>
+export function renderNotificationFeedback(error: string, message: string, summary: ReactNode, id: string) {
+  return (
+    <p
+      id={id}
+      className={`notification-form-message${error ? " is-error" : ""}`}
+      role={error ? "alert" : "status"}
+      aria-live={error ? undefined : "polite"}
+      aria-atomic={error ? undefined : true}
+    >
+      {error || message || summary}
+    </p>
   );
 }

@@ -18,6 +18,7 @@ import {
   getWebhookStatusCopy,
   getWebhookStatusLabel,
   getWebhookStatusTone,
+  validateWebhookUrl,
 } from "./helpers";
 import type { WebhookSettings } from "./use-webhook-settings";
 
@@ -31,6 +32,7 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
   const canDisconnect = Boolean(
     settings && (settings.enabled || settings.url || settings.secret_configured),
   );
+  const urlInvalid = Boolean(error && error === validateWebhookUrl(draftUrl, draftEnabled));
 
   return (
     <section
@@ -81,6 +83,7 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
 
           <form
             className="notifications-settings-form webhook-settings-form"
+            aria-describedby="webhook-settings-feedback"
             onSubmit={(event) => {
               event.preventDefault();
               void handleSave();
@@ -104,6 +107,8 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
                 <label className="notification-input-field">
                   <span>Webhook URL</span>
                   <input
+                    aria-invalid={urlInvalid || undefined}
+                    aria-describedby={`webhook-url-help${urlInvalid ? " webhook-settings-feedback" : ""}`}
                     autoCapitalize="none"
                     autoComplete="off"
                     className="notification-text-input"
@@ -115,7 +120,7 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
                     type="url"
                     value={draftUrl}
                   />
-                  <small>Use an absolute http or https URL.</small>
+                  <small id="webhook-url-help">Use an absolute http or https URL.</small>
                 </label>
               </div>
             </fieldset>
@@ -126,6 +131,7 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
                 <label className="notification-input-field">
                   <span>Signing secret</span>
                   <input
+                    aria-describedby="webhook-signing-help"
                     autoComplete="new-password"
                     className="notification-text-input"
                     disabled={clearSecret}
@@ -141,7 +147,7 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
                     type="password"
                     value={draftSecret}
                   />
-                  <small>
+                  <small id="webhook-signing-help">
                     Adds timestamped HMAC headers when configured.
                   </small>
                 </label>
@@ -190,7 +196,7 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
               </button>
             </div>
 
-            {renderNotificationFeedback(error, message, <>Event: {WEBHOOK_EVENT_LABEL}.</>)}
+            {renderNotificationFeedback(error, message, <>Event: {WEBHOOK_EVENT_LABEL}.</>, "webhook-settings-feedback")}
           </form>
         </div>
       ) : null}

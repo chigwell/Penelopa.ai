@@ -41,6 +41,7 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
     pendingTimeRemaining, handleToggleType, handleSave, handleSetEnabled,
     handleCreateLink, handleDisconnect,
   } = state;
+  const typesInvalid = error === "Choose at least one notification type." && draftTypes.length === 0;
 
   return (
     <section
@@ -142,13 +143,19 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
               </div>
             </fieldset>
 
-            <fieldset className="notification-fieldset">
+            <fieldset
+              className="notification-fieldset"
+              aria-invalid={typesInvalid || undefined}
+              aria-describedby={typesInvalid ? "telegram-settings-feedback" : undefined}
+            >
               <legend>Notification types</legend>
               <div className="notification-checkbox-list">
                 {NOTIFICATION_TYPE_OPTIONS.map((option) => (
                   <label className="notification-checkbox-row" key={option.value}>
                     <input
                       type="checkbox"
+                      aria-invalid={typesInvalid || undefined}
+                      aria-describedby={typesInvalid ? "telegram-settings-feedback" : undefined}
                       checked={draftTypes.includes(option.value)}
                       onChange={() => handleToggleType(option.value)}
                     />
@@ -284,7 +291,7 @@ export function renderTelegramFullSettings(state: TelegramSettings) {
               </div>
             )}
 
-            {renderNotificationFeedback(error, message, <>Selected events: {selectedTypesSummary}.</>)}
+            {renderNotificationFeedback(error, message, <>Selected events: {selectedTypesSummary}.</>, "telegram-settings-feedback")}
           </div>
         </div>
       ) : null}

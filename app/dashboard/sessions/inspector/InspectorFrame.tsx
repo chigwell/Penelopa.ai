@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-export function InspectorFrame({ children, onClose, title }: {
+export function InspectorFrame({
+  children,
+  onClose,
+  title,
+}: {
   children: React.ReactNode;
   onClose: () => void;
   title: string;
@@ -23,9 +27,10 @@ export function InspectorFrame({ children, onClose, title }: {
 
   useEffect(() => {
     if (!mobile || !dialog.current) return;
-    const previous = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     dialog.current.showModal();
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -35,25 +40,37 @@ export function InspectorFrame({ children, onClose, title }: {
     };
   }, [mobile]);
 
-  const content = <>
-    <div className="inspector-topline">
-      <span>{title}</span>
-      <button className="inspector-close" aria-label="Close details" onClick={onClose}>
-        <X size={17} />
-      </button>
-    </div>
-    {children}
-  </>;
+  const content = (
+    <>
+      <div className="inspector-topline">
+        <span>{title}</span>
+        <button
+          className="inspector-close"
+          aria-label="Close details"
+          onClick={onClose}
+        >
+          <X size={17} />
+        </button>
+      </div>
+      {children}
+    </>
+  );
 
-  return mobile ? <dialog
-    className="session-inspector inspector-dialog"
-    ref={dialog}
-    aria-label={title}
-    onCancel={event => {
-      event.preventDefault();
-      closeRef.current();
-    }}
-  >{content}</dialog> : <aside className="session-inspector" aria-label={title}>
-    {content}
-  </aside>;
+  return mobile ? (
+    <dialog
+      className="session-inspector inspector-dialog"
+      ref={dialog}
+      aria-label={title}
+      onCancel={(event) => {
+        event.preventDefault();
+        closeRef.current();
+      }}
+    >
+      {content}
+    </dialog>
+  ) : (
+    <aside className="session-inspector" aria-label={title}>
+      {content}
+    </aside>
+  );
 }

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, LogOut, Moon, RefreshCw, Sun } from "lucide-react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type { Theme } from "../lib/use-theme";
 import { DesktopSignIn } from "./DesktopSignIn";
 
@@ -65,6 +65,24 @@ export function DashboardTopbar({
         <Link href="/dashboard/notifications" aria-current={pathname === "/dashboard/notifications" ? "page" : undefined}>Notifications</Link>
       </nav>
     </header>
+  );
+}
+
+export function AccessTokenGate({ eyebrow, title, description, children }: {
+  eyebrow: string;
+  title: ReactNode;
+  description: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="token-gate" aria-labelledby="token-title">
+      <div className="token-gate-copy">
+        <p className="eyebrow">{eyebrow}</p>
+        <h1 id="token-title">{title}</h1>
+        <p>{description}</p>
+      </div>
+      {children}
+    </section>
   );
 }
 

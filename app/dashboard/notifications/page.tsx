@@ -4,7 +4,7 @@ import { NotificationsSkeleton, Skeleton } from "../../components/loading/Loadin
 import { useTheme } from "../../lib/use-theme";
 
 import { clearStoredToken, storeToken, readStoredToken, consumeTokenFromHash, useDesktop } from "../../lib/penelopa-client";
-import { DashboardTopbar, AccessTokenForm } from "../PageChrome";
+import { DashboardTopbar, AccessTokenForm, AccessTokenGate } from "../PageChrome";
 
 import { useCallback, useEffect, useState } from "react";
 import { TelegramNotificationsSettings } from "../TelegramNotifications";
@@ -97,12 +97,8 @@ export default function TelegramNotificationsPage() {
     return (
       <main className="dashboard-shell token-shell">
         <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} />
-        <section className="token-gate" aria-labelledby="token-title">
-          <div className="token-gate-copy">
-            <p className="eyebrow">Notifications</p>
-            <h1 id="token-title">Your alerts.</h1>
-            <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
-          </div>
+        <AccessTokenGate eyebrow="Notifications" title="Your alerts."
+          description={desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}>
           <AccessTokenForm
             desktop={desktop}
             loading={false}
@@ -111,7 +107,7 @@ export default function TelegramNotificationsPage() {
             error={error}
             onSubmit={handleSignIn}
           />
-        </section>
+        </AccessTokenGate>
       </main>
     );
   }

@@ -4,7 +4,7 @@ import { AlertCircle, ArrowLeft, ArrowUpRight, Inbox, RefreshCw } from "lucide-r
 import Link from "next/link";
 import { useTheme } from "../../lib/use-theme";
 import { useDesktop, type ApiError } from "../../lib/penelopa-client";
-import { AccessTokenForm, DashboardTopbar } from "../PageChrome";
+import { AccessTokenForm, AccessTokenGate, DashboardTopbar } from "../PageChrome";
 import type { useSessionAccess } from "./use-session-access";
 
 export function SessionChrome({ access, children, detail = false, refresh }: {
@@ -15,10 +15,9 @@ export function SessionChrome({ access, children, detail = false, refresh }: {
   return <main className="dashboard-shell session-shell">
     <DashboardTopbar theme={theme} onThemeToggle={toggleTheme} onLogout={access.token ? access.logout : undefined}
       onRefresh={access.token && access.supported ? refresh : undefined} backHref={detail ? "/dashboard/sessions" : "/dashboard"} backLabel={detail ? "All sessions" : "Dashboard"} />
-    {access.initialized && !access.token ? <section className="token-gate" aria-labelledby="token-title">
-      <div className="token-gate-copy"><p className="eyebrow">Your session library</p><h1 id="token-title">Every step.<br />Yours.</h1><p>{desktop ? "Open Connection to reconnect your installed account." : "Sign in to explore your conversations, tools and ideas."}</p></div>
+    {access.initialized && !access.token ? <AccessTokenGate eyebrow="Your session library" title={<>Every step.<br />Yours.</>} description={desktop ? "Open Connection to reconnect your installed account." : "Sign in to explore your conversations, tools and ideas."}>
       <AccessTokenForm desktop={desktop} loading={false} value={access.tokenInput} onChange={access.setTokenInput} error={access.authError} onSubmit={access.signIn} />
-    </section> : !access.supported ? <div className="session-main"><SessionEmpty title="A little update. A lot more detail." description="Update & restart in App settings to explore your sessions in this app." icon="refresh" /></div> : children}
+    </AccessTokenGate> : !access.supported ? <div className="session-main"><SessionEmpty title="A little update. A lot more detail." description="Update & restart in App settings to explore your sessions in this app." icon="refresh" /></div> : children}
   </main>;
 }
 

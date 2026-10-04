@@ -9,7 +9,7 @@ import { copyText } from "../../../lib/clipboard";
 import type { ApiError } from "../../../lib/penelopa-client";
 
 import { apiGet, clearStoredToken, storeToken, readStoredToken, useDesktop } from "../../../lib/penelopa-client";
-import { DashboardTopbar, AccessTokenForm } from "../../PageChrome";
+import { DashboardTopbar, AccessTokenForm, AccessTokenGate } from "../../PageChrome";
 
 import { Check, Copy } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -148,12 +148,8 @@ export default function RecommendationPage() {
     return (
       <main className="dashboard-shell token-shell">
         <DashboardTopbar backHref="/dashboard" backLabel="Dashboard" theme={theme} onThemeToggle={toggleTheme} />
-        <section className="token-gate" aria-labelledby="token-title">
-          <div className="token-gate-copy">
-            <p className="eyebrow">Personal recommendation</p>
-            <h1 id="token-title">One clear idea.</h1>
-            <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
-          </div>
+        <AccessTokenGate eyebrow="Personal recommendation" title="One clear idea."
+          description={desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}>
           <AccessTokenForm
             desktop={desktop}
             loading={false}
@@ -162,7 +158,7 @@ export default function RecommendationPage() {
             error={error}
             onSubmit={handleSignIn}
           />
-        </section>
+        </AccessTokenGate>
       </main>
     );
   }

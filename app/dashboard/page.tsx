@@ -6,7 +6,7 @@ import { DashboardSkeleton, LoadingStatus } from "../components/loading/Loading"
 import { formatUpdated, formatDay } from "../lib/formatting";
 
 import { useDesktop } from "../lib/penelopa-client";
-import { DashboardTopbar, AccessTokenForm } from "./PageChrome";
+import { DashboardTopbar, AccessTokenForm, AccessTokenGate } from "./PageChrome";
 
 import { useMemo, useState } from "react";
 import { CHART_SERIES, DashboardSummaryView, DashboardActivityView, DashboardRecommendationsView, type ChartKey } from "./DashboardViews";
@@ -70,12 +70,8 @@ export default function DashboardPage() {
     return (
       <main className="dashboard-shell token-shell">
         <DashboardTopbar theme={theme} onThemeToggle={toggleTheme} />
-        <section className="token-gate" aria-labelledby="token-title">
-          <div className="token-gate-copy">
-            <p className="eyebrow">Personal dashboard</p>
-            <h1 id="token-title">Your own usage.</h1>
-            <p>{desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}</p>
-          </div>
+        <AccessTokenGate eyebrow="Personal dashboard" title="Your own usage."
+          description={desktop ? "Open Connection to reconnect your installed account." : "Enter the API token used by your hook."}>
           <AccessTokenForm
             desktop={desktop}
             loading={false}
@@ -84,7 +80,7 @@ export default function DashboardPage() {
             error={error}
             onSubmit={handleSignIn}
           />
-        </section>
+        </AccessTokenGate>
       </main>
     );
   }

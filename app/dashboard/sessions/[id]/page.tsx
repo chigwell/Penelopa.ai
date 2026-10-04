@@ -31,7 +31,6 @@ import {
   eventLabel,
   eventTone,
   projectName,
-  queryPath,
   sessionTitle,
   shortTime,
   sourceName,
@@ -55,8 +54,14 @@ import {
 } from "../SessionInspector";
 import { useSessionAccess, useTranscriptResource } from "../use-session-access";
 import { useLiveEvents } from "../use-live-events";
-
-type Location = { cursor: string; direction: string; at: string };
+import {
+  readSessionDetailQuery,
+  sessionDetailHref,
+  sessionEventsPath,
+  sessionLocationKey,
+  sessionTimelinePath,
+  type SessionLocation,
+} from "../../../lib/session-navigation";
 
 export default function SessionPage() {
   const routeParams = useParams<{ id: string }>();
@@ -64,30 +69,33 @@ export default function SessionPage() {
   const params = useSearchParams();
   const router = useRouter();
   const access = useSessionAccess();
-  const view = params.get("view") === "process" ? "process" : "events";
-  const eventId = params.get("event") || "",
-    sectionId = params.get("section") || "",
-    stepId = params.get("step") || "";
-  const cursor = params.get("cursor") || "",
-    direction = params.get("direction") || "forward",
-    atLatest = params.get("at") === "latest";
-  const query = params.get("q") || "",
-    actor = params.get("actor") || "",
-    kind = params.get("kind") || "",
-    status = params.get("status") || "",
-    tool = params.get("tool") || "";
+  const routeQuery = readSessionDetailQuery(params);
+  const {
+    view,
+    eventId,
+    sectionId,
+    stepId,
+    cursor,
+    direction,
+    atLatest,
+    query,
+    actor,
+    kind,
+    status,
+    tool,
+  } = routeQuery;
   const [searchInput, setSearchInput] = useState(query);
   const [follow, setFollow] = useState(false);
   const [latestLoading, setLatestLoading] = useState(false);
   const [notice, setNotice] = useState("");
-  const history = useRef(new Map<string, Location>());
+  const history = useRef(new Map<string, SessionLocation>());
   const [snapshot, setSnapshot] = useState<{
     key: string;
     data: EventTail;
   } | null>(null);
   const snapshotKey = `${access.token || ""}:${id}`;
-  const locationKey = (location: Location) =>
-    `${query}|${actor}|${kind}|${status}|${tool}|${location.direction}|${location.cursor}|${location.at}`;
+  const locationKey = (location: SessionLocation) =>
+    sessionLocationKey(routeQuery, location);
   const currentLocation = { cursor, direction, at: atLatest ? "latest" : "" };
   const bottom = useRef<HTMLDivElement>(null);
   const timelineTop = useRef<HTMLDivElement>(null);
@@ -106,26 +114,7 @@ export default function SessionPage() {
     access.supported && session.data?.storage_state === "HOT",
     access.onError,
   );
-  const eventsPath = query
-    ? queryPath("/process/events/search", {
-        session_id: id,
-        query,
-        cursor,
-        limit: 50,
-        kind,
-        tool,
-        status,
-      })
-    : queryPath(`/user-read/sessions/${encodeURIComponent(id)}/events`, {
-        limit: 100,
-        cursor,
-        direction,
-        actor,
-        kind,
-        status,
-        tool,
-        max_chars: 30000,
-      });
+  const eventsPath = sessionEventsPath(id, routeQuery);
   const events = useTranscriptResource<CursorPage<TranscriptEvent>>(
     access.supported &&
       view === "events" &&
@@ -138,10 +127,7 @@ export default function SessionPage() {
   );
   const timeline = useTranscriptResource<ProcessTimeline>(
     access.supported && view === "process" && session.data
-      ? queryPath(`/process/sessions/${encodeURIComponent(id)}/timeline`, {
-          limit: 100,
-          after_step: params.get("after_step"),
-        })
+      ? sessionTimelinePath(id, params.get("after_step"))
       : null,
     access.token,
     access.onError,
@@ -156,11 +142,7 @@ export default function SessionPage() {
   const paramsRef = useRef(params.toString());
   paramsRef.current = params.toString();
   function update(values: Record<string, string>, replace = false) {
-    const next = new URLSearchParams(paramsRef.current);
-    Object.entries(values).forEach(([key, value]) =>
-      value ? next.set(key, value) : next.delete(key),
-    );
-    const href = `/dashboard/sessions/${encodeURIComponent(id)}${next.size ? `?${next}` : ""}`;
+    const href = sessionDetailHref(id, paramsRef.current, values);
     if (replace) router.replace(href, { scroll: false });
     else router.push(href, { scroll: false });
   }
@@ -276,7 +258,7 @@ export default function SessionPage() {
       step: "",
     });
   }
-  function move(next: Location, pop = false) {
+  function move(next: SessionLocation, pop = false) {
     if (!pop) history.current.set(locationKey(next), currentLocation);
     setFollow(false);
     update({ ...next, event: "", section: "" });

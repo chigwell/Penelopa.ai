@@ -9,15 +9,17 @@ import { SessionListSkeleton } from "../../components/loading/Loading";
 import { useSessionAccess, useTranscriptResource } from "./use-session-access";
 import { SessionChrome, SessionEmpty, SessionError } from "./SessionChrome";
 import { CursorPagination, SessionList } from "./SessionList";
+import {
+  readSessionLibraryQuery,
+  sessionCatalogPath,
+  sessionLibraryHref,
+} from "../../lib/session-navigation";
 
 export default function SessionsPage() {
   const access = useSessionAccess();
   const params = useSearchParams();
   const router = useRouter();
-  const cursor = params.get("cursor") || "";
-  const project = params.get("project") || "";
-  const source = params.get("source") || "";
-  const period = params.get("period") || "";
+  const { cursor, project, source, period } = readSessionLibraryQuery(params);
   const history = useRef(new Map<string, string>());
   const top = useRef<HTMLDivElement>(null);
   const [projectSearch, setProjectSearch] = useState("");
@@ -57,12 +59,11 @@ export default function SessionsPage() {
         : "",
     });
   }, [period]);
-  const path = queryPath("/user-read/sessions", {
-    limit: 25,
+  const path = sessionCatalogPath({
     cursor,
-    project_key: project,
+    project,
     source,
-    last_seen_after: range.period === period ? range.after : "",
+    lastSeenAfter: range.period === period ? range.after : "",
   });
   const result = useTranscriptResource<CursorPage<TranscriptSession>>(
     access.supported ? path : null,
@@ -73,15 +74,9 @@ export default function SessionsPage() {
     if (result.data && access.token) access.verified(access.token);
   }, [result.data, access.token, access.verified]);
   function update(values: Record<string, string>, reset = true) {
-    const next = new URLSearchParams(params.toString());
-    if (reset) {
-      next.delete("cursor");
-      history.current.clear();
-    }
-    Object.entries(values).forEach(([key, value]) =>
-      value ? next.set(key, value) : next.delete(key),
-    );
-    router.push(`/dashboard/sessions${next.size ? `?${next}` : ""}`, {
+    const href = sessionLibraryHref(params.toString(), values, reset);
+    if (reset) history.current.clear();
+    router.push(href, {
       scroll: false,
     });
   }

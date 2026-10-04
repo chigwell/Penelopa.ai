@@ -95,6 +95,13 @@ test("both themes provide readable text, surfaces and inverse controls through s
     assert.ok(contrast(tokens["--inverse"], tokens["--inverse-text"]) >= 4.5, `${name}: inverse controls need readable contrast`);
     assert.notEqual(tokens["--canvas"], tokens["--surface-raised"]);
   }
+  const adminLight = { ...light, ...declarations(ruleFor(".dashboard-shell")) };
+  const adminDark = { ...dark, ...declarations(ruleFor(".dashboard-shell")), ...declarations(ruleFor(':root[data-theme="dark"] .dashboard-shell')) };
+  for (const [name, tokens] of Object.entries({ adminLight, adminDark })) {
+    for (const surface of ["--canvas", "--surface", "--surface-raised"]) {
+      for (const text of ["--muted", "--admin-danger-text"]) assert.ok(contrast(tokens[text], tokens[surface]) >= 4.5, `${name}: ${text} needs readable contrast on ${surface}`);
+    }
+  }
   assert.equal(declarations(ruleFor(".skeleton"))["background"], "var(--surface)");
   assert.equal(declarations(ruleFor(".inspector-code"))["background"], "var(--surface)");
 });
@@ -117,7 +124,7 @@ test("reduced motion disables loading shimmer, progress, spinner and content ent
 });
 
 test("buttons, links and transcript reading controls retain visible keyboard focus", () => {
-  for (const selector of ["button:focus-visible", "a:focus-visible", ".session-shell input:focus-visible", ".session-shell select:focus-visible", ".session-shell summary:focus-visible", ".inspector-code:focus-visible"]) {
+  for (const selector of ["button:focus-visible", "a:focus-visible", ".session-shell input:focus-visible", ".session-shell select:focus-visible", ".session-shell summary:focus-visible", ".inspector-code:focus-visible", ".notification-text-input:focus-visible", ".recommendations-table-wrap:focus-visible"]) {
     const values = declarations(ruleFor(selector));
     assert.match(values.outline, /^[2-9]\d*px solid var\(--ink\)$/);
     assert.ok(parseFloat(values["outline-offset"]) >= 2, `${selector} needs separated focus feedback`);

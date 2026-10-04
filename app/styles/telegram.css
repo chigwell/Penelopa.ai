@@ -31,12 +31,12 @@
 }
 
 .notification-danger-button {
-  color: #bd3c2d;
+  color: var(--admin-danger-text);
 }
 
 .notification-danger-button.is-confirming {
   background: #bd3c2d;
-  border-color: #bd3c2d;
+  border-color: var(--admin-danger-text);
   color: #fffdf8;
 }
 
@@ -74,7 +74,7 @@
 }
 
 .notifications-load-error p {
-  color: #bd3c2d;
+  color: var(--admin-danger-text);
   font-size: 14px;
   margin: 0;
 }
@@ -199,9 +199,8 @@
   color: var(--muted);
   font-size: 16px;
   line-height: 1.5;
-  margin: 24px 0 0;
+  margin: 16px 0 0;
   max-width: 590px;
-  margin-top: 16px;
 }
 
 .notifications-detail-panel {
@@ -351,7 +350,7 @@
   background: transparent;
   color: var(--muted);
   font-size: 14px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 13px;
 }
 
@@ -487,7 +486,7 @@
 
 .notification-box-warning,
 .notification-form-message.is-error {
-  color: #bd3c2d !important;
+  color: var(--admin-danger-text) !important;
 }
 
 .notification-form-message {
@@ -509,3 +508,6 @@
 
 .notification-page-main .eyebrow { font-size: var(--admin-metadata-size); line-height: 1.5; }
 .notification-fieldset, .notifications-settings-form, .notifications-status-card { min-width: 0; }
+
+.notification-telegram-box h3, .notification-form-message, .notifications-load-error p, .notifications-status-card dd { overflow-wrap: anywhere; }
+.notification-text-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

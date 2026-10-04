@@ -138,7 +138,7 @@
 
   .notification-telegram-box {
     align-items: start;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .notification-box-actions {

@@ -5,6 +5,8 @@
   --admin-section-title: clamp(24px, 2.4vw, 32px);
   --admin-section-gap: 32px;
   --admin-metadata-size: 12px;
+  --admin-danger-text: #bd3c2d;
+  --muted: #6f6961;
 }
 
 .dashboard-topbar {
@@ -160,7 +162,7 @@
 
 .token-note.is-error,
 .dashboard-error {
-  color: #bd3c2d;
+  color: var(--admin-danger-text);
 }
 
 .dashboard-main {
@@ -275,3 +277,5 @@
 }
 
 .dashboard-main .eyebrow, .recommendation-page-main .eyebrow, .token-gate .eyebrow { font-size: var(--admin-metadata-size); line-height: 1.5; }
+
+:root[data-theme="dark"] .dashboard-shell { --admin-danger-text: #ee796b; --muted: #aaa397; }

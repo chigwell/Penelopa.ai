@@ -43,30 +43,30 @@
   }
 
   .token-gate {
-    gap: 52px;
+    gap: 24px;
     grid-template-columns: 1fr;
-    padding-bottom: 56px;
-    padding-top: 88px;
+    padding-bottom: 48px;
+    padding-top: 32px;
   }
 
   .token-gate-copy h1 {
-    font-size: clamp(68px, 21vw, 104px);
+    font-size: var(--admin-page-title);
   }
 
   .dashboard-main {
-    padding-bottom: 60px;
-    padding-top: 45px;
+    padding-bottom: 48px;
+    padding-top: 24px;
   }
 
   .dashboard-title {
     align-items: start;
     flex-direction: column;
-    gap: 24px;
-    margin-bottom: 36px;
+    gap: 12px;
+    margin-bottom: 24px;
   }
 
   .dashboard-title h1 {
-    font-size: clamp(62px, 19vw, 94px);
+    font-size: var(--admin-page-title);
   }
 
   .dashboard-title > p {
@@ -100,12 +100,12 @@
   .activity-panel,
   .recommendations-panel,
   .notifications-panel {
-    margin-top: 55px;
+    margin-top: var(--admin-section-gap);
   }
 
   .notification-channel-grid {
     grid-template-columns: 1fr;
-    margin-top: 55px;
+    margin-top: var(--admin-section-gap);
   }
 
   .panel-topline {
@@ -151,8 +151,8 @@
   }
 
   .recommendation-page-main {
-    padding-bottom: 60px;
-    padding-top: 48px;
+    padding-bottom: 48px;
+    padding-top: 24px;
   }
 
   .notification-page-main {
@@ -161,8 +161,8 @@
   }
 
   .recommendation-report-page {
-    padding-bottom: 38px;
-    padding-top: 34px;
+    padding-bottom: 32px;
+    padding-top: 24px;
   }
 }
 
@@ -190,6 +190,12 @@
   }
 
   .panel-topline h2 {
-    font-size: 48px;
+    font-size: var(--admin-section-title);
   }
+}
+
+@media (max-width: 760px) {
+  .dashboard-topbar .icon-button, .copy-icon-button, .page-icon-link, .pagination button { width: 44px; height: 44px; }
+  .dashboard-actions .back-link { display: inline-flex; justify-content: center; min-width: 44px; min-height: 44px; }
+  .series-toggle { min-height: 44px; }
 }

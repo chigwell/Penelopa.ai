@@ -315,7 +315,7 @@ select.session-filter-control {
   border-color: var(--ink);
 }
 .recent-sessions {
-  margin-top: 54px;
+  margin-top: var(--admin-section-gap);
   border-top: 1px solid var(--border);
   padding-top: 24px;
 }
@@ -385,3 +385,5 @@ select.session-filter-control {
 .session-breadcrumb a:hover {
   color: var(--ink);
 }
+
+.recent-sessions .session-empty { padding: 24px 16px; }

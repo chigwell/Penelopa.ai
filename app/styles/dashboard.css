@@ -1,6 +1,10 @@
 .dashboard-shell {
   background: var(--canvas);
   min-height: 100vh;
+  --admin-page-title: clamp(32px, 3.5vw, 48px);
+  --admin-section-title: clamp(24px, 2.4vw, 32px);
+  --admin-section-gap: 32px;
+  --admin-metadata-size: 12px;
 }
 
 .dashboard-topbar {
@@ -53,11 +57,11 @@
 .token-gate {
   align-items: center;
   display: grid;
-  gap: clamp(44px, 11vw, 190px);
+  gap: clamp(24px, 4vw, 56px);
   grid-template-columns: minmax(250px, 0.86fr) minmax(340px, 1.14fr);
   margin: 0 auto;
   max-width: 1180px;
-  padding: clamp(88px, 17vh, 180px) 32px 80px;
+  padding: 48px 32px 56px;
   width: 100%;
 }
 
@@ -71,9 +75,9 @@
 }
 
 .token-gate-copy h1 {
-  font-size: clamp(64px, 8vw, 120px);
-  line-height: 0.82;
-  margin: 18px 0 0 -4px;
+  font-size: var(--admin-page-title);
+  line-height: 1.1;
+  margin: 8px 0 0;
   max-width: 430px;
 }
 
@@ -81,7 +85,7 @@
   color: var(--muted);
   font-size: 16px;
   line-height: 1.5;
-  margin: 28px 0 0;
+  margin: 16px 0 0;
 }
 
 .token-form {
@@ -94,7 +98,7 @@
   color: var(--muted);
   display: block;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 12px;
   text-transform: uppercase;
 }
@@ -130,7 +134,7 @@
   background: var(--inverse);
   color: var(--inverse-text);
   display: inline-flex;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   gap: 8px;
   justify-content: center;
@@ -150,7 +154,7 @@
 
 .token-note {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   margin: 13px 0 0;
 }
 
@@ -162,26 +166,30 @@
 .dashboard-main {
   margin: 0 auto;
   max-width: 1380px;
-  padding: 60px 32px 84px;
+  padding: 32px 32px 56px;
+  min-width: 0;
 }
 
 .dashboard-title {
   align-items: end;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 45px;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .dashboard-title h1 {
-  font-size: clamp(58px, 7vw, 104px);
-  line-height: 0.8;
-  margin: 16px 0 0 -4px;
+  font-size: var(--admin-page-title);
+  line-height: 1.1;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-title > p {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   margin: 0 0 3px;
   text-transform: uppercase;
 }
@@ -189,7 +197,7 @@
 .dashboard-error {
   border-bottom: 1px solid currentColor;
   font-size: 14px;
-  margin: -19px 0 24px;
+  margin: 0 0 16px;
   padding-bottom: 12px;
 }
 
@@ -225,11 +233,11 @@
 .total-card strong {
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: clamp(36px, 4vw, 65px);
+  font-size: clamp(32px, 3vw, 48px);
   font-variant-numeric: tabular-nums;
   font-weight: 400;
   letter-spacing: -0.04em;
-  line-height: 0.87;
+  line-height: 1.05;
   overflow-wrap: anywhere;
 }
 
@@ -237,15 +245,15 @@
 .recommendations-panel,
 .notifications-panel {
   border-top: 1px solid var(--border);
-  margin-top: 72px;
+  margin-top: var(--admin-section-gap);
   padding-top: 24px;
 }
 
 .notification-channel-grid {
   display: grid;
-  gap: 34px;
+  gap: 24px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 72px;
+  margin-top: var(--admin-section-gap);
 }
 
 .notification-channel-grid .notifications-panel {
@@ -260,7 +268,10 @@
 }
 
 .panel-topline h2 {
-  font-size: clamp(38px, 4vw, 60px);
-  line-height: 0.88;
-  margin: 13px 0 0 -2px;
+  font-size: var(--admin-section-title);
+  line-height: 1.15;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
 }
+
+.dashboard-main .eyebrow, .recommendation-page-main .eyebrow, .token-gate .eyebrow { font-size: var(--admin-metadata-size); line-height: 1.5; }

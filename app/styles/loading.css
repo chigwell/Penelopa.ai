@@ -32,8 +32,8 @@
 .notifications-skeleton { display: grid; gap: 34px; grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr); margin-top: 32px; }
 .notifications-skeleton.is-compact { display: block; margin-top: 0; }
 .skeleton-summary-grid { display: grid; gap: 20px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 20px; }
-.dashboard-title-skeleton { gap: 20px; margin-bottom: 45px; }
-.skeleton-panel { border-top: 1px solid var(--border); margin-top: 60px; padding-top: 26px; }
+.dashboard-title-skeleton { gap: 12px; margin-bottom: 24px; }
+.skeleton-panel { border-top: 1px solid var(--border); margin-top: 32px; padding-top: 24px; }
 .skeleton-panel > .loading-region, .skeleton-chart { margin-top: 24px; }
 .loading-status { align-items: center; color: var(--muted); display: inline-flex; font-family: var(--font-mono); font-size: 11px; gap: 8px; line-height: 1.5; }
 .loading-status-dot { animation: loading-breathe 1.5s ease-in-out infinite; background: var(--accent-three, var(--ink)); border-radius: 50%; height: 6px; width: 6px; }
@@ -47,7 +47,7 @@
 .stat-subline > .skeleton { height: 12px; margin-top: 3px; width: 85%; }
 .github-loading-value { display: inline-block; vertical-align: middle; }
 .page-load-error { border-top: 1px solid var(--border); margin-top: 40px; padding: 34px 0; }
-.page-load-error h1 { font-family: var(--font-display); font-size: clamp(38px, 5vw, 64px); font-weight: 400; margin: 0 0 18px; }
+.page-load-error h1 { font-family: var(--font-display); font-size: var(--admin-page-title); font-weight: 400; margin: 0 0 18px; line-height: 1.15; }
 .page-load-error p { color: var(--muted); margin-bottom: 24px; }
 .page-load-error-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 @keyframes skeleton-shimmer { to { transform: translateX(100%); } }

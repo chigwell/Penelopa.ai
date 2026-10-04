@@ -38,13 +38,13 @@
 .activity-chart {
   color: var(--border);
   height: 328px;
-  margin-top: 34px;
+  margin-top: 24px;
 }
 
 .activity-chart .recharts-cartesian-axis-tick-value {
   fill: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .activity-chart .recharts-tooltip-label {
@@ -59,8 +59,9 @@
 }
 
 .recommendations-table-wrap {
-  margin-top: 34px;
+  margin-top: 24px;
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .recommendations-table {
@@ -74,7 +75,7 @@
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
   padding: 0 14px 12px;
   text-align: left;
@@ -111,7 +112,7 @@
 .recommendations-table td {
   border-bottom: 1px solid var(--border);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   overflow-wrap: anywhere;
   padding: 17px 14px;
   vertical-align: middle;
@@ -147,7 +148,7 @@
   color: var(--muted);
   display: block;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 5px;
   text-transform: uppercase;
 }
@@ -194,7 +195,7 @@
   color: var(--muted);
   display: flex;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   justify-content: space-between;
   margin-bottom: 23px;
   text-transform: uppercase;
@@ -213,6 +214,7 @@
   font-size: 14px;
   line-height: 1.7;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .recommendation-report > :first-child {
@@ -277,6 +279,8 @@
   color: var(--inverse-text);
   overflow-x: auto;
   padding: 16px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .recommendation-report pre code {
@@ -294,23 +298,25 @@
 .recommendation-page-main {
   margin: 0 auto;
   max-width: 1040px;
-  padding: 70px 32px 90px;
+  padding: 32px 32px 56px;
+  min-width: 0;
 }
 
 .recommendation-page-heading {
   border-bottom: 1px solid var(--border);
-  padding-bottom: 34px;
+  padding-bottom: 24px;
 }
 
 .recommendation-page-heading h1,
 .detail-empty-state h1 {
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: clamp(48px, 6vw, 82px);
+  font-size: var(--admin-page-title);
   font-weight: 400;
-  line-height: 0.93;
-  margin: 18px 0 0 -3px;
+  line-height: 1.15;
+  margin: 12px 0 0;
   max-width: 900px;
+  overflow-wrap: anywhere;
 }
 
 .recommendation-page-meta {
@@ -318,9 +324,9 @@
   display: flex;
   flex-wrap: wrap;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   gap: 9px 18px;
-  margin-top: 27px;
+  margin-top: 16px;
   text-transform: uppercase;
 }
 
@@ -329,11 +335,11 @@
   background: var(--inverse);
   color: var(--inverse-text);
   display: inline-flex;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   gap: 8px;
-  margin-top: 30px;
-  min-height: 40px;
+  margin-top: 20px;
+  min-height: 44px;
   padding: 8px 14px;
   transition: opacity 160ms ease, transform 160ms ease;
 }
@@ -345,7 +351,7 @@
 
 .recommendation-report-page {
   border-bottom: 1px solid var(--border);
-  padding: 42px 0 50px;
+  padding: 24px 0 32px;
 }
 
 .recommendation-report-page .recommendation-report {
@@ -354,7 +360,7 @@
 }
 
 .detail-empty-state {
-  padding: 11vh 0;
+  padding: 32px 0;
 }
 
 .detail-empty-state > p:last-of-type {
@@ -374,7 +380,7 @@
 
 .empty-row {
   color: var(--muted);
-  padding: 50px 0 !important;
+  padding: 24px 0 !important;
   text-align: center;
 }
 
@@ -388,10 +394,12 @@
 .pagination > span {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .pagination > div {
   display: flex;
   gap: 7px;
 }
+
+.recommendation-page-meta > span { min-width: 0; overflow-wrap: anywhere; }

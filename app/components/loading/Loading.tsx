@@ -49,8 +49,8 @@ export function DetailSkeleton({ compact = false }: { compact?: boolean }) {
 
 export function RecommendationSkeleton() {
   return <LoadingRegion label="Loading recommendation" className="recommendation-page-skeleton">
-    <Skeleton width={120} height={12} /><Skeleton width="78%" height={64} /><Skeleton width="55%" height={14} />
-    <Skeleton width={184} height={38} /><DetailSkeleton />
+    <Skeleton width={120} height={12} /><Skeleton width="78%" height={48} /><Skeleton width="55%" height={14} />
+    <Skeleton width={184} height={44} /><DetailSkeleton />
   </LoadingRegion>;
 }
 
@@ -65,8 +65,8 @@ export function NotificationsSkeleton({ compact = false }: { compact?: boolean }
 
 export function DashboardSkeleton() {
   return <LoadingRegion label="Loading dashboard" className="dashboard-skeleton">
-    <div className="dashboard-title-skeleton skeleton-stack"><Skeleton width={126} height={12} /><Skeleton width="min(480px, 85%)" height={80} /></div>
-    <div className="total-cards">{Array.from({ length: 5 }, (_, index) => <div className="total-card" key={index}><Skeleton width={76} height={12} /><Skeleton width="72%" height={55} /><Skeleton width={82} height={12} /></div>)}</div>
+    <div className="dashboard-title-skeleton skeleton-stack"><Skeleton width={126} height={12} /><Skeleton width="min(360px, 85%)" height={48} /></div>
+    <div className="total-cards">{Array.from({ length: 5 }, (_, index) => <div className="total-card" key={index}><Skeleton width={76} height={12} /><Skeleton width="72%" height={40} /><Skeleton width={82} height={12} /></div>)}</div>
     <div className="skeleton-panel"><Skeleton width={210} height={34} /><SessionListSkeleton /></div>
     <div className="skeleton-panel"><Skeleton width={170} height={34} /><Skeleton className="skeleton-chart" height={280} /></div>
   </LoadingRegion>;

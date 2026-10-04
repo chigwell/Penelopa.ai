@@ -158,7 +158,7 @@ export function DashboardRecommendationsView({
         <span>{pageLoading ? <LoadingStatus>Loading page</LoadingStatus> : `${recommendations.total} total`}</span>
       </div>
 
-      <div className="recommendations-table-wrap">
+      <div className="recommendations-table-wrap" role="region" aria-label="Recommendations table" tabIndex={0}>
         <table className="recommendations-table">
           <thead>
             <tr>

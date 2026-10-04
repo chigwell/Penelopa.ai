@@ -8,11 +8,11 @@
 .notification-danger-button {
   align-items: center;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   gap: 8px;
   justify-content: center;
-  min-height: 38px;
+  min-height: 44px;
   padding: 8px 12px;
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, opacity 160ms ease, transform 160ms ease;
 }
@@ -97,7 +97,7 @@
 .notifications-status-meta {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 
@@ -161,7 +161,7 @@
 .notifications-summary-grid span {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 
@@ -176,22 +176,22 @@
 .notification-page-main {
   margin: 0 auto;
   max-width: 1180px;
-  padding: 70px 32px 90px;
+  padding: 32px 32px 56px;
 }
 
 .notification-page-heading {
   border-bottom: 1px solid var(--border);
-  padding-bottom: 34px;
+  padding-bottom: 24px;
 }
 
 .notification-page-heading h1 {
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: clamp(48px, 6vw, 82px);
+  font-size: var(--admin-page-title);
   font-weight: 400;
   letter-spacing: 0;
-  line-height: 0.93;
-  margin: 18px 0 0 -3px;
+  line-height: 1.15;
+  margin: 12px 0 0;
   max-width: 900px;
 }
 
@@ -201,10 +201,11 @@
   line-height: 1.5;
   margin: 24px 0 0;
   max-width: 590px;
+  margin-top: 16px;
 }
 
 .notifications-detail-panel {
-  margin-top: 44px;
+  margin-top: 32px;
 }
 
 .notifications-detail-panel > .notifications-load-error {
@@ -214,7 +215,7 @@
 .notifications-settings-grid {
   align-items: start;
   display: grid;
-  gap: 34px;
+  gap: 24px;
   grid-template-columns: minmax(270px, 0.78fr) minmax(0, 1.22fr);
   margin-top: 32px;
 }
@@ -274,7 +275,7 @@
 
 .notification-polling-status strong {
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.3;
 }
@@ -282,7 +283,7 @@
 .notification-polling-status small {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
   text-transform: uppercase;
 }
@@ -308,7 +309,7 @@
 .notifications-status-card dt {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 
@@ -334,7 +335,7 @@
 .notification-fieldset legend {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   margin-bottom: 15px;
   padding: 0;
   text-transform: uppercase;
@@ -426,7 +427,7 @@
 
 .notification-input-field small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
 }
 
@@ -436,7 +437,7 @@
   border-radius: 0;
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   min-height: 44px;
   min-width: 0;
   outline: 0;
@@ -491,13 +492,13 @@
 
 .notification-form-message {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   margin: 16px 0 0;
 }
 
 .webhook-detail-panel {
-  margin-top: 66px;
+  margin-top: 32px;
 }
 
 @keyframes notification-spin {
@@ -505,3 +506,6 @@
     transform: rotate(360deg);
   }
 }
+
+.notification-page-main .eyebrow { font-size: var(--admin-metadata-size); line-height: 1.5; }
+.notification-fieldset, .notifications-settings-form, .notifications-status-card { min-width: 0; }

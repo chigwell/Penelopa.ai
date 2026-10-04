@@ -304,7 +304,7 @@
   min-height: 25px;
 }
 .event-row-heading strong {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
   overflow: hidden;
@@ -317,7 +317,7 @@
   white-space: nowrap;
 }
 .event-preview {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--muted);
   margin: 6px 0 10px;

@@ -13,7 +13,7 @@
   color: var(--ink);
 }
 .process-intro p {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.65;
   margin: 0;
 }
@@ -57,7 +57,7 @@
   line-height: 1.45;
 }
 .process-timeline p {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--muted);
   margin: 8px 0;
@@ -121,7 +121,7 @@
   color: var(--muted);
 }
 .step-evidence>button>p {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.7;
   color: var(--text);
   margin: 10px 0;

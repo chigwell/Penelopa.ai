@@ -90,10 +90,12 @@ select.session-filter-control {
 }
 .session-project-filter {
   position: relative;
+  min-width: 0;
+  max-width: 100%;
 }
 .session-project-popover {
   position: absolute;
-  top: 43px;
+  top: calc(100% + 8px);
   left: 0;
   width: 310px;
   max-width: calc(100vw - 36px);
@@ -389,3 +391,6 @@ select.session-filter-control {
 .recent-sessions .session-empty { padding: 24px 16px; }
 
 .session-shell .eyebrow { font-size: var(--admin-metadata-size); line-height: 1.5; }
+
+.session-project-filter .session-filter-control { max-width: min(260px, 100%); overflow-wrap: anywhere; text-align: left; }
+.session-filter-control svg { flex-shrink: 0; }

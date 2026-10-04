@@ -105,8 +105,9 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
                 </label>
 
                 <label className="notification-input-field">
-                  <span>Webhook URL</span>
+                  <span id="webhook-url-label">Webhook URL</span>
                   <input
+                    aria-labelledby="webhook-url-label"
                     aria-invalid={urlInvalid || undefined}
                     aria-describedby={`webhook-url-help${urlInvalid ? " webhook-settings-feedback" : ""}`}
                     autoCapitalize="none"
@@ -129,8 +130,9 @@ export function renderWebhookFullSettings(state: WebhookSettings) {
               <legend>Signing</legend>
               <div className="notification-input-stack">
                 <label className="notification-input-field">
-                  <span>Signing secret</span>
+                  <span id="webhook-signing-label">Signing secret</span>
                   <input
+                    aria-labelledby="webhook-signing-label"
                     aria-describedby="webhook-signing-help"
                     autoComplete="new-password"
                     className="notification-text-input"

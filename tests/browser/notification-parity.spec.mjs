@@ -240,7 +240,9 @@ test('Webhook field guidance and URL validation remain associated through a succ
   await page.goto('/dashboard/notifications');
   const panel = page.locator(services[1].selector);
   await expectReady(panel, services[1]);
-  const url = panel.getByLabel(/Webhook URL/);
+  const url = panel.getByLabel('Webhook URL', { exact: true });
+  await expect(url).toHaveAccessibleName('Webhook URL');
+  await expect(panel.getByLabel('Signing secret', { exact: true })).toHaveAccessibleName('Signing secret');
   await expect(url).toHaveAccessibleDescription('Use an absolute http or https URL.');
   await expect(panel.getByLabel(/Signing secret/)).toHaveAccessibleDescription('Adds timestamped HMAC headers when configured.');
   await panel.getByLabel('Enable webhook delivery').check();

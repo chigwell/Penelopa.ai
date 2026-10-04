@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowUpRight,
   Clock3,
   GitBranch,
   List,
@@ -27,17 +26,13 @@ import {
   sourceName,
 } from "../../../lib/transcript-display";
 import { formatDateTime, formatMetric } from "../../../lib/formatting";
-import {
-  DetailSkeleton,
-  TimelineSkeleton,
-} from "../../../components/loading/Loading";
+import { DetailSkeleton } from "../../../components/loading/Loading";
 import {
   SessionBreadcrumb,
   SessionChrome,
   SessionEmpty,
   SessionError,
 } from "../SessionChrome";
-import { CursorPagination } from "../SessionList";
 import {
   EventInspector,
   InspectorFrame,
@@ -46,6 +41,7 @@ import {
 import { useSessionAccess, useTranscriptResource } from "../use-session-access";
 import { useLiveEvents } from "../use-live-events";
 import { EventTimelineView } from "../EventTimelineView";
+import { ProcessTimelineView } from "../ProcessTimelineView";
 import {
   readSessionDetailQuery,
   sessionDetailHref,
@@ -467,101 +463,15 @@ export default function SessionPage() {
                     next={next}
                     bottom={bottom}
                   />
-                ) : timeline.loading && !timeline.data ? (
-                  <TimelineSkeleton rows={6} />
-                ) : timeline.error ? (
-                  timeline.error.status === 404 ? (
-                    <SessionEmpty
-                      title="The process overview isn’t ready."
-                      description="Your original events are available in Events. A process overview appears after the session has been analysed."
-                    />
-                  ) : (
-                    <SessionError
-                      error={timeline.error}
-                      retry={timeline.reload}
-                    />
-                  )
-                ) : timeline.data ? (
-                  <>
-                    <div className="process-intro">
-                      <GitBranch size={20} />
-                      <div>
-                        <h2>The shape of your work.</h2>
-                        <p>
-                          A derived overview. Open a step to explore the events
-                          behind it.
-                        </p>
-                      </div>
-                    </div>
-                    <ol className="process-timeline">
-                      {timeline.data.steps.map((step) => (
-                        <li key={step.id}>
-                          <button
-                            aria-current={
-                              step.id === stepId ? "true" : undefined
-                            }
-                            onClick={() =>
-                              update({ step: step.id, event: "", section: "" })
-                            }
-                          >
-                            <span className="process-step-number">
-                              {String(step.ordinal + 1).padStart(2, "0")}
-                            </span>
-                            <span>
-                              <small>
-                                {step.kind} · {step.status.toLowerCase()}
-                              </small>
-                              <strong>{step.title}</strong>
-                              <p>{step.summary}</p>
-                              {step.tool_name ? (
-                                <em>
-                                  <Terminal size={11} />
-                                  {step.tool_name}
-                                </em>
-                              ) : null}
-                            </span>
-                            <ArrowUpRight size={14} />
-                          </button>
-                        </li>
-                      ))}
-                    </ol>
-                    {!timeline.data.steps.length ? (
-                      <SessionEmpty
-                        title="No steps in this overview."
-                        description="Explore Events for the original transcript."
-                      />
-                    ) : null}
-                    <CursorPagination
-                      label={`${timeline.data.steps.length} steps shown`}
-                      previous={
-                        params.get("after_step")
-                          ? () =>
-                              update({
-                                after_step:
-                                  processHistory.current.get(
-                                    params.get("after_step") || "",
-                                  ) || "",
-                                step: "",
-                              })
-                          : undefined
-                      }
-                      next={
-                        timeline.data.next_cursor
-                          ? () => {
-                              processHistory.current.set(
-                                timeline.data!.next_cursor!,
-                                params.get("after_step") || "",
-                              );
-                              update({
-                                after_step: timeline.data!.next_cursor!,
-                                step: "",
-                              });
-                            }
-                          : undefined
-                      }
-                    />
-                  </>
-                ) : null}
+                ) : (
+                  <ProcessTimelineView
+                    timeline={timeline}
+                    stepId={stepId}
+                    update={update}
+                    params={params}
+                    processHistory={processHistory}
+                  />
+                )}
               </section>
               {selected && access.token ? (
                 <InspectorFrame

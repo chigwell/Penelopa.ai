@@ -1,5 +1,13 @@
 # Refactor ledger
 
+## Compact admin UI · October 2026
+
+The approved plan covers Overview, Sessions, Notifications and recommendation detail. Structural passes preserve behavior/appearance; subsequent presentation passes deliberately compact the existing themes while retaining workflows, information and API contracts. The [admin UX specification](admin-ui-ux.md) records the state matrix, request traces, approved visual changes and manual acceptance checks.
+
+Foundation reconciles Webhook contracts and establishes fresh synthetic browser/visual evidence before stateful extraction. Planned independent checkpoints: confirmed CSS/helper cleanup; presentational access gate; Sessions readability/query helpers/event view/Process view/controller; inspector frame/fragment reader/event-step views; shared notification presentation; ordered stylesheet ownership; Overview/detail, Sessions and Notifications polish; production browser CI gate.
+
+The initial baseline attempt could not start because the installed Cloudflare workerd native binary was missing. Repairing that local installation does not change locked dependency versions. Fresh validation results and commit evidence will be added below. Framework/dependency/backend/auth/desktop migrations and publication remain separate.
+
 The earlier refactor recorded below preserved product behavior, API shapes, persisted data and public entrypoints. The subsequent approved Session Explorer redesign deliberately changes transcript navigation, detail APIs, loading states and their visual presentation; those changes are recorded separately below. Authentication, IPC, capture durability and installer compatibility remain protected. Website builds and desktop tests remain independent of publishing release assets. The standalone `penelopa-how-it-works-demo.html` is an archived design reference; the React demo is maintained.
 
 ## Session Explorer and loading redesign · September 2026

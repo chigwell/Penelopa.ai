@@ -66,12 +66,6 @@
   padding: 20px 0;
 }
 
-.notifications-muted {
-  color: var(--muted);
-  font-size: 14px;
-  margin: 0;
-}
-
 .notifications-load-error {
   align-items: center;
   display: flex;
@@ -213,7 +207,6 @@
   margin-top: 44px;
 }
 
-.notifications-detail-panel > .notifications-muted,
 .notifications-detail-panel > .notifications-load-error {
   margin-top: 28px;
 }

@@ -57,6 +57,7 @@ test("Webhook labels, fixed event type and URL validation match the user contrac
   const disabled = { enabled: false, url: null, secret_configured: false, notification_types: ["recommendation_approved"], updated_at: null };
   const enabled = { ...disabled, enabled: true, url: "https://example.com/hook", secret_configured: true };
   assert.deepEqual(Array.from(webhook.normalizeWebhookNotificationTypes(null)), ["recommendation_approved"]);
+  assert.deepEqual(Array.from(webhook.normalizeWebhookNotificationTypes([])), ["recommendation_approved"]);
   assert.deepEqual(Array.from(webhook.normalizeWebhookNotificationTypes(["recommendation_approved"])), ["recommendation_approved"]);
   assert.equal(webhook.getWebhookStatusTone(disabled), "is-disabled");
   assert.equal(webhook.getWebhookStatusTone(enabled), "is-connected");

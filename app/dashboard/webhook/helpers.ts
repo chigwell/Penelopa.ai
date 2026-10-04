@@ -18,11 +18,9 @@ export function formatWebhookDateTime(value: string | null | undefined) {
 }
 
 export function normalizeWebhookNotificationTypes(
-  value: RecommendationWebhookNotificationType[] | null | undefined,
+  _value: RecommendationWebhookNotificationType[] | null | undefined,
 ) {
-  return value?.includes(WEBHOOK_NOTIFICATION_TYPE)
-    ? [WEBHOOK_NOTIFICATION_TYPE]
-    : [WEBHOOK_NOTIFICATION_TYPE];
+  return [WEBHOOK_NOTIFICATION_TYPE];
 }
 
 export function getWebhookStatusTone(settings: RecommendationWebhookState) {

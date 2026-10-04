@@ -208,13 +208,6 @@
   text-transform: none;
 }
 
-.recommendation-loading {
-  color: var(--muted);
-  font-size: 13px;
-  margin: 0;
-  padding: 28px;
-}
-
 .recommendation-report {
   color: var(--text);
   font-size: 14px;
@@ -402,4 +395,3 @@
   display: flex;
   gap: 7px;
 }
-

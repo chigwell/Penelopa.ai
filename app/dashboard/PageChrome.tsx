@@ -101,6 +101,11 @@ export function AccessTokenForm({
   error: string;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const invalidToken = [
+    "Enter your access token to continue.",
+    "That access token is not valid.",
+    "Your access token has expired. Enter it again.",
+  ].includes(error);
   return desktop ? <DesktopSignIn /> : (
     <form className="token-form" onSubmit={onSubmit}>
       <label htmlFor="access-token">Access token</label>
@@ -113,6 +118,8 @@ export function AccessTokenForm({
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
+          aria-describedby="access-token-note"
+          aria-invalid={invalidToken || undefined}
           placeholder="Paste your token"
           disabled={loading}
         />
@@ -121,7 +128,7 @@ export function AccessTokenForm({
           <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
         </button>
       </div>
-      <p className={error ? "token-note is-error" : "token-note"}>
+      <p id="access-token-note" role={error ? "alert" : undefined} className={error ? "token-note is-error" : "token-note"}>
         {error || "Stored only in this browser."}
       </p>
     </form>

@@ -35,7 +35,9 @@ for (const agent of ['Codex', 'Claude']) {
     await demo.getByRole('button', { name: 'Replay demo' }).click();
     await expect(demo.locator('.pd-finish')).not.toHaveClass(/is-visible/);
     await expect(demo.locator('.pd-agent')).toHaveClass(/is-active/);
-    await page.goto('/dashboard'); // unmount aborts outstanding playback
+    // The clock is paused: deferred load work must not block the navigation
+    // before the explicit clock advance below. The route assertion proves ready.
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' }); // unmount aborts outstanding playback
     await page.clock.runFor(10_000);
     await expect(page.getByLabel('Access token')).toBeVisible();
   });

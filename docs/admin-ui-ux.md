@@ -10,7 +10,7 @@ Compact oversized headers, panel gaps and empty states. Keep every existing acti
 
 ## State and parity matrix
 
-Every row is checked in light/dark, browser/desktop access, and narrow/wide layouts. Desktop installed credentials stay in the main process; older desktop clients show the existing Sessions update prompt.
+Review every row in light/dark, browser/desktop access, and narrow/wide layouts; automated fixtures cover representative states and manual checks complete the matrix. Desktop installed credentials stay in the main process; older desktop clients show the existing Sessions update prompt.
 
 | Route | Initial/access | Loaded/refresh | Empty/unavailable | Failure/expired |
 | --- | --- | --- | --- | --- |
@@ -43,4 +43,12 @@ Browser fixture assertions in `web-contracts.spec.mjs`, `loading-experience.spec
 
 Validation uses synthetic accounts and transcripts. It does not establish live backend ownership enforcement, retained production content, native packaging, screen-reader usability or clean-consumer-OS release readiness. Visual comparisons use macOS Chromium. Human review of the compact layout, real browser zoom and assistive technology remains a follow-up before release.
 
-Fresh baseline and per-pass evidence are recorded in `refactor-ledger.md`. Use pinned Node 24.20.0 for reproducible runtime evidence. CI currently runs Linux/Windows; production browser contracts will be added to Linux. macOS visual automation remains an infrastructure follow-up.
+Fresh baseline and per-pass evidence are recorded in `refactor-ledger.md`. Use pinned Node 24.20.0 for reproducible runtime evidence. CI currently runs Linux/Windows; production browser contracts are now included in Linux CI. macOS visual automation remains an infrastructure follow-up.
+
+## Implementation evidence · October 2026
+
+The eleven passes and their independent extraction commits are recorded in the ledger. Structural comparisons retained all 44 admin screenshots; the subsequent approved compact presentation changes were reviewed and committed as updated admin baselines. The 16 public/legal/MCP images remain unchanged.
+
+Pinned Node 24.20.0 validation passes: typecheck, 47 unit checks, 61 development browser checks, 60 visual comparisons, website build, 58 production-worker browser checks and read-only published desktop-asset integrity. The build changed none of 287 tracked files. UX cases cover 390/640px in both themes, all five routes, long project/report/notification content, internal table scrolling, live-state readability, 44px narrow controls and error/body/confirmation-hover contrast. Native dialog keyboard traversal and the 959/960px transition have dedicated browser checks.
+
+Human verification of real 200% zoom, screen-reader speech, production fonts and installed desktop presentation remains before release. Dependency/framework/backend/bridge migrations, signing and deployment remain separate tasks.
